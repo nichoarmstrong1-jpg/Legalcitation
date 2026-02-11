@@ -42,6 +42,4 @@ COPY --from=builder --chown=api:nodejs /app/apps/api/dist ./apps/api/dist
 COPY --from=builder --chown=api:nodejs /app/apps/api/package.json ./apps/api/
 COPY --from=builder --chown=api:nodejs /app/package.json ./
 
-EXPOSE 3001
-
 CMD ["node", "apps/api/dist/server.js"]
