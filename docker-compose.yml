@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: legalcitation
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: legalcitation
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - '3001:3001'
+    environment:
+      PORT: 3001
+      NODE_ENV: development
+      DATABASE_URL: postgresql://legalcitation:localdev@postgres:5432/legalcitation
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: local-dev-secret-change-in-production
+      CORS_ORIGIN: http://localhost:5173
+      FRONTEND_URL: http://localhost:5173
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  pgdata:

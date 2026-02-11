@@ -1,0 +1,89 @@
+import { useState, useRef, useCallback } from 'react';
+
+interface FileUploaderProps {
+  onTextExtracted: (text: string, fileName: string) => void;
+  compact?: boolean;
+}
+
+export function FileUploader({ onTextExtracted, compact = false }: FileUploaderProps) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = useCallback(async (file: File) => {
+    setError(null);
+    setIsProcessing(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Upload failed');
+      }
+
+      const data = await res.json();
+      onTextExtracted(data.extractedText, data.fileName);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'File processing failed');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [onTextExtracted]);
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  }, [handleFile]);
+
+  const onFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+  }, [handleFile]);
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => inputRef.current?.click()}
+          className="btn-secondary text-sm"
+          disabled={isProcessing}
+        >
+          {isProcessing ? 'Processing...' : 'Upload File'}
+        </button>
+        <span className="text-xs text-surface-400">PDF, DOCX, TXT, Image</span>
+        <input ref={inputRef} type="file" className="hidden" onChange={onFileSelect}
+          accept=".pdf,.docx,.txt,.csv,.png,.jpg,.jpeg" />
+        {error && <span className="text-xs text-error-500">{error}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all duration-200 cursor-pointer ${
+        isDragging ? 'border-primary-500 bg-primary-50' : 'border-surface-300 hover:border-surface-400 hover:bg-surface-50'
+      } ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}
+      onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={onDrop}
+      onClick={() => inputRef.current?.click()}
+    >
+      <input ref={inputRef} type="file" className="hidden" onChange={onFileSelect}
+        accept=".pdf,.docx,.txt,.csv,.png,.jpg,.jpeg" />
+      <div className="w-12 h-12 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-3">
+        <span className="text-2xl">&#128196;</span>
+      </div>
+      <p className="font-medium text-surface-700">
+        {isProcessing ? 'Processing file...' : 'Drop a file here or click to upload'}
+      </p>
+      <p className="text-sm text-surface-400 mt-1">PDF, DOCX, TXT, CSV, PNG, JPG (max 10MB)</p>
+      {error && <p className="text-sm text-error-500 mt-2">{error}</p>}
+    </div>
+  );
+}
