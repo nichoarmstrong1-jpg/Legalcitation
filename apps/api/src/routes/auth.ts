@@ -2,11 +2,20 @@ import { Router, type Request, type Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
 import { eq } from 'drizzle-orm';
-import { getDb, schema } from '../db/index.js';
+import { getDb, isDatabaseConfigured, schema } from '../db/index.js';
 import { generateAccessToken, generateRefreshToken, verifyToken, type TokenPayload } from '../services/jwt.js';
 import { requireAuth, COOKIE_NAME } from '../middleware/auth.js';
 
 export const authRouter = Router();
+
+// Guard: all auth routes require a database
+authRouter.use((_req: Request, res: Response, next) => {
+  if (!isDatabaseConfigured()) {
+    res.status(503).json({ error: 'Authentication is not yet configured. Coming soon!' });
+    return;
+  }
+  next();
+});
 
 const SALT_ROUNDS = 12;
 const COOKIE_OPTIONS = {

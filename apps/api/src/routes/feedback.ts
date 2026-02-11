@@ -1,9 +1,17 @@
 import { Router, type Request, type Response } from 'express';
 import { eq, sql } from 'drizzle-orm';
-import { getDb, schema } from '../db/index.js';
+import { getDb, isDatabaseConfigured, schema } from '../db/index.js';
 import { optionalAuth, requireAuth } from '../middleware/auth.js';
 
 export const feedbackRouter = Router();
+
+feedbackRouter.use((_req: Request, res: Response, next) => {
+  if (!isDatabaseConfigured()) {
+    res.status(503).json({ error: 'Feedback is not yet configured. Coming soon!' });
+    return;
+  }
+  next();
+});
 
 /**
  * POST /api/feedback — Submit feedback on a citation result

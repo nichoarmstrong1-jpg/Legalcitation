@@ -1,9 +1,17 @@
 import { Router, type Request, type Response } from 'express';
 import { eq, sql } from 'drizzle-orm';
-import { getDb, schema } from '../db/index.js';
+import { getDb, isDatabaseConfigured, schema } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 
 export const referralRouter = Router();
+
+referralRouter.use((_req: Request, res: Response, next) => {
+  if (!isDatabaseConfigured()) {
+    res.status(503).json({ error: 'Referrals are not yet configured. Coming soon!' });
+    return;
+  }
+  next();
+});
 
 /**
  * GET /api/referral/code — Get current user's referral code and link

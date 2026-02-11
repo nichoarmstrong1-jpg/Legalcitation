@@ -2,9 +2,13 @@ import { createHash } from 'crypto';
 import { eq, lt } from 'drizzle-orm';
 import type { CaseComponents } from '@legalcitation/shared';
 import { verifyCaseCitation, type FullVerificationResult } from '@legalcitation/verification';
-import { getDb, schema } from '../db/index.js';
+import { tryGetDb, schema } from '../db/index.js';
 
 const CACHE_TTL_DAYS = 7;
+const CACHE_TTL_MS = CACHE_TTL_DAYS * 24 * 60 * 60 * 1000;
+
+// In-memory cache fallback when no database is available
+const memoryCache = new Map<string, { result: FullVerificationResult; expiresAt: number }>();
 
 /**
  * Generate a normalized cache key from citation components.
@@ -24,8 +28,7 @@ function makeCacheKey(components: CaseComponents): string {
 }
 
 /**
- * Verify a case citation with database caching.
- * Checks cache first; on miss, calls verifyCaseCitation and stores result.
+ * Verify a case citation with caching (DB if available, otherwise in-memory).
  * Shared across all users — one verification benefits everyone.
  */
 export async function cachedVerifyCaseCitation(
@@ -33,23 +36,34 @@ export async function cachedVerifyCaseCitation(
 ): Promise<FullVerificationResult> {
   const cacheKey = makeCacheKey(components);
 
-  // Step 1: Check cache
-  try {
-    const db = getDb();
-    const [cached] = await db.select()
-      .from(schema.verificationCache)
-      .where(eq(schema.verificationCache.cacheKey, cacheKey))
-      .limit(1);
+  // Step 1: Check DB cache
+  const db = tryGetDb();
+  if (db) {
+    try {
+      const [cached] = await db.select()
+        .from(schema.verificationCache)
+        .where(eq(schema.verificationCache.cacheKey, cacheKey))
+        .limit(1);
 
-    if (cached && cached.expiresAt > new Date()) {
-      const result = cached.result as FullVerificationResult;
-      return {
-        ...result,
-        logicTrace: ['Retrieved from verification cache.', ...result.logicTrace],
-      };
+      if (cached && cached.expiresAt > new Date()) {
+        const result = cached.result as FullVerificationResult;
+        return {
+          ...result,
+          logicTrace: ['Retrieved from verification cache.', ...result.logicTrace],
+        };
+      }
+    } catch {
+      // DB unavailable — fall through to memory cache
     }
-  } catch {
-    // DB unavailable — proceed without cache
+  }
+
+  // Step 1b: Check in-memory cache
+  const memCached = memoryCache.get(cacheKey);
+  if (memCached && memCached.expiresAt > Date.now()) {
+    return {
+      ...memCached.result,
+      logicTrace: ['Retrieved from memory cache.', ...memCached.result.logicTrace],
+    };
   }
 
   // Step 2: Cache miss — verify normally
@@ -57,27 +71,39 @@ export async function cachedVerifyCaseCitation(
 
   // Step 3: Store in cache (only cache verified/partial results, not errors)
   if (result.status === 'verified' || result.status === 'partial_match') {
-    try {
-      const db = getDb();
-      const expiresAt = new Date(Date.now() + CACHE_TTL_DAYS * 24 * 60 * 60 * 1000);
+    // Store in memory cache always
+    memoryCache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_TTL_MS });
 
-      await db.insert(schema.verificationCache)
-        .values({
-          cacheKey,
-          result: result as any,
-          provider: result.provider,
-          expiresAt,
-        })
-        .onConflictDoUpdate({
-          target: schema.verificationCache.cacheKey,
-          set: {
+    // Clean memory cache if it gets too large
+    if (memoryCache.size > 1000) {
+      const now = Date.now();
+      for (const [k, v] of memoryCache) {
+        if (v.expiresAt < now) memoryCache.delete(k);
+      }
+    }
+
+    // Store in DB cache if available
+    if (db) {
+      try {
+        const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
+        await db.insert(schema.verificationCache)
+          .values({
+            cacheKey,
             result: result as any,
             provider: result.provider,
             expiresAt,
-          },
-        });
-    } catch {
-      // Cache write failed — non-critical
+          })
+          .onConflictDoUpdate({
+            target: schema.verificationCache.cacheKey,
+            set: {
+              result: result as any,
+              provider: result.provider,
+              expiresAt,
+            },
+          });
+      } catch {
+        // Cache write failed — non-critical
+      }
     }
   }
 
@@ -89,10 +115,11 @@ export async function cachedVerifyCaseCitation(
  */
 export async function cleanExpiredCache(): Promise<number> {
   try {
-    const db = getDb();
-    const deleted = await db.delete(schema.verificationCache)
+    const db = tryGetDb();
+    if (!db) return 0;
+    await db.delete(schema.verificationCache)
       .where(lt(schema.verificationCache.expiresAt, new Date()));
-    return 0; // drizzle delete doesn't return count easily
+    return 0;
   } catch {
     return 0;
   }

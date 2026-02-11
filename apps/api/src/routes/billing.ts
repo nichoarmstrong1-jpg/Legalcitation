@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import express from 'express';
 import { eq } from 'drizzle-orm';
-import { getDb, schema } from '../db/index.js';
+import { getDb, isDatabaseConfigured, schema } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import {
   createCheckoutSession,
@@ -14,6 +14,14 @@ import {
 } from '../services/stripe.js';
 
 export const billingRouter = Router();
+
+billingRouter.use((_req: Request, res: Response, next) => {
+  if (!isDatabaseConfigured()) {
+    res.status(503).json({ error: 'Billing is not yet configured. Coming soon!' });
+    return;
+  }
+  next();
+});
 
 /**
  * POST /api/billing/create-checkout — Create Stripe Checkout session

@@ -12,6 +12,7 @@ import { referralRouter } from './routes/referral.js';
 import { feedbackRouter } from './routes/feedback.js';
 import { optionalAuth } from './middleware/auth.js';
 import { trackUsage } from './middleware/usage.js';
+import { isDatabaseConfigured } from './db/index.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -31,9 +32,13 @@ app.use(helmet({
   },
 }));
 
-// CORS
+// CORS — allow Vercel frontend in production
+const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || [
+  'http://localhost:5173',
+  'https://legalcitation.vercel.app',
+];
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173'],
+  origin: allowedOrigins,
   credentials: true,
 }));
 
@@ -76,13 +81,27 @@ app.use('/api/analyze', optionalAuth, trackUsage, analyzeRouter);
 app.use('/api/build', optionalAuth, trackUsage, buildRouter);
 app.use('/api/upload', uploadRouter);
 
-// Health check
+// Health check — includes service status for debugging
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    services: {
+      database: isDatabaseConfigured() ? 'configured' : 'not configured',
+      anthropic: !!process.env.ANTHROPIC_API_KEY ? 'configured' : 'not configured',
+      stripe: !!process.env.STRIPE_SECRET_KEY ? 'configured' : 'not configured',
+      google_oauth: !!process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not configured',
+    },
+  });
 });
 
 app.listen(PORT, () => {
   console.log(`LegalCitation API running on port ${PORT}`);
+  console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`  CORS origins: ${allowedOrigins.join(', ')}`);
+  console.log(`  Database: ${isDatabaseConfigured() ? 'connected' : 'NOT configured (auth/billing disabled)'}`);
+  console.log(`  Anthropic: ${process.env.ANTHROPIC_API_KEY ? 'configured' : 'NOT configured (verification disabled)'}`);
+  console.log(`  Stripe: ${process.env.STRIPE_SECRET_KEY ? 'configured' : 'not configured'}`);
 });
 
 export default app;
