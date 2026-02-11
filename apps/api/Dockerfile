@@ -7,7 +7,7 @@ COPY packages/citation-parser/package.json packages/citation-parser/
 COPY packages/rule-engine/package.json packages/rule-engine/
 COPY packages/verification/package.json packages/verification/
 COPY apps/api/package.json apps/api/
-RUN npm ci --workspace=packages/shared --workspace=packages/citation-parser --workspace=packages/rule-engine --workspace=packages/verification --workspace=apps/api
+RUN npm ci
 
 # Stage 2: Build
 FROM node:20-alpine AS builder

@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@legalcitation/shared": "*",
-    "@anthropic-ai/sdk": "^0.39.0",
+    "@anthropic-ai/sdk": "^0.74.0",
     "uuid": "^11.0.0"
   },
   "devDependencies": {
