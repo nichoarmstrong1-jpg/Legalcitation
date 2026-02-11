@@ -95,8 +95,8 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`LegalCitation API running on port ${PORT}`);
+app.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`LegalCitation API running on 0.0.0.0:${PORT}`);
   console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`  CORS origins: ${allowedOrigins.join(', ')}`);
   console.log(`  Database: ${isDatabaseConfigured() ? 'connected' : 'NOT configured (auth/billing disabled)'}`);
