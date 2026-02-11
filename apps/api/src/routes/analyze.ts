@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { extractAndParseCitations } from '@legalcitation/citation-parser';
 import { runAllRules, runFullAnalysis, calculateScore } from '@legalcitation/rule-engine';
-import type { AnalyzedCitation, CaseComponents, CitationContext } from '@legalcitation/shared';
+import type { AnalyzedCitation, CaseComponents, CitationContext, ValidationIssue } from '@legalcitation/shared';
 import { validateAnalyzeText, validateAnalyzeSingle } from '../middleware/validation.js';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
 
@@ -44,8 +44,8 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
         logicTrace: [
           `Identified as a ${citation.type} citation.`,
           `Checked against ${issues.length} Bluebook and Indigo Book rules.`,
-          ...(issues.filter(i => i.severity === 'error').length > 0
-            ? [`Found ${issues.filter(i => i.severity === 'error').length} formatting issue${issues.filter(i => i.severity === 'error').length !== 1 ? 's' : ''} requiring correction.`]
+          ...(issues.filter((i: ValidationIssue) => i.severity === 'error').length > 0
+            ? [`Found ${issues.filter((i: ValidationIssue) => i.severity === 'error').length} formatting issue${issues.filter((i: ValidationIssue) => i.severity === 'error').length !== 1 ? 's' : ''} requiring correction.`]
             : ['No formatting issues found — citation format looks correct.']),
         ],
         score,
@@ -126,8 +126,8 @@ analyzeRouter.post('/single', validateAnalyzeSingle, async (req: Request, res: R
         `Validated reporter (R. 10.3 / T1), court designation (R. 10.4), and date (R. 10.5).`,
         `Applied spacing rules (R. 6.1), ordinals (R. 6.2), and page ranges (R. 3.2).`,
         `Cross-checked with Indigo Book (R11, R12, R15).`,
-        ...(issues.filter(i => i.severity === 'error').length > 0
-          ? [`Found ${issues.filter(i => i.severity === 'error').length} issue${issues.filter(i => i.severity === 'error').length !== 1 ? 's' : ''} requiring correction.`]
+        ...(issues.filter((i: ValidationIssue) => i.severity === 'error').length > 0
+          ? [`Found ${issues.filter((i: ValidationIssue) => i.severity === 'error').length} issue${issues.filter((i: ValidationIssue) => i.severity === 'error').length !== 1 ? 's' : ''} requiring correction.`]
           : ['No formatting issues found.']),
       ],
       score,
