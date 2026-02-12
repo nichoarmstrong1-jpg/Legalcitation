@@ -23,7 +23,7 @@ type FormatStyle = 'italics' | 'underline';
 const MODES: Mode[] = ['in_text', 'individual', 'builder', 'bulk', 'history'];
 
 function AppContent() {
-  const { refreshUser } = useAuth();
+  useAuth();
   const [mode, setMode] = useState<Mode>('individual');
   const [formatStyle, setFormatStyle] = useState<FormatStyle>('italics');
   const [selectedCitation, setSelectedCitation] = useState<AnalyzedCitation | null>(null);
