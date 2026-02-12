@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
+import { API_BASE } from '../services/api.ts';
 
 interface PricingModalProps {
   onClose: () => void;
@@ -72,7 +73,7 @@ export function PricingModal({ onClose, onSignupRequired }: PricingModalProps) {
 
     setLoadingPlan(planId);
     try {
-      const res = await fetch('/api/billing/create-checkout', {
+      const res = await fetch(`${API_BASE}/billing/create-checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -95,7 +96,7 @@ export function PricingModal({ onClose, onSignupRequired }: PricingModalProps) {
 
   const handleManageSubscription = async () => {
     try {
-      const res = await fetch('/api/billing/portal', { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/billing/portal`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to open portal');
       const { url } = await res.json();
       window.location.href = url;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
+import { API_BASE } from '../services/api.ts';
 
 export function ReferralCard() {
   const { user } = useAuth();
@@ -10,12 +11,12 @@ export function ReferralCard() {
   useEffect(() => {
     if (!user) return;
 
-    fetch('/api/referral/code', { credentials: 'include' })
+    fetch(`${API_BASE}/referral/code`, { credentials: 'include' })
       .then(r => r.json())
       .then(data => setReferralLink(data.link))
       .catch(() => {});
 
-    fetch('/api/referral/stats', { credentials: 'include' })
+    fetch(`${API_BASE}/referral/stats`, { credentials: 'include' })
       .then(r => r.json())
       .then(data => setStats(data))
       .catch(() => {});

@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+export const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export interface AnalyzedCitation {
   parsed: any;
@@ -124,4 +124,18 @@ export async function uploadFile(file: File): Promise<{ extractedText: string; f
   });
   if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
   return res.json();
+}
+
+export async function submitFeedback(data: {
+  rating: number;
+  comment?: string;
+  citationText?: string;
+  expectedOutput?: string;
+}): Promise<void> {
+  await fetch(`${API_BASE}/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
 }

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { AnalyzedCitation, ValidationIssue } from '../services/api.ts';
+import { submitFeedback } from '../services/api.ts';
 import { useClipboard } from '../hooks/useClipboard.ts';
 import { RuleExplanationModal } from './RuleExplanationModal.tsx';
 import { ProgressRing } from './ui/ProgressRing.tsx';
@@ -21,21 +22,16 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
 
-  const submitFeedback = useCallback(async (rating: number) => {
+  const handleFeedback = useCallback(async (rating: number) => {
     setFeedbackRating(rating);
     if (rating <= 2) {
       setShowFeedbackForm(true);
       return;
     }
     try {
-      await fetch('/api/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          rating,
-          citationText: citation.parsed?.rawText,
-        }),
+      await submitFeedback({
+        rating,
+        citationText: citation.parsed?.rawText,
       });
       setFeedbackSent(true);
     } catch { /* non-critical */ }
@@ -43,16 +39,11 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
 
   const submitDetailedFeedback = useCallback(async () => {
     try {
-      await fetch('/api/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          rating: feedbackRating,
-          comment: feedbackComment,
-          citationText: citation.parsed?.rawText,
-          expectedOutput: feedbackComment,
-        }),
+      await submitFeedback({
+        rating: feedbackRating!,
+        comment: feedbackComment,
+        citationText: citation.parsed?.rawText,
+        expectedOutput: feedbackComment,
       });
       setFeedbackSent(true);
       setShowFeedbackForm(false);
@@ -396,7 +387,7 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
             <span className="text-xs text-surface-400">Was this analysis helpful?</span>
             <div className="flex gap-1.5">
               <button
-                onClick={() => submitFeedback(5)}
+                onClick={() => handleFeedback(5)}
                 className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 ${
                   feedbackRating === 5 ? 'bg-verified-100 text-verified-600' : 'hover:bg-surface-100 text-surface-400'
                 }`}
@@ -405,7 +396,7 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" /></svg>
               </button>
               <button
-                onClick={() => submitFeedback(1)}
+                onClick={() => handleFeedback(1)}
                 className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 ${
                   feedbackRating === 1 ? 'bg-error-100 text-error-600' : 'hover:bg-surface-100 text-surface-400'
                 }`}

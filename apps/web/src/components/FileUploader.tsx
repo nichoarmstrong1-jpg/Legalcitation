@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { uploadFile } from '../services/api.ts';
 
 interface FileUploaderProps {
   onTextExtracted: (text: string, fileName: string) => void;
@@ -16,16 +17,7 @@ export function FileUploader({ onTextExtracted, compact = false }: FileUploaderP
     setIsProcessing(true);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Upload failed');
-      }
-
-      const data = await res.json();
+      const data = await uploadFile(file);
       onTextExtracted(data.extractedText, data.fileName);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'File processing failed');
