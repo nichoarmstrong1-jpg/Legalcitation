@@ -10,6 +10,17 @@ const OFFICIAL_CODES: Record<string, string> = {
 };
 
 /**
+ * States that organize their statutes by subject matter (R. 12.3, T1.3).
+ * These require the subject matter name in the citation.
+ */
+const SUBJECT_MATTER_STATES = ['Cal.', 'Md.', 'N.Y.', 'Tex.'];
+
+/**
+ * Known publishers for unofficial codes.
+ */
+const KNOWN_PUBLISHERS = ['West', 'LexisNexis', 'Deering', 'McKinney', 'Bancroft-Whitney', 'Matthew Bender'];
+
+/**
  * Validate a statute citation against Bluebook Rule 12 / B12.
  *
  * B12 key points:
@@ -37,6 +48,12 @@ export function validateStatute(components: StatuteComponents, rawText?: string)
   checkHistoryFormat(rawText, issues);
   checkIRCFormat(rawText, issues);
   checkProceduralRuleFormat(rawText, issues);
+  checkSubjectMatterCode(components, rawText, issues);
+  checkNamedStatuteFormat(rawText, issues);
+  checkFederalYearOptional(components, rawText, issues);
+  checkSupplementPlacement(components, rawText, issues);
+  checkSpelledOutCodeName(rawText, issues);
+  checkTreasuryRegFormat(rawText, issues);
 
   return issues;
 }
@@ -369,5 +386,256 @@ function checkProceduralRuleFormat(rawText: string | undefined, issues: Validati
         suggestion: 'Remove the year unless citing a rule no longer in force.',
       });
     }
+  }
+
+  // R. 12.9.3: Common wrong abbreviation patterns
+  const WRONG_ABBREVIATIONS: [RegExp, string, string][] = [
+    [/\bF\.?\s*R\.?\s*C\.?\s*P\.?\s+\d/i, 'F.R.C.P.', 'Fed. R. Civ. P.'],
+    [/\bF\.?\s*R\.?\s*E\.?\s+\d/i, 'F.R.E.', 'Fed. R. Evid.'],
+    [/\bF\.?\s*R\.?\s*Cr\.?\s*P\.?\s+\d/i, 'F.R.Cr.P.', 'Fed. R. Crim. P.'],
+    [/\bF\.?\s*R\.?\s*A\.?\s*P\.?\s+\d/i, 'F.R.A.P.', 'Fed. R. App. P.'],
+  ];
+
+  for (const [pattern, wrong, correct] of WRONG_ABBREVIATIONS) {
+    if (pattern.test(rawText) && !rawText.includes(correct)) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 12.9.3',
+        source: 'Bluebook',
+        severity: 'error',
+        message: `"${wrong}" is not the correct abbreviation. Use "${correct}".`,
+        suggestion: `Change to "${correct}" — e.g., "${correct} 12(b)(6)."`,
+      });
+    }
+  }
+}
+
+/**
+ * R. 12.3 / T1.3: Subject matter codes (California, Maryland, New York, Texas).
+ * These states organize statutes by subject; the subject matter must be included.
+ */
+function checkSubjectMatterCode(components: StatuteComponents, rawText: string | undefined, issues: ValidationIssue[]): void {
+  if (!rawText || !components.code) return;
+
+  // Detect California codes
+  if (/\bCal\.\b/.test(rawText) || /\bCalifornia\b/i.test(rawText)) {
+    // California codes must include subject matter: e.g., "Cal. Penal Code § 187"
+    // Simple check: if "Cal." is present but no subject matter word follows
+    if (/\bCal\.\s*§/.test(rawText)) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 12.3 / T1.3',
+        source: 'Bluebook',
+        severity: 'error',
+        message: 'California statutes require the subject matter code name between "Cal." and "§".',
+        suggestion: 'Include the subject matter — e.g., "Cal. Penal Code § 187" or "Cal. Civ. Code § 1798.100".',
+      });
+    }
+  }
+
+  // Detect New York codes
+  if (/\bN\.Y\.\b/.test(rawText) || /\bNew York\b/i.test(rawText)) {
+    if (/\bN\.Y\.\s*§/.test(rawText)) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 12.3 / T1.3',
+        source: 'Bluebook',
+        severity: 'error',
+        message: 'New York statutes require the subject matter code name between "N.Y." and "§".',
+        suggestion: 'Include the subject matter — e.g., "N.Y. Penal Law § 125.25" or "N.Y. Gen. Bus. Law § 349".',
+      });
+    }
+  }
+
+  // Detect Texas codes
+  if (/\bTex\.\b/.test(rawText) || /\bTexas\b/i.test(rawText)) {
+    if (/\bTex\.\s*§/.test(rawText)) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 12.3 / T1.3',
+        source: 'Bluebook',
+        severity: 'error',
+        message: 'Texas statutes require the subject matter code name between "Tex." and "§".',
+        suggestion: 'Include the subject matter — e.g., "Tex. Penal Code Ann. § 19.02" or "Tex. Bus. & Com. Code Ann. § 17.46".',
+      });
+    }
+  }
+
+  // Detect Maryland codes
+  if (/\bMd\.\b/.test(rawText) || /\bMaryland\b/i.test(rawText)) {
+    if (/\bMd\.\s*(Code\s+)?Ann\.\s*§/.test(rawText) && !/\bMd\.\s*Code\s+Ann\.,\s*[A-Z]/.test(rawText)) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 12.3 / T1.3',
+        source: 'Bluebook',
+        severity: 'warning',
+        message: 'Maryland statutes typically require the subject matter article name.',
+        suggestion: 'Include the subject matter — e.g., "Md. Code Ann., Crim. Law § 2-201".',
+      });
+    }
+  }
+}
+
+/**
+ * R. 12.3.1(a): Named statutes — format: Act Name, original §, full citation.
+ */
+function checkNamedStatuteFormat(rawText: string | undefined, issues: ValidationIssue[]): void {
+  if (!rawText) return;
+
+  // Detect named statutes (e.g., "Clean Air Act", "Americans with Disabilities Act")
+  const namedStatutePattern = /\b[A-Z][a-z]+(?:\s+[A-Za-z]+)*\s+Act\b/;
+  const actMatch = rawText.match(namedStatutePattern);
+
+  if (actMatch) {
+    // Named statute detected — check format
+    const actName = actMatch[0];
+
+    // Must have a comma after the act name before the code citation
+    const afterAct = rawText.substring(rawText.indexOf(actName) + actName.length);
+    if (afterAct.length > 0 && !afterAct.startsWith(',') && !afterAct.startsWith(' of ') && !/^\s*$/.test(afterAct)) {
+      // Check if there's a code citation following without a comma
+      if (/\s+\d+\s+U\.S\.C|§/.test(afterAct)) {
+        issues.push({
+          id: uuid(),
+          rule: 'R. 12.3.1(a)',
+          source: 'Bluebook',
+          severity: 'warning',
+          message: `Named statute "${actName}" should be followed by a comma, then the original section number (if any), then the full code citation.`,
+          suggestion: `Format as: "${actName}, [original § if applicable], [code citation]" — e.g., "Clean Air Act § 101, 42 U.S.C. § 7401 (2018)".`,
+        });
+      }
+    }
+  }
+}
+
+/**
+ * R. 12.3.2: Federal official code (U.S.C.) year is optional for current version.
+ * Unofficial codes (U.S.C.A., U.S.C.S.) always need publisher, even without year.
+ */
+function checkFederalYearOptional(components: StatuteComponents, rawText: string | undefined, issues: ValidationIssue[]): void {
+  if (!rawText || !components.code) return;
+
+  const isUSCA = /U\.S\.C\.A\./i.test(components.code) || /U\.S\.C\.A\./i.test(rawText);
+  const isUSCS = /U\.S\.C\.S\./i.test(components.code) || /U\.S\.C\.S\./i.test(rawText);
+
+  if (isUSCA || isUSCS) {
+    // Unofficial codes must always have publisher, even without year
+    const hasPublisher = /\((?:West|LexisNexis|Deering|McKinney|Matthew Bender)\b/i.test(rawText);
+    if (!hasPublisher) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 12.3.1(d)',
+        source: 'Bluebook',
+        severity: 'error',
+        message: `Unofficial federal codes (${isUSCA ? 'U.S.C.A.' : 'U.S.C.S.'}) must include the publisher in the parenthetical, even without a year.`,
+        suggestion: `Add the publisher — e.g., "(West)" or "(West 2020)" or "(LexisNexis)".`,
+      });
+    }
+  }
+}
+
+/**
+ * R. 12.3.1(e): Supplement placement — "Supp." goes after publisher, before year.
+ */
+function checkSupplementPlacement(components: StatuteComponents, rawText: string | undefined, issues: ValidationIssue[]): void {
+  if (!rawText || !components.supplement) return;
+
+  // Correct formats: "(Supp. 2020)" or "(West Supp. 2020)" or "(Supp. V 2017)"
+  // Wrong: "(2020 Supp.)" or "(West 2020 Supp.)"
+  if (/\(\d{4}\s+Supp\.\)/.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 12.3.1(e)',
+      source: 'Bluebook',
+      severity: 'error',
+      message: '"Supp." should come before the year, not after.',
+      suggestion: 'Use "(Supp. [year])" or "(West Supp. [year])" — e.g., "(Supp. V 2017)".',
+    });
+  }
+
+  // Check for "Supp" without period
+  if (/\bSupp\b(?!\.)/.test(rawText) && !/\bSupplement\b/i.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 12.3.1(e)',
+      source: 'Bluebook',
+      severity: 'error',
+      message: '"Supp" must include a period: "Supp."',
+      suggestion: 'Add a period: "Supp." not "Supp".',
+    });
+  }
+}
+
+/**
+ * R. 12: Check for spelled-out code names that should be abbreviated in citation sentences.
+ */
+function checkSpelledOutCodeName(rawText: string | undefined, issues: ValidationIssue[]): void {
+  if (!rawText) return;
+
+  const SPELLED_OUT_CODES: [RegExp, string][] = [
+    [/\bUnited States Code\b/i, 'U.S.C.'],
+    [/\bUnited States Code Annotated\b/i, 'U.S.C.A.'],
+    [/\bUnited States Code Service\b/i, 'U.S.C.S.'],
+    [/\bFlorida Statutes\b/i, 'Fla. Stat.'],
+    [/\bGeneral Statutes of Connecticut\b/i, 'Conn. Gen. Stat.'],
+    [/\bOhio Revised Code\b/i, 'Ohio Rev. Code'],
+    [/\bPennsylvania Consolidated Statutes\b/i, 'Pa. Cons. Stat.'],
+    [/\bVirginia Code\b/i, 'Va. Code Ann.'],
+  ];
+
+  for (const [pattern, abbr] of SPELLED_OUT_CODES) {
+    if (pattern.test(rawText) && !rawText.includes(abbr)) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 12.3 / T1',
+        source: 'Bluebook',
+        severity: 'error',
+        message: `Spell out the code name only in textual sentences. In citations, abbreviate to "${abbr}".`,
+        suggestion: `Use "${abbr}" in citation sentences per Table T1.`,
+      });
+    }
+  }
+}
+
+/**
+ * R. 14.5: Treasury Regulation format validation.
+ */
+function checkTreasuryRegFormat(rawText: string | undefined, issues: ValidationIssue[]): void {
+  if (!rawText) return;
+
+  // "Treasury Regulation" should be abbreviated as "Treas. Reg."
+  if (/\bTreasury Regulation\b/i.test(rawText) && !/\bTreas\.\s*Reg\.\b/.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 14.5',
+      source: 'Bluebook',
+      severity: 'error',
+      message: '"Treasury Regulation" should be abbreviated as "Treas. Reg." in citations.',
+      suggestion: 'Use "Treas. Reg. § [section]" — e.g., "Treas. Reg. § 1.61-1 (2024)".',
+    });
+  }
+
+  // Check for Treas. Reg. without § symbol
+  if (/\bTreas\.\s*Reg\.\s+\d/.test(rawText) && !/\bTreas\.\s*Reg\.\s*§/.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 14.5',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'Treasury Regulation citations require the section symbol (§).',
+      suggestion: 'Include "§" — e.g., "Treas. Reg. § 1.61-1".',
+    });
+  }
+
+  // Check for missing space after § in Treas. Reg. context
+  if (/\bTreas\.\s*Reg\.\s*§\d/.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 6.2(c)',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'There should be a space between § and the section number in Treasury Regulation citations.',
+      suggestion: 'Add a space: "Treas. Reg. § 1.61-1" not "Treas. Reg. §1.61-1".',
+    });
   }
 }

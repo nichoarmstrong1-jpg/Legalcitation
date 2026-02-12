@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { searchCases, buildCitation, type AnalyzedCitation, type CaseSearchResult } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
-import { useClipboard } from '../hooks/useClipboard.ts';
 import { htmlToMarkedText } from '../hooks/useRichPaste.ts';
 
 interface CitationBuilderProps {
@@ -18,7 +17,6 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
   const [searchTrace, setSearchTrace] = useState<string[]>([]);
   const [selectedResult, setSelectedResult] = useState<CaseSearchResult | null>(null);
   const [builtCitation, setBuiltCitation] = useState<AnalyzedCitation | null>(null);
-  const { copied, copyRichText } = useClipboard();
 
   const handleSearch = async (overrideQuery?: string) => {
     const query = overrideQuery || input.trim();
@@ -100,8 +98,8 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
 
         {/* Research Database Upload — Primary CTA */}
         <div className="mb-5 p-5 bg-gradient-to-br from-primary-50 to-surface-50 border border-primary-100 rounded-2xl">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center shrink-0">
+          <div className="flex flex-col sm:flex-row items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center shrink-0 hidden sm:flex">
               <span className="text-xl">&#128218;</span>
             </div>
             <div className="flex-1">
@@ -168,8 +166,8 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
           }}
         />
 
-        <div className="flex items-center justify-between mt-4">
-          <span className="text-xs text-surface-400">Press Cmd+Enter to search</span>
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0 mt-4">
+          <span className="text-xs text-surface-400 text-center sm:text-left">Press Cmd+Enter to search</span>
           <div className="flex gap-2">
             {(searchResults.length > 0 || builtCitation) && (
               <button onClick={handleClear} className="btn-secondary text-sm">
@@ -277,48 +275,6 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
         </div>
       )}
 
-      {/* Built Citation Result */}
-      {builtCitation?.verifiedCitation && !building && (
-        <div className="card border-2 border-verified-200 bg-gradient-to-br from-verified-50 to-white shadow-glow-green animate-fade-in">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-bold text-verified-800">Formatted Citation</h3>
-              <p className="text-xs text-verified-600 mt-0.5">Ready to use in your brief or memo</p>
-            </div>
-            <button
-              onClick={() => copyRichText(builtCitation.verifiedCitation!, formatStyle)}
-              className={`btn-success text-sm ${
-                copied ? 'shadow-glow-green' : ''
-              }`}
-            >
-              {copied ? '\u2713 Copied!' : 'Copy Citation'}
-            </button>
-          </div>
-
-          <div className="p-5 bg-white border border-verified-200 rounded-2xl font-serif text-base leading-relaxed">
-            {renderFormattedCitation(builtCitation.verifiedCitation)}
-          </div>
-
-          <div className="mt-3 flex items-center gap-3 text-xs text-surface-400">
-            <span>Format: {formatStyle === 'italics' ? 'Italics' : 'Underline'}</span>
-            <span className="text-surface-200">|</span>
-            <span>Pastes with formatting into Word and Google Docs</span>
-          </div>
-
-          {builtCitation.logicTrace.length > 0 && (
-            <details className="mt-4">
-              <summary className="text-xs text-surface-400 cursor-pointer hover:text-surface-600 transition-colors">
-                Verification reasoning ({builtCitation.logicTrace.length} steps)
-              </summary>
-              <ol className="mt-2 space-y-1 text-xs text-surface-500 list-decimal list-inside">
-                {builtCitation.logicTrace.map((step, i) => (
-                  <li key={i}>{step}</li>
-                ))}
-              </ol>
-            </details>
-          )}
-        </div>
-      )}
     </div>
   );
 }

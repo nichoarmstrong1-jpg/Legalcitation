@@ -110,7 +110,7 @@ export function InTextChecker({ onResults, onSelectCitation, results }: InTextCh
               {seg.text}
               {/* Inline tooltip popover */}
               {isHovered && (
-                <span className="absolute z-20 left-0 bottom-full mb-2 w-72 p-4 bg-white rounded-2xl shadow-modal border border-surface-200 text-left pointer-events-none">
+                <span className="absolute z-20 left-0 bottom-full mb-2 w-[calc(100vw-3rem)] sm:w-72 p-3 sm:p-4 bg-white rounded-2xl shadow-modal border border-surface-200 text-left pointer-events-none">
                   <span className="flex items-center gap-2 mb-2">
                     <span className={`text-xs px-2 py-0.5 rounded-lg font-semibold ${
                       result.issues.filter(i => i.severity === 'error').length > 0
@@ -173,7 +173,7 @@ export function InTextChecker({ onResults, onSelectCitation, results }: InTextCh
         {results.length > 0 ? (
           <>
             {/* Stats bar */}
-            <div className="flex items-center gap-3 mb-4 mt-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4 mt-4">
               <span className="text-xs font-medium text-surface-500">
                 {results.length} citation{results.length !== 1 ? 's' : ''} found
               </span>

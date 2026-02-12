@@ -62,7 +62,7 @@ export async function verifyWithClaude(
 
     trace.push(`Searching for "${caseName}, ${targetCite} (${components.year})" in case law databases...`);
 
-    const prompt = `You are a legal citation verification expert. Verify the case citation below and respond ONLY with a JSON object (no markdown, no code fences, no extra text).
+    const prompt = `You are a legal citation verification expert using the Bluebook (22nd ed.). Verify the case citation below and respond ONLY with a JSON object (no markdown, no code fences, no extra text).
 
 CITATION TO VERIFY:
 Case Name: ${caseName}
@@ -83,10 +83,44 @@ REQUIRED JSON FIELDS:
 - "reasoning": string[] — exactly 4-6 steps, each referencing Bluebook rules. Write for a 1L student, not a developer.
 - "discrepancies": array of {"component": string, "user_value": string, "correct_value": string} — empty array if none
 
+BLUEBOOK DECISION LOGIC — apply these rules systematically:
+
+1. CASE NAMES (R. 10.2.1 — 4-step process):
+   Step 1: Identify parties — only the FIRST-NAMED party on each side of "v."
+   Step 2: Determine party type (individual, business, government, union, organization)
+   Step 3: Handle additional info — omit "et al.", descriptive terms (Trustee, Executor, Esq., M.D.), given names of individuals (keep surnames only), "The" at start
+   Step 4: Write the name with proper abbreviations:
+     - In citation sentences: abbreviate ALL T6 words (Ass'n, Bd., Bros., Co., Comm'n, Comm'r, Corp., Dep't, Dist., Educ., Gov't, Inc., Ins., Int'l, Ltd., Mfg., Nat'l, No., R.R., Sch., Sec'y, Soc'y, Univ.)
+     - ALWAYS abbreviate these 8 words regardless of context: &, Ass'n, Bros., Co., Corp., Inc., Ltd., No. (R. 10.2.1(c))
+     - Business designations: keep first if in the R. 10.2.1(h) list (Inc., Ltd., L.L.C., N.A., F.S.B., R.R., Ass'n, Bros., Co., Corp., Ins.); drop second if BOTH are in the list
+     - Government parties: "United States" in federal cases, "State"/"Commonwealth"/"People" in state courts (R. 10.2.1(f))
+     - Widely known acronyms: NO periods (NAACP, FHA, FBI) — (R. 10.2.1(d))
+
+2. REPORTERS (R. 10.3 / T1):
+   - Cite ONLY the T1-preferred reporter for that jurisdiction
+   - Include the correct series number (e.g., F.3d not F.2d for recent federal appellate)
+   - Spacing: single capital + ordinal = no space (F.3d); single capital + longer abbr = space (F. Supp. 3d)
+
+3. COURT DESIGNATION (R. 10.4):
+   - OMIT jurisdiction if the reporter name unambiguously identifies it (e.g., U.S., Cal. App.)
+   - OMIT court if (a) it's the highest court in the jurisdiction, or (b) the reporter identifies the court
+   - Regional reporters (N.E., S.W., etc.) NEVER identify jurisdiction — always include state abbreviation
+   - Use 2d and 3d (NOT 2nd and 3rd) for circuits
+
+4. PINPOINTS (R. 3.2):
+   - First page MUST be repeated as pinpoint: "363, 363" not just "363"
+   - Consecutive page ranges: retain last TWO digits minimum
+   - Non-consecutive pages: retain ALL digits, use comma: "414, 418"
+   - Use en dash (–) not hyphen (-) for ranges
+
+5. YEAR (R. 10.5):
+   - Year of decision for reported cases
+   - Must be in parentheses with court designation
+
 RULES:
 - Return null for any field you cannot determine rather than guessing.
 - Do NOT mention APIs, databases, or technical systems in reasoning.
-- For reasoning, reference specific rules: R. 10.2.1 (case names), R. 10.3 (reporters), R. 10.4 (court), R. 10.5 (date), T1, T6, T7, T10.
+- NEVER rely on the source itself for citation form — always conform to Bluebook rules.
 
 EXAMPLE (correct output for Brown v. Board of Education):
 {"verified":true,"correct_case_name":"Brown v. Bd. of Educ.","correct_citation":"*Brown v. Bd. of Educ.*, 347 U.S. 483 (1954).","correct_volume":"347","correct_reporter":"U.S.","correct_first_page":"483","correct_court":"","correct_year":"1954","reasoning":["Identified as Brown v. Board of Education of Topeka, a landmark 1954 U.S. Supreme Court case (R. 10.2.1).","Case name abbreviated per T6: 'Board' → 'Bd.', 'Education' → 'Educ.' (R. 10.2.1(c)).","Reporter citation 347 U.S. 483 is correct per T1 — U.S. Reports is the official reporter for SCOTUS decisions (R. 10.3.1).","No court designation needed because U.S. Reports is unique to the Supreme Court (R. 10.4(a)).","Year 1954 is accurate — case decided May 17, 1954 (R. 10.5)."],"discrepancies":[]}`;
@@ -320,13 +354,13 @@ export async function buildCitationWithClaude(
       max_tokens: 1024,
       messages: [{
         role: 'user',
-        content: `You are a Bluebook (21st ed.) citation expert helping a law student build a proper citation. Given the following free text describing a legal source, construct a properly formatted Bluebook citation. Respond ONLY with valid JSON (no markdown, no code fences):
+        content: `You are a Bluebook (22nd ed.) citation expert helping a law student build a proper citation. Given the following free text describing a legal source, construct a properly formatted Bluebook citation. Respond ONLY with valid JSON (no markdown, no code fences):
 
 Input: "${freeText}"
 
 Respond with a JSON object:
 - "citation": string (the full Bluebook citation, use *asterisks* for italicized portions like case names)
-- "type": string (case, statute, constitution, regulation, article)
+- "type": string (case, statute, constitution, regulation, article, procedural_rule)
 - "components": object with relevant fields (partyOne, partyTwo, volume, reporter, firstPage, pinCite, court, year)
 - "reasoning": string[] (4-6 steps explaining your work in law-student-facing language:
     - Reference Bluebook rules by number
@@ -334,8 +368,49 @@ Respond with a JSON object:
     - Explain court designation choices citing R. 10.4
     - Write as a helpful law librarian, not a computer)
 - "confidence": number (0-100, how confident you are in the citation)
+- "short_forms": string[] (1-3 acceptable short form citations for subsequent references)
 
-Use proper Bluebook formatting: T6 abbreviations for party names in citation sentences, proper reporter abbreviations (T1), court designations (T7/T10), etc.
+BLUEBOOK FORMATTING RULES:
+
+CASES (R. 10, B10):
+- Apply the 4-step case name process: identify parties → determine type → handle additional info → abbreviate per T6
+- Always abbreviate the 8 mandatory words: &, Ass'n, Bros., Co., Corp., Inc., Ltd., No.
+- Use T1-preferred reporter only
+- Omit court if reporter identifies it; omit jurisdiction if reporter identifies it
+- Year of decision in parentheses with court designation
+- Short forms: (1) Id., (2) party name + vol + rep + "at" + page, (3) party name + "at" + page
+
+STATUTES (R. 12, B12):
+- Format: [title] [code] § [section] ([publisher] [year])
+- Federal official (U.S.C.): year optional
+- Unofficial (U.S.C.A., U.S.C.S.): publisher required
+- Subject matter states (Cal., Md., N.Y., Tex.): include subject matter code name
+- Use § symbol, not "Section" or "Sec."
+- Short forms: Id. § [section] or § [section]
+
+CONSTITUTIONS (R. 11, B11):
+- Format: [jurisdiction] Const. art./amend. [Roman numeral], § [Arabic], cl. [Arabic]
+- Article/amendment numbers: ROMAN numerals
+- Section/clause numbers: ARABIC numerals
+- No date for provisions currently in force
+- Only "id." allowed as short form — NO supra, NO hereinafter
+
+REGULATIONS (R. 14, B14):
+- C.F.R.: [title] C.F.R. § [section] ([year of C.F.R. edition])
+- Fed. Reg.: [volume] Fed. Reg. [page] ([full date])
+- I.R.C.: I.R.C. § [section]([subsection])
+- Treas. Reg.: Treas. Reg. § [section] ([year])
+
+PROCEDURAL RULES (R. 12.9.3, B12.1.3):
+- Fed. R. Civ. P., Fed. R. Crim. P., Fed. R. Evid., Fed. R. App. P.
+- Current rules: NO date
+- Court rules: [court abbreviation] R. [number]
+
+CITATION PLACEMENT:
+- Prefer citation sentences (period at end) over citation clauses
+- Include pinpoint citations whenever citing specific material
+- "at" before page numbers; no "at" before § or ¶
+
 If you cannot determine some information, use [placeholder] brackets.`
       }],
     }, { signal: timeout.signal });

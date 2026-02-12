@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { extractAndParseCitations, normalizeCitationInput } from '@legalcitation/citation-parser';
 import { runAllRules, calculateScore } from '@legalcitation/rule-engine';
 import { buildCitationWithClaude, searchCasesWithClaude } from '@legalcitation/verification';
-import type { AnalyzedCitation, CaseComponents } from '@legalcitation/shared';
+import type { AnalyzedCitation, CaseComponents, ValidationIssue } from '@legalcitation/shared';
 import { validateSearch, validateBuild } from '../middleware/validation.js';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
 
@@ -117,15 +117,24 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
     if (claudeResult) {
       logicTrace.push(...claudeResult.logicTrace);
 
+      // Run rules on the Claude-built citation to get an accurate score
+      let builtIssues: ValidationIssue[] = [];
+      let builtScore = 90;
+      const builtParsed = extractAndParseCitations(claudeResult.citation, 'citation_sentence');
+      if (builtParsed.length > 0) {
+        builtIssues = runAllRules(builtParsed[0]);
+        builtScore = calculateScore(builtIssues);
+      }
+
       res.json({
-        parsed: null,
-        issues: [],
+        parsed: builtParsed.length > 0 ? builtParsed[0] : null,
+        issues: builtIssues,
         verificationStatus: 'verified',
         discrepancies: [],
         referenceExamples: [],
         verifiedCitation: claudeResult.citation,
         logicTrace,
-        score: 90,
+        score: builtScore,
       });
       return;
     }
@@ -157,15 +166,24 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
         logicTrace.push(...verification.logicTrace);
 
         if (verification.verifiedCitation) {
+          // Run rules on the verified citation for accurate scoring
+          let verifiedIssues: ValidationIssue[] = [];
+          let verifiedScore = verification.status === 'verified' ? 100 : 50;
+          const verifiedParsed = extractAndParseCitations(verification.verifiedCitation, 'citation_sentence');
+          if (verifiedParsed.length > 0) {
+            verifiedIssues = runAllRules(verifiedParsed[0]);
+            verifiedScore = calculateScore(verifiedIssues);
+          }
+
           res.json({
-            parsed: null,
-            issues: [],
+            parsed: verifiedParsed.length > 0 ? verifiedParsed[0] : null,
+            issues: verifiedIssues,
             verificationStatus: verification.status,
             discrepancies: verification.discrepancies,
             referenceExamples: [],
             verifiedCitation: verification.verifiedCitation,
             logicTrace,
-            score: verification.status === 'verified' ? 100 : 50,
+            score: verifiedScore,
           });
           return;
         }

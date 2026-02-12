@@ -20,3 +20,4 @@ export * from './constants/court-documents.js';
 // Utils
 export * from './utils/formatting.js';
 export * from './utils/page-ranges.js';
+export * from './utils/section-ranges.js';

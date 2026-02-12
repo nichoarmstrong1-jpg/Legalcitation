@@ -1,11 +1,7 @@
 import { useState, useCallback } from 'react';
-import type { AnalyzedCitation, ValidationIssue } from '../services/api.ts';
+import type { AnalyzedCitation } from '../services/api.ts';
 import { submitFeedback } from '../services/api.ts';
-import { useClipboard } from '../hooks/useClipboard.ts';
-import { RuleExplanationModal } from './RuleExplanationModal.tsx';
-import { ProgressRing } from './ui/ProgressRing.tsx';
-import { AnimatedCheckmark } from './ui/AnimatedCheckmark.tsx';
-import { ConfettiEffect } from './ui/ConfettiEffect.tsx';
+import { useToast } from '../context/ToastContext.tsx';
 
 interface AnalysisSidebarProps {
   citation: AnalyzedCitation;
@@ -13,10 +9,8 @@ interface AnalysisSidebarProps {
 }
 
 export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps) {
-  const { copied, copyRichText } = useClipboard();
+  const { showToast } = useToast();
   const [correctedCopied, setCorrectedCopied] = useState(false);
-  const [selectedRule, setSelectedRule] = useState<string | null>(null);
-  const [showAllSteps, setShowAllSteps] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
@@ -50,19 +44,15 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
     } catch { /* non-critical */ }
   }, [feedbackRating, feedbackComment, citation]);
 
-  /** Build a "corrected" citation by applying all discrepancy fixes */
   const buildCorrectedCitation = useCallback((): string => {
     if (citation.verifiedCitation) return citation.verifiedCitation;
-    // Fallback: use the raw text if no verified citation
     return citation.parsed?.rawText || '';
   }, [citation]);
 
-  /** Copy corrected citation with rich formatting */
   const handleCopyCorrected = useCallback(async () => {
     const corrected = buildCorrectedCitation();
     if (!corrected) return;
 
-    // Convert *italics* to HTML for rich text clipboard
     const htmlContent = corrected.replace(/\*([^*]+)\*/g, (_match, content) => {
       return formatStyle === 'italics' ? `<em>${content}</em>` : `<u>${content}</u>`;
     });
@@ -70,7 +60,6 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
     const plainText = corrected.replace(/\*([^*]+)\*/g, '$1');
 
     try {
-      // Try to copy as both rich text and plain text
       const blob = new Blob([`<html><body>${htmlContent}</body></html>`], { type: 'text/html' });
       const textBlob = new Blob([plainText], { type: 'text/plain' });
       await navigator.clipboard.write([
@@ -81,31 +70,27 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
       ]);
     } catch {
       try {
-        // Fallback to plain text copy
         await navigator.clipboard.writeText(plainText);
       } catch {
-        // Clipboard API completely unavailable (e.g. non-HTTPS or denied permission)
+        showToast('Could not copy — try selecting and copying manually', 'error');
         return;
       }
     }
 
     setCorrectedCopied(true);
+    showToast('Citation copied with formatting', 'success');
     setTimeout(() => setCorrectedCopied(false), 2000);
-  }, [buildCorrectedCitation, formatStyle]);
+  }, [buildCorrectedCitation, formatStyle, showToast]);
 
   const statusConfig = {
-    verified: { label: 'Case Verified', color: 'bg-verified-100 text-verified-700 border-verified-200', iconBg: 'bg-verified-500' },
-    partial_match: { label: 'Partially Verified', color: 'bg-warning-100 text-warning-700 border-warning-400', iconBg: 'bg-warning-500' },
-    not_found: { label: 'Not Found in Records', color: 'bg-error-100 text-error-700 border-error-400', iconBg: 'bg-error-500' },
-    pending: { label: 'Format Check Only', color: 'bg-surface-100 text-surface-600 border-surface-300', iconBg: 'bg-surface-400' },
-    error: { label: 'Verification Unavailable', color: 'bg-surface-100 text-surface-600 border-surface-300', iconBg: 'bg-surface-400' },
+    verified: { label: 'Verified against Bluebook 21st Ed.', color: 'text-verified-700 bg-verified-50 border-verified-200' },
+    partial_match: { label: 'Partially verified against Bluebook 21st Ed.', color: 'text-warning-700 bg-warning-50 border-warning-200' },
+    not_found: { label: 'Case not found in records', color: 'text-error-700 bg-error-50 border-error-200' },
+    pending: { label: 'Format checked against Bluebook 21st Ed.', color: 'text-surface-600 bg-surface-50 border-surface-200' },
+    error: { label: 'Verification unavailable', color: 'text-surface-600 bg-surface-50 border-surface-200' },
   };
 
   const status = statusConfig[citation.verificationStatus as keyof typeof statusConfig] || statusConfig.pending;
-
-  const bluebookIssues = citation.issues.filter(i => i.source === 'Bluebook');
-  const indigoIssues = citation.issues.filter(i => i.source === 'Indigo');
-  const contextIssues = citation.issues.filter(i => i.source === 'Context');
 
   const renderFormattedCitation = (text: string) => {
     const parts = text.split(/(\*[^*]+\*)/);
@@ -120,7 +105,7 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
     });
   };
 
-  // Filter out raw HTTP/technical details, but keep meaningful service references
+  // Filter out raw HTTP/technical details
   const cleanTrace = citation.logicTrace.filter(step =>
     !step.includes('http://') &&
     !step.includes('https://') &&
@@ -129,236 +114,93 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
     !step.includes('API_KEY')
   );
 
-  const displayedSteps = showAllSteps ? cleanTrace : cleanTrace.slice(0, 6);
-
-  const barColor = citation.score >= 80 ? 'bg-verified-500' :
-    citation.score >= 50 ? 'bg-warning-500' : 'bg-error-500';
+  const correctedText = buildCorrectedCitation();
 
   return (
     <div className="space-y-4">
-      {/* Confetti on perfect score */}
-      <ConfettiEffect trigger={citation.score === 100} />
-
-      {/* Score + Status Header */}
-      <div className="card bg-gradient-to-br from-surface-50 to-white">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <ProgressRing score={citation.score} size={80} strokeWidth={6} />
-            <div>
-              <div className="text-[11px] font-semibold text-surface-400 uppercase tracking-wider">Bluebook Compliance</div>
-              <div className="flex items-center gap-2 mt-1">
-                <AnimatedCheckmark status={citation.verificationStatus as 'verified' | 'partial_match' | 'not_found' | 'pending' | 'error'} size={18} />
-                <span className={`text-xs font-semibold ${status.color} px-2 py-0.5 rounded-lg border`}>
-                  {status.label}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 h-1.5 bg-surface-100 rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-1000 ease-out ${barColor}`}
-            style={{ width: `${citation.score}%` }}
-          />
-        </div>
-        <div className="flex items-center gap-4 mt-3 text-xs text-surface-400">
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-error-500" />
-            {citation.issues.filter(i => i.severity === 'error').length} errors
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />
-            {citation.issues.filter(i => i.severity === 'warning').length} warnings
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary-400" />
-            {citation.issues.filter(i => i.severity === 'suggestion').length} suggestions
-          </span>
-        </div>
-      </div>
-
-      {/* Verification Reasoning */}
-      {cleanTrace.length > 0 && (
-        <div className="card border-l-4 border-l-primary-400">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-sm font-semibold text-primary-900">Verification Steps</span>
-            <span className="text-[10px] text-surface-400 ml-auto bg-surface-100 px-2 py-0.5 rounded-full">{cleanTrace.length} steps</span>
-          </div>
-          <div className="space-y-2.5 ml-1">
-            {displayedSteps.map((step, i) => (
-              <div key={i} className="flex items-start gap-2.5 text-xs animate-fade-in" style={{ animationDelay: `${i * 50}ms` }}>
-                <div className="mt-0.5 shrink-0">
-                  {step.includes('verified') || step.includes('Verified') || step.includes('accurate') || step.includes('correct') || step.includes('confirmed') ? (
-                    <span className="text-verified-500 font-bold">{'\u2713'}</span>
-                  ) : step.includes('issue') || step.includes('could not') || step.includes('discrepan') || step.includes('correction') ? (
-                    <span className="text-warning-500">{'\u26A0'}</span>
-                  ) : step.includes('Searching') || step.includes('Checking') || step.includes('Cross-ref') ? (
-                    <span className="text-primary-400">{'\u25B8'}</span>
-                  ) : (
-                    <span className="text-surface-300">{'\u25B8'}</span>
-                  )}
-                </div>
-                <span className={`leading-relaxed ${
-                  step.includes('verified') || step.includes('Verified') || step.includes('accurate') || step.includes('confirmed')
-                    ? 'text-verified-700 font-medium'
-                    : step.includes('issue') || step.includes('could not') || step.includes('correction')
-                    ? 'text-warning-700'
-                    : 'text-surface-600'
-                }`}>
-                  {step}
-                </span>
-              </div>
-            ))}
-          </div>
-          {cleanTrace.length > 6 && (
-            <button
-              onClick={() => setShowAllSteps(!showAllSteps)}
-              className="text-xs text-primary-500 hover:text-primary-700 mt-3 ml-1 font-medium"
-            >
-              {showAllSteps ? 'Show less' : `Show all ${cleanTrace.length} steps...`}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Recommended Citation with Copy Corrected Button */}
-      {citation.verifiedCitation && (
-        <div className="card border border-verified-200 bg-gradient-to-br from-verified-50 to-white shadow-glow-green">
+      {/* Corrected Citation — Primary Result */}
+      {correctedText && (
+        <div className="card border-2 border-verified-200 bg-gradient-to-br from-verified-50 to-white shadow-glow-green animate-result-reveal">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-verified-700 uppercase tracking-wider">Correct Citation</span>
           </div>
           <div className="font-serif text-sm leading-relaxed p-4 bg-white rounded-xl border border-verified-100">
-            {renderFormattedCitation(citation.verifiedCitation)}
+            {renderFormattedCitation(correctedText)}
           </div>
 
-          {/* Prominent Copy Corrected Button */}
-          <div className="mt-4 flex items-center gap-3">
-            <button
-              onClick={handleCopyCorrected}
-              className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${
-                correctedCopied
-                  ? 'bg-verified-500 text-white shadow-glow-green'
-                  : 'bg-verified-600 text-white hover:bg-verified-700 shadow-md hover:shadow-lg'
-              }`}
-            >
-              {correctedCopied ? (
-                <>
-                  <span>{'\u2713'}</span>
-                  Copied with Formatting!
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                  </svg>
-                  Copy Corrected Citation
-                </>
-              )}
-            </button>
-            <button
-              onClick={() => copyRichText(citation.verifiedCitation!, formatStyle)}
-              className={`px-4 py-2.5 text-xs rounded-xl font-medium transition-all duration-200 ${
-                copied
-                  ? 'bg-verified-500 text-white shadow-glow-green'
-                  : 'bg-verified-100 text-verified-700 hover:bg-verified-200'
-              }`}
-              title="Copy as plain text"
-            >
-              {copied ? '\u2713' : 'Plain'}
-            </button>
-          </div>
-          <div className="text-[10px] text-surface-400 mt-3">
-            {formatStyle === 'italics' ? 'Italic' : 'Underline'} formatting | Pastes into Word & Google Docs with formatting
+          <button
+            onClick={handleCopyCorrected}
+            className={`w-full mt-4 flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${
+              correctedCopied
+                ? 'bg-verified-500 text-white shadow-glow-green'
+                : 'bg-verified-600 text-white hover:bg-verified-700 shadow-md hover:shadow-lg'
+            }`}
+          >
+            {correctedCopied ? (
+              <>
+                <span>{'\u2713'}</span>
+                Copied with Formatting!
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+                Copy Citation
+              </>
+            )}
+          </button>
+          <div className="text-[10px] text-surface-400 mt-2 text-center">
+            {formatStyle === 'italics' ? 'Italic' : 'Underline'} formatting &middot; Pastes into Word & Google Docs
           </div>
         </div>
       )}
 
-      {/* Discrepancies (Diff View) */}
-      {citation.discrepancies.length > 0 && (
+      {/* Verification Badge */}
+      <div className="flex items-center gap-2 px-1">
+        <svg className="w-4 h-4 text-verified-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+        <span className={`text-xs font-medium px-2.5 py-1 rounded-lg border ${status.color}`}>
+          {status.label}
+        </span>
+      </div>
+
+      {/* Verification Steps (collapsible) */}
+      {cleanTrace.length > 0 && (
         <div className="card">
-          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2 text-primary-900">
-            <span className="text-warning-500">{'\u26A0'}</span>
-            Corrections Needed
-          </h3>
-          <div className="space-y-2">
-            {citation.discrepancies.map((d, i) => (
-              <div key={i} className="text-xs border border-surface-200 rounded-xl overflow-hidden">
-                <div className="px-4 py-2 bg-surface-50 font-medium text-surface-600 capitalize border-b border-surface-200">
-                  {d.component}
-                </div>
-                <div className="p-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-error-500 text-[10px] font-bold uppercase w-10 shrink-0">yours</span>
-                    <span className="px-2.5 py-1 bg-error-50 text-error-700 rounded-lg line-through font-mono">{d.userValue}</span>
+          <details>
+            <summary className="text-xs font-semibold text-surface-500 cursor-pointer hover:text-surface-700 transition-colors flex items-center gap-2">
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Bluebook rules consulted ({cleanTrace.length} steps)
+            </summary>
+            <div className="mt-3 space-y-2 ml-1">
+              {cleanTrace.map((step, i) => (
+                <div key={i} className="flex items-start gap-2.5 text-xs animate-fade-in" style={{ animationDelay: `${i * 50}ms` }}>
+                  <div className="mt-0.5 shrink-0">
+                    {step.includes('verified') || step.includes('Verified') || step.includes('accurate') || step.includes('correct') || step.includes('confirmed') ? (
+                      <span className="text-verified-500 font-bold">{'\u2713'}</span>
+                    ) : step.includes('issue') || step.includes('could not') || step.includes('discrepan') || step.includes('correction') ? (
+                      <span className="text-warning-500">{'\u26A0'}</span>
+                    ) : (
+                      <span className="text-surface-300">{'\u25B8'}</span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-verified-600 text-[10px] font-bold uppercase w-10 shrink-0">fix</span>
-                    <span className="px-2.5 py-1 bg-verified-50 text-verified-700 rounded-lg font-mono">{d.verifiedValue}</span>
-                  </div>
+                  <span className={`leading-relaxed ${
+                    step.includes('verified') || step.includes('Verified') || step.includes('accurate') || step.includes('confirmed')
+                      ? 'text-verified-700 font-medium'
+                      : step.includes('issue') || step.includes('could not') || step.includes('correction')
+                      ? 'text-warning-700'
+                      : 'text-surface-600'
+                  }`}>
+                    {step}
+                  </span>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Rule Violations */}
-      {citation.issues.length > 0 && (
-        <div className="card">
-          <h3 className="text-sm font-semibold mb-4 text-primary-900">
-            Bluebook Issues ({citation.issues.length})
-          </h3>
-
-          {bluebookIssues.length > 0 && (
-            <div className="mb-4">
-              <div className="text-xs font-bold text-primary-600 mb-2 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-primary-500"></span>
-                Bluebook Rules ({bluebookIssues.length})
-              </div>
-              <IssueList issues={bluebookIssues} onRuleClick={setSelectedRule} />
+              ))}
             </div>
-          )}
-
-          {indigoIssues.length > 0 && (
-            <div className="mb-4">
-              <div className="text-xs font-bold text-purple-600 mb-2 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                Indigo Book ({indigoIssues.length})
-              </div>
-              <IssueList issues={indigoIssues} onRuleClick={setSelectedRule} />
-            </div>
-          )}
-
-          {contextIssues.length > 0 && (
-            <div>
-              <div className="text-xs font-bold text-orange-600 mb-2 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-orange-500"></span>
-                Context Rules ({contextIssues.length})
-              </div>
-              <IssueList issues={contextIssues} onRuleClick={setSelectedRule} />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Reference Examples */}
-      {citation.referenceExamples.length > 0 && (
-        <div className="card">
-          <h3 className="text-sm font-semibold mb-3 text-primary-900">Usage in Legal Literature</h3>
-          <div className="space-y-2">
-            {citation.referenceExamples.map((ref, i) => (
-              <div key={i} className="text-xs border border-surface-200 rounded-xl p-4">
-                <div className="font-medium text-surface-700">{ref.source}</div>
-                <p className="text-surface-500 mt-1 italic font-serif">{ref.context}</p>
-                {ref.url && (
-                  <a href={ref.url} target="_blank" rel="noreferrer"
-                    className="text-primary-600 hover:text-primary-800 mt-1.5 inline-block text-xs font-medium">
-                    View source {'\u2192'}
-                  </a>
-                )}
-              </div>
-            ))}
-          </div>
+          </details>
         </div>
       )}
 
@@ -388,11 +230,11 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
           </div>
         ) : (
           <div className="flex items-center justify-between">
-            <span className="text-xs text-surface-400">Was this analysis helpful?</span>
+            <span className="text-xs text-surface-400">Was this helpful?</span>
             <div className="flex gap-1.5">
               <button
                 onClick={() => handleFeedback(5)}
-                className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
                   feedbackRating === 5 ? 'bg-verified-100 text-verified-600' : 'hover:bg-surface-100 text-surface-400'
                 }`}
                 title="Helpful"
@@ -401,7 +243,7 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
               </button>
               <button
                 onClick={() => handleFeedback(1)}
-                className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
                   feedbackRating === 1 ? 'bg-error-100 text-error-600' : 'hover:bg-surface-100 text-surface-400'
                 }`}
                 title="Not helpful"
@@ -412,68 +254,6 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
           </div>
         )}
       </div>
-
-      {/* Parsed Components (collapsible detail) */}
-      {citation.parsed && (
-        <div className="card">
-          <details>
-            <summary className="text-xs font-medium text-surface-400 cursor-pointer hover:text-surface-600 transition-colors">
-              Citation Components
-            </summary>
-            <div className="mt-3 text-xs font-mono bg-surface-50 p-4 rounded-xl overflow-x-auto">
-              <pre className="text-surface-600">{JSON.stringify(citation.parsed.components, null, 2)}</pre>
-            </div>
-          </details>
-        </div>
-      )}
-
-      {/* Rule Explanation Modal */}
-      {selectedRule && (
-        <RuleExplanationModal
-          ruleKey={selectedRule}
-          onClose={() => setSelectedRule(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-function IssueList({ issues, onRuleClick }: { issues: ValidationIssue[]; onRuleClick: (rule: string) => void }) {
-  const severityConfig = {
-    error: { bg: 'bg-error-50 border-error-100', text: 'text-error-700', dot: 'bg-error-500', label: 'Error' },
-    warning: { bg: 'bg-warning-50 border-warning-100', text: 'text-warning-700', dot: 'bg-warning-500', label: 'Warning' },
-    suggestion: { bg: 'bg-primary-50 border-primary-100', text: 'text-primary-700', dot: 'bg-primary-400', label: 'Tip' },
-  };
-
-  return (
-    <div className="space-y-2">
-      {issues.map(issue => {
-        const config = severityConfig[issue.severity];
-        return (
-          <div key={issue.id} className={`text-xs border rounded-xl p-3 ${config.bg}`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
-                <span className={`font-mono font-bold ${config.text}`}>{issue.rule}</span>
-                <button
-                  onClick={() => onRuleClick(issue.rule)}
-                  className="text-surface-400 hover:text-surface-600 ml-0.5 transition-colors"
-                  title="Learn about this rule"
-                >
-                  {'\u24D8'}
-                </button>
-              </div>
-              <span className={`text-[10px] uppercase font-bold ${config.text} opacity-70`}>{config.label}</span>
-            </div>
-            <p className={`mt-2 leading-relaxed ${config.text}`}>{issue.message}</p>
-            {issue.suggestion && (
-              <p className="mt-1.5 text-surface-500 italic leading-relaxed">
-                {'\u2192'} {issue.suggestion}
-              </p>
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }

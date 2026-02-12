@@ -61,22 +61,57 @@ function validateIdContext(
     return;
   }
 
-  // If previous citation is a different Id. chain, that's fine too
-  // But if previous is a short form of a different case, this Id. is ambiguous
-  // For now, we trust the ordering
+  // R. 4.1 / B4: Id. may only be used when the immediately preceding citation
+  // contains only ONE authority. If the preceding citation sentence has semicolons,
+  // it contains multiple authorities and Id. is ambiguous.
+  if (prev.rawText.includes(';')) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 4.1',
+      source: 'Context',
+      severity: 'error',
+      message: '"Id." may only be used when the immediately preceding citation contains a single authority. The preceding citation contained multiple authorities separated by semicolons.',
+      suggestion: 'Use a full short form citation (e.g., party name + reporter + "at" + page) instead of "Id." when the preceding citation sentence contains multiple authorities.',
+    });
+  }
+
+  // R. 4.1: Id. cannot be used in embedded citations
+  if (citation.context === 'textual_sentence') {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 4.1',
+      source: 'Context',
+      severity: 'error',
+      message: '"Id." cannot be used in embedded citations — only in citation sentences and citation clauses.',
+      suggestion: 'Use a full short form citation or an alternate short form instead.',
+    });
+  }
 
   // Capitalization check based on position context
   const rawText = citation.rawText;
   if (rawText.startsWith('id.') && !rawText.startsWith('Id.')) {
-    // Lowercase "id." — check if it should be capitalized
-    // (If it starts a citation sentence after a period, it should be "Id.")
+    // Lowercase "id." at start of citation sentence — should be capitalized
+    if (citation.context === 'citation_sentence') {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 4.1',
+        source: 'Context',
+        severity: 'error',
+        message: '"Id." must be capitalized when it begins a citation sentence (after a period).',
+        suggestion: 'Capitalize to "Id."',
+      });
+    }
+  }
+
+  // Check: uppercase Id. used in a citation clause (after semicolon) should be lowercase
+  if (rawText.startsWith('Id.') && citation.context === 'citation_clause') {
     issues.push({
       id: uuid(),
       rule: 'R. 4.1',
       source: 'Context',
       severity: 'warning',
-      message: '"Id." should be capitalized when it begins a citation sentence (after a period).',
-      suggestion: 'Capitalize to "Id." if this starts a new citation sentence.',
+      message: 'Use lowercase "id." in citation clauses (after a semicolon or comma).',
+      suggestion: 'Change "Id." to "id." in this citation clause.',
     });
   }
 }

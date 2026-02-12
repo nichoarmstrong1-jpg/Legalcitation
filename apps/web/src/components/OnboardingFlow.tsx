@@ -45,8 +45,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const current = steps[step];
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-modal max-w-md w-full p-8 animate-scale-in">
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+      <div className="bg-white rounded-3xl shadow-modal max-w-md w-full p-5 sm:p-8 animate-scale-in">
         {/* Progress dots */}
         <div className="flex justify-center gap-2 mb-6">
           {steps.map((_, i) => (
@@ -66,7 +66,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
         {/* Content */}
         <div className="text-center animate-fade-in" key={step}>
-          <h2 className="text-xl font-bold text-primary-900">{current.title}</h2>
+          <h2 id="onboarding-title" className="text-xl font-bold text-primary-900">{current.title}</h2>
           <p className="text-sm font-medium text-primary-600 mt-1">{current.subtitle}</p>
           <p className="text-sm text-surface-500 mt-3 leading-relaxed">{current.description}</p>
         </div>

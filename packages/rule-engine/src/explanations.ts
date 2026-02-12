@@ -2,7 +2,44 @@
  * Human-readable explanations for Bluebook and Indigo rules.
  * Used in the UI's rule explanation modals.
  */
-export const RULE_EXPLANATIONS: Record<string, { title: string; explanation: string; examples?: string[] }> = {
+export interface RuleExplanation {
+  title: string;
+  explanation: string;
+  examples?: string[];
+  references?: string[];
+  tips?: string[];
+  commonMistakes?: string[];
+  decisionSteps?: string[];
+}
+
+export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
+  'R. 1': {
+    title: 'Structure and Use of Citations',
+    explanation:
+      'Provide citations to authorities so that readers may identify and find those authorities for future research. Citations are made in citation sentences and clauses (R. 1.1) and are introduced by signals. Signals organize authorities and show how those authorities support or relate to a proposition given in the text (R. 1.2). Citation sentences and clauses may contain more than one signal. Order signals according to R. 1.3. Within each signal, arrange authorities according to R. 1.4. Parentheticals may be necessary to explain the relevance of a particular authority to the proposition given in the text (R. 1.5). Certain additional information, specific to that authority, may also be appended according to R. 1.6.',
+    references: ['R. 1.1', 'R. 1.2', 'R. 1.3', 'R. 1.4', 'R. 1.5', 'R. 1.6'],
+  },
+  'R. 1.1': {
+    title: 'Citation Sentences and Clauses in Law Reviews',
+    explanation:
+      'Citations may be made in one of two ways: in citation sentences or in citation clauses. In law review pieces, all citations appear in footnotes appended to the portions of the text to which they refer.\n\n' +
+      '(a) Text: Citations to authorities that support (or contradict) a proposition made in the main text are placed in footnotes. A footnote call number should appear at the end of a textual sentence if the cited authority supports the entire sentence. A call number should appear within the sentence next to the portion it supports if the cited authority supports only that part. The call number comes after any punctuation mark (comma, semicolon, period) except a dash or colon.\n\n' +
+      '(b) Footnotes: If a footnote itself contains an assertion requiring support, a citation should appear directly after the assertion as either a citation sentence or a citation clause.\n' +
+      '(i) Citation sentences: Authorities supporting an entire footnote sentence are cited in a separate citation sentence immediately after. The citation sentence starts with a capital letter and ends with a period.\n' +
+      '(ii) Citation clauses: Authorities supporting only part of a footnote sentence are cited in clauses, set off by commas, that immediately follow the proposition they support.',
+    examples: [
+      'Some American jurisdictions place the burden of sustaining criminal defenses on the accused.¹',
+      '¹ See John Calvin Jeffries, Jr. & Paul B. Stephan III, Defenses, Presumptions, and Burden of Proof in the Criminal Law, 88 Yale L.J. 1325, 1329–30 (1979).',
+      '² E.g., State v. Caryl, 543 P.2d 389, 390 (Mont. 1975); State v. Hinson, 172 S.E.2d 548, 551 (S.C. 1970).',
+    ],
+    references: ['B1', 'R. 1.2', 'R. 1.5'],
+  },
+  'B1': {
+    title: 'Structure of Citations (Bluepages)',
+    explanation:
+      'Bluepages B1 covers the basic structure of citations in practitioners\' documents (briefs, memoranda, motions). Citations appear as citation sentences or citation clauses within the body of the document (not in footnotes, unlike law review format). See B1.1 for citation sentences and clauses, B1.2 for introductory signals, and B1.3 for explanatory parentheticals.',
+    references: ['B1.1', 'B1.2', 'B1.3', 'R. 1'],
+  },
   'B1.1': {
     title: 'Citation Sentences and Clauses',
     explanation:
@@ -13,6 +50,17 @@ export const RULE_EXPLANATIONS: Record<string, { title: string; explanation: str
       'Citation sentence: Marbury v. Madison, 5 U.S. (1 Cranch) 137, 177–79 (1803).',
       'Multiple authorities: Marbury v. Madison, 5 U.S. (1 Cranch) 137, 177–79 (1803); Fletcher v. Peck, 10 U.S. (6 Cranch) 87, 139 (1810).',
       'Citation clause: The Court adopted a broad reading, see Wickard v. Filburn, 317 U.S. 111, 128–29 (1942), though it later narrowed this approach.',
+    ],
+    tips: [
+      'Prefer citation sentences for clarity — they are easier to read and process.',
+      'Rewrite sentences to avoid embedded citations when possible.',
+      'Do NOT split citations across line breaks in practitioner documents.',
+      'Multiple citation clauses in one sentence can be hard to follow — consider breaking into separate citation sentences.',
+    ],
+    commonMistakes: [
+      'Starting a citation clause with a capital letter (only capitalize if beginning a citation sentence).',
+      'Ending a citation clause with a period when it\'s not the last clause in the sentence.',
+      'Using Id. in an embedded citation (Id. cannot be used when the citation is part of the grammatical sentence).',
     ],
   },
   'B1.2': {
@@ -115,6 +163,77 @@ export const RULE_EXPLANATIONS: Record<string, { title: string; explanation: str
       'Baze v. Rees, 553 U.S. 35, 48 (2008) (plurality opinion) ("This Court has never invalidated..." (emphasis added)).',
     ],
   },
+  'R. 1.6': {
+    title: 'Related Authority',
+    explanation:
+      'When citing a work, citations to related authorities may be helpful to aid in locating the primary work or to provide relevant information not reflected in the primary citation. Citations to related authority may be appended to the primary citation with the use of an italicized explanatory phrase.\n\n' +
+      '(a) Related authority intended to increase access:\n' +
+      '(i) "In" — When citing a shorter work (article, essay, speech) originally published in a collecting volume, use "in" to introduce the collection (see R. 15.5).\n' +
+      '(ii) "Reprinted in" — A work that reprints a source originally published elsewhere. Provide a complete citation for the original work, followed by "reprinted in." For excerpts or partial reprints, add "as" (e.g., "as reprinted in").\n' +
+      '(iii) Other phrases may be used by analogy (e.g., "microformed on" per R. 18.6.1, "translated in" per R. 20.2.5).\n\n' +
+      '(b) Relevant history: The prior or subsequent history of a case (R. 10.7) or statute (R. 12.7) may be appended.\n\n' +
+      '(c) Commentary: Works that discuss or quote the primary authority may be appended using italicized phrases such as "noted in," "construed in," "quoted in," "reviewed by," "cited with approval in," and "questioned in." Works that the primary authority discusses, however, should be indicated parenthetically.',
+    examples: [
+      'Kay Deaux & Brenda Major, A Social-Psychological Model of Gender, in Theoretical Perspectives on Sexual Differences 89, 93 (Deborah L. Rhode ed., 1990).',
+      'Louis Loss, The Conflict of Laws and the Blue Sky Laws, 71 Harv. L. Rev. 209 (1957), reprinted in Louis Loss & Edward M. Cowett, Blue Sky Law 180 (1958).',
+      'S. Rep. No. 95-181, at 14 (1977), as reprinted in 1977 U.S.C.C.A.N. 3401, 3414.',
+      'Matthews v. Konieczny, 488 A.2d 5 (Pa. Super. Ct. 1985), rev\'d, 527 A.2d 508 (Pa. 1987).',
+      'Filled Milk Act § 1, 21 U.S.C. § 61 (2006), construed in Milnot Co. v. Richardson, 350 F. Supp. 221 (S.D. Ill. 1972).',
+    ],
+    references: ['R. 10.7', 'R. 12.7', 'R. 15.5', 'R. 18.6', 'R. 20.2'],
+  },
+  'R. 2': {
+    title: 'Typography for Law Reviews',
+    explanation:
+      'Legal writing uses four typefaces, though choice of font may vary: Ordinary Roman (Plain Text), Underlined, Italicized, and Small Capitals.\n\n' +
+      'Law reviews use two sets of typeface conventions — one for law review text (either main text or footnote text) (R. 2.2) and one for law review citations (R. 2.1). Unless otherwise noted, the examples in The Bluebook correspond to the convention for law review footnotes.\n\n' +
+      'For typeface conventions in practitioners\' documents (briefs, memoranda), see Bluepages B2.',
+    references: ['R. 2.1', 'R. 2.2', 'R. 2.3', 'B2'],
+  },
+  'R. 2.1': {
+    title: 'Typeface Conventions for Citations',
+    explanation:
+      'Most law reviews use three typefaces in citations: Ordinary Roman (Plain Text), Italics, and Small Capitals.\n\n' +
+      '(a) Case names: Use ordinary roman type for case names in full citations, except for procedural phrases (always italicized). Use italics for short form case citations.\n' +
+      '(b) Books: Use small capitals for both authors and titles.\n' +
+      '(c) Periodicals: Italicize article titles; use small capitals for periodical names. Authors\' names in ordinary roman.\n' +
+      '(d) Introductory signals: Italicize all introductory signals in citation sentences/clauses. Do NOT italicize when the signal is a verb in an ordinary sentence.\n' +
+      '(e) Explanatory phrases (R. 1.6, R. 10.7, R. 12.8): Italicize all explanatory phrases. Exception: parenthetical phrases like "(quoting ...)" and "(citing ...)" are NOT italicized.\n' +
+      '(f) Punctuation: Italicize commas/semicolons only when they are part of the italicized material, not when they are elements of the sentence.\n' +
+      '(g) Omissions and Alterations: Always romanize ellipses (. . .) and brackets ([]) even within italicized/underlined material.',
+    examples: [
+      'Lochner v. New York, 198 U.S. 45 (1905).',
+      'State ex rel. Scott v. Zinn, 392 P.2d 417 (N.M. 1964).',
+      'Lochner, 198 U.S. at 50.',
+      'Richard Kluger, Simple Justice (1976).',
+      'Katherine K. Baker, Once a Rapist? Motivational Evidence and Relevancy in Rape Law, 110 Harv. L. Rev. 563 (1997).',
+      'See, e.g., 62 Cases v. United States, 340 U.S. 593 (1951).',
+    ],
+    references: ['R. 1.2', 'R. 1.6', 'R. 10.7', 'R. 12.8', 'R. 5.2', 'R. 5.3'],
+  },
+  'R. 2.2': {
+    title: 'Typeface Conventions for Textual Material',
+    explanation:
+      '(a) Main text: Uses only ordinary roman type and italics. Italicize: (i) case names (including "v." and procedural phrases); (ii) titles of publications, speeches, or articles; (iii) words for emphasis or stylistic purposes (R. 7).\n\n' +
+      '(b) Footnote text: May contain citations in citation clauses embedded in sentences.\n' +
+      '(i) Case names that are grammatically part of the sentence: italicize.\n' +
+      '(ii) Case names in citation clauses (not grammatically part of the sentence): use citation typeface conventions (R. 2.1(a)).\n' +
+      '(iii) Other authorities: If full or short form citation is given, use citation typeface. If reference is without citation information, use main text typeface (R. 2.2(a)(ii)).\n' +
+      '(iv) In explanatory parentheticals: follow citation typeface for case names when a full citation clause is included.\n\n' +
+      '(c) Punctuation: Italicize only when part of italicized material.\n' +
+      '(d) Omissions and Alterations: Always romanize ellipses and brackets in quoted materials.',
+    examples: [
+      'In Loving v. Virginia, the Court invalidated Virginia\'s antimiscegenation statute.',
+      'In Loving v. Virginia, 388 U.S. 1 (1967), the Court invalidated Virginia\'s antimiscegenation statute.',
+    ],
+    references: ['R. 2.1', 'R. 7', 'R. 5.2', 'R. 5.3'],
+  },
+  'R. 2.3': {
+    title: 'Other Punctuation Conventions',
+    explanation:
+      'Use only one space after punctuation for all standard proportional fonts. Only double space after monospaced fonts (e.g., Courier, Menlo, Consolas).\n\n' +
+      'Double spacing after periods is a relic of the period in which all typewriter fonts were monospaced. Modern word processing automatically makes such adjustments, and thus double spacing proportional fonts will result in formatting errors.',
+  },
   'B2': {
     title: 'Typeface for Court Documents',
     explanation:
@@ -192,72 +311,565 @@ export const RULE_EXPLANATIONS: Record<string, { title: string; explanation: str
     explanation:
       'Authorities within each signal are separated by semicolons. They should be ordered in a logical manner. If one authority is considerably more helpful or authoritative than the others, it should precede the others. Authorities cited in short form are ordered as though cited in full.',
   },
+  'R. 3': {
+    title: 'Subdivisions',
+    explanation:
+      'Most subdivisions (such as columns or sections) in citations are abbreviated. See Table T16 for a list of subdivision abbreviations.',
+    references: ['R. 3.1', 'R. 3.2', 'R. 3.3', 'R. 3.4', 'R. 3.5', 'T16'],
+  },
+  'R. 3.1': {
+    title: 'Volumes, Parts, and Supplements',
+    explanation:
+      'A single work often appears in separately paginated volumes, parts, or supplements. A citation must identify the separately paginated subdivision.\n\n' +
+      '(a) Volumes: Cite volume number in Arabic numerals. If the author of the entire work is cited, the volume number precedes the author\'s name. Otherwise, the volume number precedes the volume\'s title. If no volume number exists but the volume is identifiable by year, use the year as the volume number and omit the year after the pincite. Use brackets for volume designations that include words.\n\n' +
+      '(b) Separately paginated numbered parts: Include relevant subdivisions (e.g., "ser. 14, pt. 2, at 150").\n\n' +
+      '(c) Supplements: Identify the supplement and its date in parentheses. To cite both main volume and supplement, use an ampersand.',
+    examples: [
+      '2 Frederick Pollock & Frederic William Maitland, The History of English Law 205–06 (2d ed. 1911).',
+      'Thomas R. McCoy & Barry Friedman, Conditional Spending: Federalism\'s Trojan Horse, 1988 Sup. Ct. Rev. 85, 88.',
+      'Haw. Rev. Stat. § 296-46.1 (Supp. 1984).',
+      '42 U.S.C. § 1397b (1982 & Supp. I 1983).',
+    ],
+    references: ['R. 3.2', 'T16'],
+  },
   'R. 3.2': {
     title: 'Pincites and Page Ranges',
     explanation: 'When citing specific pages within a source, provide a pincite after the first page number, separated by a comma. For page ranges with three or more digits, drop repetitious digits except the final two (e.g., 102–06, not 102–106). Use "at" for pincites in short form citations. Footnotes are cited as "n.4" (no space between "n." and the number).',
     examples: ['Baker v. Carr, 369 U.S. 186, 195 (1962).', '199 n.4', '102–06'],
+    tips: [
+      'The first page of a source MUST be repeated as a pinpoint when you are citing that specific page: "363, 363" not just "363".',
+      'Non-consecutive pages retain ALL digits and use commas: "414, 418" not "414, 18".',
+      'Use an en dash (–), not a hyphen (-), for page ranges.',
+      'Consecutive footnotes use "nn." (double n): "nn.5–6"; a page AND footnote uses "&": "147 & n.5".',
+    ],
+    commonMistakes: [
+      'Dropping too many digits in page ranges (writing "102–6" instead of "102–06").',
+      'Forgetting to repeat the first page as a pinpoint.',
+      'Using a hyphen instead of an en dash for ranges.',
+      'Writing "n. 4" with a space instead of "n.4".',
+    ],
   },
   'R. 3.2(a)': {
     title: 'Page Range Abbreviation',
     explanation: 'For three or more digit page numbers in a range, drop repetitious digits but always retain at least the last two digits of the ending page number.',
     examples: ['102–06 (not 102–106)', '1020–30 (not 1020–1030)'],
+    tips: [
+      'Always retain at least TWO digits at the end of a range.',
+      'Non-consecutive pages (separated by commas) retain ALL digits: "414, 418".',
+    ],
+    commonMistakes: [
+      'Writing "102–6" instead of "102–06" — must retain last two digits.',
+      'Dropping digits in non-consecutive page citations.',
+    ],
+  },
+  'R. 3.3': {
+    title: 'Sections and Paragraphs',
+    explanation:
+      'If an authority is organized by section (§) or paragraph (¶), cite to these subdivisions. A page number may also be provided if useful.\n\n' +
+      'If organized by indented paragraphs NOT introduced by ¶ symbols, use "para." instead.\n\n' +
+      'Do NOT use "at" before a section or paragraph symbol (use "Id. § 7" not "Id. at § 7").\n\n' +
+      '(a) Subsections: Use the original punctuation separating sections from subsections. If none exists, use parentheses.\n' +
+      '(b) Multiple sections: Use §§. Give inclusive numbers; do not use "et seq." Drop identical leading digits before punctuation unless confusing.\n' +
+      '(c) Multiple paragraphs: Treat like multiple sections (¶¶).\n' +
+      '(d) Flush language and examples: Indicate in a parenthetical (e.g., "(flush language)").',
+    examples: [
+      '15 U.S.C. § 18 (1982).',
+      'Id. § 7.',
+      'Not: Id. at § 7.',
+      'Wash. Rev. Code Ann. §§ 18.51.005–.52.900 (West 1989 & Supp. 1991).',
+      '28 U.S.C. § 105(a)(3)–(b)(1).',
+      'I.R.C. § 960(c) (flush language).',
+    ],
+    tips: [
+      'Section ranges depend on the punctuation within section numbers: no punctuation → retain all digits (§§ 1874–1875); period/colon → omit repetitious digits before final punctuation (§§ 284.15–.16); hyphen → use "to" instead of en dash (§§ 320-45-16 to -17).',
+      'Use §§ for multiple sections, ¶¶ for multiple paragraphs — always with a space before the number.',
+      'Do NOT use "at" before § or ¶: "Id. § 7" not "Id. at § 7".',
+      'Consecutive subsections use ONE § symbol: "§ 1874(b)–(c)" not "§§ 1874(b)–(c)".',
+      'Non-consecutive subsections use commas: "§ 1874(b), (f)".',
+      'Never use "et seq." — always give the inclusive range.',
+    ],
+    commonMistakes: [
+      'Using "at" before § or ¶ symbols.',
+      'Using §§ for consecutive subsections within the same section (should be single §).',
+      'Using "et seq." instead of specifying the full range.',
+      'Missing the space after § or ¶ symbol.',
+      'Dropping digits in section ranges that have no internal punctuation.',
+    ],
+    references: ['R. 6.2(c)', 'R. 12.4', 'T16'],
+  },
+  'R. 3.4': {
+    title: 'Appended Material',
+    explanation:
+      'Indicate an appendix or appended note/comment by placing the appropriate abbreviation (see T16) after the citation to the largest full subdivision to which the item is appended.\n\n' +
+      'Cite a particular page, section, or other subdivision in an appendix after the appendix abbreviation.\n\n' +
+      'Advisory committee notes, comments, and illustrations should be cited as appended material.\n\n' +
+      'Appendices that reprint materials normally cited to another source should be cited according to R. 1.6(a).',
+    examples: [
+      'Restatement (Second) of Torts § 623A cmt. a (A.L.I. 1977).',
+      '50 U.S.C. app. § 454.',
+      'Fed. R. Civ. P. 60(b) advisory committee\'s note to 1946 amendment.',
+      'Restatement (Second) of Prop. § 2.1 cmt. c, illus. 2 (A.L.I. 1977).',
+    ],
+    references: ['R. 1.6', 'T16'],
+  },
+  'R. 3.5': {
+    title: 'Internal Cross-References',
+    explanation:
+      'Portions of text, footnotes, and groups of authorities within the piece may be cited using "supra" or "infra." Use supra to refer to material that has already appeared; use infra for material that appears later.\n\n' +
+      'Use a consistent naming convention: "Part" for main subdivisions, "Section" for smaller subdivisions, "note" for footnotes, "p."/"pp." for pages, "Figure" and "Table" for graphics.\n\n' +
+      'Always retain the last two digits in page ranges, but drop other repetitious digits.\n\n' +
+      'Note that "supra" is also used in short form citations for certain types of sources (see R. 4.2).',
+    examples: [
+      'See supra text accompanying notes 305–07.',
+      'See supra notes 12–15, 92–97 and accompanying text.',
+      'See discussion infra Sections II.B.2, III.C.1.',
+      'See supra Part IV.',
+      'See infra pp. 106–07.',
+      'See supra Figure 2.',
+    ],
+    references: ['R. 4.2'],
+  },
+  'R. 4': {
+    title: 'Short Citation Forms',
+    explanation:
+      'This rule provides general guidance for all short forms. For guidance on specific short forms, see: Cases (R. 10.9), Constitutions (R. 11), Statutes (R. 12.10), Legislative Materials (R. 13.8), Regulations (R. 14.6), Books (R. 15.10), Periodicals (R. 16.9), Unpublished Sources (R. 17.6), Internet/Electronic (R. 18.12), Services (R. 19.2), Foreign Materials (R. 20.7), International Materials (R. 21.17), Tribal Materials (R. 22.3), Archival Materials (R. 23.12).\n\n' +
+      'For practitioners\' short forms, see Bluepages B4, B10.2, B12.2, B15.2, B16.2, B17.2, and B18.2.',
+    references: ['R. 4.1', 'R. 4.2', 'R. 10.9', 'R. 12.10', 'R. 13.8', 'R. 14.6', 'R. 15.10', 'R. 16.9', 'R. 17.6', 'R. 18.12', 'R. 19.2', 'R. 20.7', 'R. 21.17', 'R. 22.3', 'R. 23.12'],
   },
   'R. 4.1': {
     title: 'Id. (Short Form)',
-    explanation: '"Id." refers to the immediately preceding cited authority. Use "Id." when citing the same source as the immediately preceding citation. Add "at [page]" to cite a different page of the same source. "Id." should be italicized and capitalized when it begins a citation sentence.',
-    examples: ['Id.', 'Id. at 405.', 'Id. at 405–10.'],
+    explanation:
+      '"Id." may be used in citation sentences and clauses for any kind of authority except internal cross-references (R. 3.5). In court documents, use "id." when citing the immediately preceding authority, but only when the preceding citation contains only one authority. In law review footnotes, use "id." when citing the immediately preceding authority within the same footnote or the immediately preceding footnote when it contains only one authority.\n\n' +
+      'Indicate where a subsequent citation varies (e.g., different page number). The period at the end of "id." is always italicized.\n\n' +
+      '"Id." may NOT be used to refer to one authority in a preceding footnote if the preceding footnote cites more than one source. However, sources in explanatory parentheticals, explanatory phrases, or prior/subsequent history are ignored for this rule.\n\n' +
+      '"Id." may not be used to refer to an internal cross-reference.',
+    examples: [
+      '¹ Chalfin v. Specter, 233 A.2d 562, 562 (Pa. 1967).\n² Id. at 563.',
+      '³ 42 U.S.C. § 1983.\n⁴ See id. § 1981.',
+      '⁸ Fleming James, Jr. & Geoffrey C. Hazard, Jr., Civil Procedure §§ 1.3–.5 (3d ed. 1985).\n⁹ See id. § 1.7.',
+    ],
+    tips: [
+      '"Id." may ONLY be used when the immediately preceding citation contains a single authority.',
+      'Do NOT use "at" before § or ¶ symbols: "Id. § 7" not "Id. at § 7".',
+      'The period in "Id." is always italicized along with the word.',
+      '"Id." at the start of a citation sentence is capitalized; after a semicolon it is lowercase.',
+      'Do NOT add a second period after "Id." at the end of a sentence — "Id." already ends with one.',
+      '"Id." cannot be used in embedded citations (citations used as grammatical parts of a sentence).',
+    ],
+    commonMistakes: [
+      'Using Id. after a citation with multiple authorities separated by semicolons.',
+      'Writing "Id. at § 7" instead of "Id. § 7" — no "at" before section/paragraph symbols.',
+      'Writing "Id.." with a double period at the end of a sentence.',
+      'Using "Ibid." instead of "Id." — "Ibid." is not used in Bluebook citations.',
+      'Writing "ID." in all capitals instead of "Id."',
+      'Using "id." (lowercase) at the start of a citation sentence.',
+    ],
+    references: ['R. 3.5', 'R. 4.2'],
   },
   'R. 4.2': {
-    title: 'Supra (Short Form)',
-    explanation: '"Supra" may be used for secondary sources (books, articles) but NOT for cases or statutes. Format: "[Author], supra note [X], at [page]."',
-    examples: ['Smith, supra note 5, at 100.'],
+    title: 'Supra and Hereinafter',
+    explanation:
+      '"Supra" and "hereinafter" may be used for: legislative hearings, court filings, books, pamphlets, reports, unpublished materials, nonprint resources, periodicals, services, treaties, regulations/directives of intergovernmental organizations, and internal cross-references.\n\n' +
+      '"Supra" and "hereinafter" should NOT be used for: cases, statutes, constitutions, legislative materials/debates (other than hearings), restatements, model codes, or regulations (except in extraordinary circumstances like extremely long names).\n\n' +
+      '(a) "Supra": Use the last name of the author, a comma, "supra," and the footnote number where the full citation appears. Add volume/paragraph/section/page/timestamp for specific material.\n\n' +
+      '(b) "Hereinafter": For cumbersome authorities, establish a shortened form in brackets after the first citation (before any explanatory parenthetical). Use the shortened form in subsequent citations with "supra."',
+    examples: [
+      'Reich, supra note 16, at 6.',
+      'James & Hazard, supra note 8, § 7.21.',
+      'Keeton et al., supra note 31, § 2, at 4.',
+      '[hereinafter Hearings] — then: Hearings, supra note 37, at 33.',
+    ],
+    references: ['R. 4.1', 'R. 3.5'],
+  },
+  'R. 5': {
+    title: 'Quotations',
+    explanation:
+      'Rules for formatting quotations, making alterations, and indicating omissions in legal writing. See R. 5.1 for formatting (block vs. inline), R. 5.2 for alterations and quotations within quotations, and R. 5.3 for omissions (ellipses).',
+    references: ['R. 5.1', 'R. 5.2', 'R. 5.3'],
+  },
+  'R. 5.1': {
+    title: 'Formatting of Quotations',
+    explanation:
+      '(a) Quotations of fifty or more words: Indent on left and right, single space, fully justify, without quotation marks. Internal quotation marks appear as in the original. Citation should begin at the left margin on the line immediately following the quotation.\n\n' +
+      '(b) Quotations of forty-nine or fewer words: Enclose in quotation marks but do not otherwise set off. Always place commas and periods inside the quotation marks; place other punctuation outside unless part of the original.\n\n' +
+      'Paragraph structure: Indent first line of each paragraph in block quotes. If language at the beginning of the first paragraph is omitted, do not indent or use an ellipsis. Indicate omission of one or more entire paragraphs by inserting and indenting four periods (". . . .") on a new line.',
+    examples: [
+      'United States v. Nixon, 418 U.S. 683, 708–09 (1974) (second alteration in original) (citation omitted).',
+    ],
+    references: ['R. 5.2', 'R. 5.3'],
+  },
+  'R. 5.2': {
+    title: 'Alterations and Quotations Within Quotations',
+    explanation:
+      '(a) Substitution of letters or words: Enclose changed letters in brackets (e.g., "[P]ublic"). Substituted words and other inserted material should also be bracketed.\n' +
+      '(b) Omission of letters: Use empty brackets (e.g., "judgment[]").\n' +
+      '(c) Mistakes in original: Follow significant mistakes with "[sic]" and leave as they appear.\n' +
+      '(d) Changes to citations: Use a parenthetical to indicate additions of emphasis, alterations, or omissions of citations/emphasis/footnote call numbers. Do NOT indicate omission of a citation following the last word quoted. Do NOT indicate that emphasis appears in the original.\n' +
+      '(e) Quotations within quotations: Attribute to the original source. Insert a parenthetical with "(quoting [source])" after any parenthetical required by R. 5.2(d).\n' +
+      '(f) Internal quotation marks: Omit if the opening mark is at the very beginning and the closing mark at the very end of an in-line quotation. Do NOT omit in block quotations. Do NOT omit multiple levels of nested marks.',
+    examples: [
+      '"[P]ublic confidence in the [adversary] system depend[s upon] full disclosure."',
+      '"This list of statutes are [sic] necessarily incomplete."',
+      'Bowers v. Hardwick, 478 U.S. 186, 205 (1986) (Blackmun, J., dissenting) (second emphasis added).',
+      'Ward v. Rock Against Racism, 491 U.S. 781, 797 (1989) (alteration in original) (citation omitted).',
+    ],
+    references: ['R. 1.5(b)', 'R. 5.3', 'R. 10.6'],
+  },
+  'R. 5.3': {
+    title: 'Omissions',
+    explanation:
+      'Omission of words is indicated by an ellipsis: three periods separated by spaces and set off by a space before and after (". . ."). Never use an ellipsis to begin a quotation.\n\n' +
+      '(a) Quoted language as a phrase or clause: Do NOT indicate omission before or after the quotation. DO indicate omission within with an ellipsis.\n\n' +
+      '(b) Quoted language as a full sentence:\n' +
+      '(i) Beginning omitted: Capitalize the first letter and bracket it if not already capitalized ("[B]orders...").\n' +
+      '(ii) Middle omitted: Insert ellipsis where language is omitted.\n' +
+      '(iii) End omitted: Insert ellipsis between last word and final punctuation ("time . . . .").\n' +
+      '(iv) After last quoted sentence: Do NOT indicate deletion after the final period.\n' +
+      '(v) After end of sentence followed by more quotation: Retain the period and insert ellipsis before the remainder.\n' +
+      '(vi) Both end and after end omitted: Use only one ellipsis for both.\n\n' +
+      '(c) Omitted footnote or citation: Use "(footnote omitted)" or "(citation omitted)" parenthetical. Do NOT insert an ellipsis.',
+    examples: [
+      '"[B]orders are less of a barrier to economic exchange now than at almost any other time in history."',
+      '"National borders are less of a barrier . . . now than at almost any other time in history."',
+      '"National borders are less of a barrier to economic exchange now than at almost any other time . . . ."',
+    ],
+    references: ['R. 5.1', 'R. 5.2'],
+  },
+  'B5': {
+    title: 'Quotations (Bluepages)',
+    explanation:
+      'Bluepages B5 covers quotation formatting in practitioners\' documents. See B5.1 for general formatting rules, B5.2 for alterations and block quotations, and B5.3 for modifications to quoted text.',
+    references: ['B5.1', 'B5.2', 'B5.3', 'R. 5'],
+  },
+  'R. 6': {
+    title: 'Abbreviations, Numerals, and Symbols',
+    explanation:
+      'Rules governing the use of abbreviations, numerals, and symbols in legal citations and text. See R. 6.1 for abbreviation rules and R. 6.2 for numerals and symbols.',
+    references: ['R. 6.1', 'R. 6.2'],
+  },
+  'R. 6.1': {
+    title: 'Abbreviations',
+    explanation:
+      'Tables at the end of the Bluebook contain abbreviation lists for: arbitral reporters (T5), case names/institutional authors/periodical titles (T6), court names (T7), explanatory phrases (T8), legislative documents (T9), geographical terms (T10), judges and officials (T11), months (T12), institutional periodical names (T13), publishing terms (T14), services (T15), and subdivisions (T16).\n\n' +
+      'Abbreviations not listed should be avoided unless substantial space is saved and the result is unambiguous.\n\n' +
+      '(a) Spacing: Close up adjacent single capitals (N.W., S.D.N.Y.). Do not close up single capitals with longer abbreviations (D. Mass., S. Ct.). In periodical names, set off capitals referring to institutional entities with a space (B.C. L. Rev., N.Y.U. L. Rev.). Numbers/ordinals are treated as single capitals (F.3d, S.E.2d). Insert a space adjacent to abbreviations with 2+ letters (So. 2d, F. Supp. 2d).\n\n' +
+      '(b) Periods: Every abbreviation followed by a period, except when the last letter is set off by an apostrophe (Ass\'n, Dep\'t). Entities with widely recognized initials (AARP, CBS, CIA, EPA, FCC, FDA, NAACP, NLRB) may omit periods in text and case names, but retain periods in reporter names, code names, and court names. "U.S." used only as an adjective (never omit periods).',
+    examples: [
+      'S.D.N.Y. (adjacent single capitals)',
+      'D. Mass. (single capital + longer abbreviation)',
+      'B.C. L. Rev. (institutional entity set off)',
+      'F.3d (ordinal as single capital)',
+      'So. 2d (space before 2+ letter abbreviation)',
+      'City of Arlington v. FCC, 569 U.S. 290 (2013). But: 6 F.C.C. 378 (1938).',
+    ],
+    references: ['T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16'],
   },
   'R. 6.1(a)': {
     title: 'Abbreviation Spacing',
-    explanation: 'Adjacent single capital letters have no space between them (e.g., S.D.N.Y.). A space separates a single capital from a longer abbreviation (e.g., D. Mass., S.D. Cal.). For reporter series, single capitals attach to ordinals without a space (F.2d, F.3d).',
-    examples: ['S.D.N.Y. (not S. D. N. Y.)', 'D. Mass. (not D.Mass.)', 'F.2d (not F. 2d)'],
+    explanation: 'Adjacent single capital letters have no space between them (e.g., S.D.N.Y.). A space separates a single capital from a longer abbreviation (e.g., D. Mass., S.D. Cal.). For reporter series, single capitals attach to ordinals without a space (F.2d, F.3d). In periodical names, close up all adjacent single capitals except when one refers to an institutional entity (B.C. L. Rev., N.Y.U. L. Rev.). Insert a space adjacent to abbreviations with two or more letters (So. 2d, F. Supp. 2d).',
+    examples: ['S.D.N.Y. (not S. D. N. Y.)', 'D. Mass. (not D.Mass.)', 'F.2d (not F. 2d)', 'B.C. L. Rev.', 'So. 2d'],
+  },
+  'R. 6.2': {
+    title: 'Numerals and Symbols',
+    explanation:
+      '(a) Numerals: Spell out zero to ninety-nine in text/footnotes; use numerals for larger numbers. Exceptions: (i) numbers beginning a sentence must be spelled out; (ii) round numbers may be spelled out; (iii) mixed series uses all numerals; (iv) decimals use numerals; (v) repeated percentages/dollar amounts use numerals; (vi) section/subdivision numbers use numerals; (vii) use commas for 4+ digit numbers (1,234,567) but not in page numbers, statutes, volume numbers, docket numbers, etc.\n\n' +
+      '(b) Ordinals: In text, use "2nd" and "3rd" when numerals are required. In citations, always use "2d" and "3d" (not "2nd"/"3rd"). Never use superscripts.\n\n' +
+      '(c) Section (§) and paragraph (¶) symbols: Spell out in text of law review pieces (except for U.S. Code and federal regulations). Use symbols in citations. Insert a space between the symbol and the numeral.\n\n' +
+      '(d) Dollar ($) and percent (%) symbols: Use symbols with numerals; spell out with spelled-out numbers. No space between symbol and numeral. Never begin a sentence with a symbol.',
+    examples: [
+      '103d Cong. (not 103rd Cong.)',
+      '2d ed. (not 2nd ed.)',
+      '1,234,567',
+      '§ 7 (space between symbol and number)',
+    ],
+    references: ['R. 3.3', 'R. 12.10', 'R. 14.6'],
   },
   'R. 6.2(b)': {
     title: 'Ordinals',
-    explanation: 'Use "2d" instead of "2nd" and "3d" instead of "3rd" in all legal citations.',
-    examples: ['2d Cir. (not 2nd Cir.)', 'F.3d (not F.3rd)'],
+    explanation: 'In citations, use "2d" instead of "2nd" and "3d" instead of "3rd." Do not use superscripts. In textual sentences where numerals are required by R. 6.2(a), use "2nd" and "3rd." The distinction applies only in citations.',
+    examples: ['2d Cir. (not 2nd Cir.)', 'F.3d (not F.3rd)', '103d Cong.', 'But in text: the 102nd Congress'],
+  },
+  'R. 7': {
+    title: 'Italicization for Style and in Unique Circumstances',
+    explanation:
+      'See R. 2 for general typeface rules. This rule covers italicization for emphasis, foreign words, and other unique circumstances.\n\n' +
+      '(a) Emphasis: Words and phrases may be italicized for emphasis.\n' +
+      '(b) Foreign words and phrases: Italicize non-English words unless incorporated into common English usage. Do NOT italicize text from non-Roman alphabets (e.g., Mandarin, Arabic). Latin words often used in legal writing are common English and should NOT be italicized (e.g., e.g., i.e., res judicata, certiorari, habeas corpus, prima facie, mens rea, en banc). Very long or obsolete Latin phrases should remain italicized. Note: "id." is ALWAYS italicized. Procedural phrases like "In re" and "ex rel." are always italicized per R. 10.2.1(b).\n' +
+      '(c) Hypothetical party letters: Italicize and capitalize (e.g., "A went to bank B in state C").\n' +
+      '(d) Lowercase "l": Italicize to distinguish from numeral "1" (e.g., "§ 23(l)").\n' +
+      '(e) Mathematical expressions: Italicize formulas and variables from standard word processors (e.g., "E = mc²"). Do NOT italicize those requiring specialized typesetting (LaTeX, MATLAB).',
+    examples: [
+      'expressio unius est exclusio alterius (italicized — uncommon Latin)',
+      'res judicata (NOT italicized — common English)',
+      'habeas corpus (NOT italicized — common English)',
+      'A went to bank B in state C.',
+    ],
+    references: ['R. 2', 'R. 2.1', 'R. 10.2.1'],
+  },
+  'R. 8': {
+    title: 'Capitalization',
+    explanation:
+      '(a) Headings and titles: Capitalize all words except articles, conjunctions, and prepositions of 4 or fewer letters (unless they begin the heading or follow a colon).\n' +
+      '(b) Internet titles and URLs: Capitalize as the source does.\n' +
+      '(c) Author last names: Follow the table of contents or title page.\n' +
+      '(d) Text: Key capitalization rules:\n' +
+      '(i) Capitalize nouns identifying specific persons, officials, groups, government offices, or bodies (e.g., "the Commissioner," "Congress," "the President," "the FDA," "the Agency"). Do NOT capitalize adjective forms ("congressional," "presidential," "federal" (unless modifying a capitalized word)).\n' +
+      '(ii) Exceptions for specific words:\n' +
+      '  • Act — capitalize when referring to a specific legislative act.\n' +
+      '  • Circuit — capitalize with a circuit\'s name or number.\n' +
+      '  • Code — capitalize when referring to a specific code.\n' +
+      '  • Commonwealth — capitalize as part of a state title or when referring to a state as a party.\n' +
+      '  • Constitution — capitalize when naming in full or referring to the U.S. Constitution; do NOT capitalize "constitutional."\n' +
+      '  • Court — capitalize when naming a court in full or referring to the U.S. Supreme Court.\n' +
+      '  • Federal — capitalize when the modified word is capitalized.\n' +
+      '  • Judge, Justice — capitalize with a specific name or when referring to a Supreme Court Justice.\n' +
+      '  • State — capitalize as part of a state title or when referring to a state as a party.\n' +
+      '  • Term — capitalize when referring to a Supreme Court Term.',
+    examples: [
+      'The Act required operators to pay.',
+      'The Fifth Circuit affirmed.',
+      'The Court held that... (U.S. Supreme Court)',
+      'The court of appeals reversed. (other courts)',
+      'Justice Gorsuch dissented.',
+      'The State brought this action. (state as party)',
+    ],
+    references: ['B8'],
   },
   'R. 10': {
     title: 'Cases (General)',
-    explanation: 'A full case citation includes: (1) case name, (2) reporter source, (3) court and year parenthetical, (4) optional parenthetical information, and (5) subsequent history.',
+    explanation:
+      'Rule 10 governs citations to judicial decisions. A full case citation includes five main elements: ' +
+      '(1) case name (R. 10.2); (2) reporter or other source (R. 10.3); (3) court and jurisdiction parenthetical (R. 10.4); ' +
+      '(4) date or year (R. 10.5); and (5) optional parenthetical information (R. 10.6) and prior/subsequent history (R. 10.7).\n\n' +
+      'Short forms for cases previously cited in full are governed by R. 10.9. Special citation forms for pending, unreported, and electronic-database cases are in R. 10.8.',
+    examples: [
+      'Ward v. Reddy, 727 F. Supp. 1407, 1412 (D. Mass. 1990).',
+      'Haber v. Yee, 925 F.2d 314, 335 (1st Cir. 1991).',
+      'Haber v. Yee, 727 F. Supp. 1407, 1412 (D. Mass. 1990), aff\'d, 925 F.2d 314 (1st Cir. 1991).',
+    ],
+    references: ['R. 10.1', 'R. 10.2', 'R. 10.3', 'R. 10.4', 'R. 10.5', 'R. 10.6', 'R. 10.7', 'R. 10.8', 'R. 10.9'],
+  },
+  'R. 10.1': {
+    title: 'Basic Citation Forms',
+    explanation:
+      'R. 10.1 illustrates the basic citation forms for cases at every stage of litigation, from filing through Supreme Court disposition. ' +
+      'The form varies depending on whether the case is filed but undecided, published or unpublished, available electronically, or on appeal.\n\n' +
+      'Key variations:\n' +
+      '• Filed but not decided: include "filed" and full date.\n' +
+      '• Unpublished interim order: docket number + parenthetical describing the order.\n' +
+      '• Published interim order: cite to reporter with parenthetical.\n' +
+      '• Unpublished decision: docket number + "slip op. at [page]" + full date.\n' +
+      '• Electronic database: docket number + database identifier (WL/LEXIS) + full date.\n' +
+      '• Published decision: standard reporter citation.\n' +
+      '• On appeal: append subsequent history per R. 10.7.\n' +
+      '• Brief/record: document name first, then case citation + docket number.',
+    examples: [
+      'Filed: Hoshijima v. Jensen, No. 90-345 (D. Mass. filed Sep. 18, 1990).',
+      'Unpublished: Kitchens v. Grohman, No. 90-347, slip op. at 6 (D. Mass. Dec. 4, 1990).',
+      'Electronic: Yee v. Kitchens, No. 90-349, 1990 U.S. Dist. LEXIS 20837, at *6–8 (D. Mass. Dec. 4, 1990).',
+      'Published: Ward v. Reddy, 727 F. Supp. 1407, 1412 (D. Mass. 1990).',
+      'With history: Haber v. Yee, 727 F. Supp. 1407, 1412 (D. Mass. 1990), aff\'d, 925 F.2d 314 (1st Cir. 1991).',
+      'Brief: Brief for Appellant at 7, Kitchens v. Scotten, 925 F.2d 314 (1st Cir. 1991) (No. 90-568).',
+    ],
+    references: ['R. 10.3', 'R. 10.5', 'R. 10.7', 'R. 10.8', 'R. 10.8.1', 'R. 10.8.3'],
+  },
+  'R. 10.2': {
+    title: 'Case Names',
+    explanation:
+      'R. 10.2 governs how to format case names in both textual sentences and citation sentences. The key difference is the extent of abbreviation.\n\n' +
+      '• In textual sentences: apply R. 10.2.1 only — abbreviate only the 8 words listed in R. 10.2.1(c) and widely known acronyms.\n' +
+      '• In citation sentences: apply both R. 10.2.1 and R. 10.2.2 — additionally abbreviate all T6 words and T10 geographic terms.\n\n' +
+      'Case names are italicized in law review text and footnotes (R. 2). In court documents, follow B2 typeface conventions.',
+    examples: [
+      'Text: In Southern Pacific Co. v. Jensen, 244 U.S. 205 (1917), ...',
+      'Citation: See, e.g., S. Pac. Co. v. Jensen, 244 U.S. 205, 225–26 (1917).',
+    ],
+    references: ['R. 10.2.1', 'R. 10.2.2', 'R. 2', 'B2', 'T6', 'T10'],
+  },
+  'R. 10.2.1': {
+    title: 'General Rules for Case Names',
+    explanation:
+      'These rules apply to all case names — in both textual sentences and citation sentences. Use the case name from the beginning of the opinion in the cited reporter, modified as follows:\n\n' +
+      '(a) Cite only the first party on each side; omit "et al." and alternative names.\n' +
+      '(b) Abbreviate procedural phrases: "in the matter of" → "In re"; "on behalf of" → "ex rel."\n' +
+      '(c) In text, abbreviate only: &, Ass\'n, Bros., Co., Corp., Inc., Ltd., No.\n' +
+      '(d) Omit leading "The" (exceptions: in rem objects, "The King"/"The Queen").\n' +
+      '(e) Omit descriptive terms (administrator, executor, trustee) after a named party.\n' +
+      '(f) Omit "State of," "Commonwealth of," prepositional location phrases; omit "of America."\n' +
+      '(g) Omit given names/initials of individuals (retain in business names).\n' +
+      '(h) Omit "Inc.," "Ltd.," etc. if name already contains "Co.," "Corp.," etc.\n' +
+      '(i) For unions, cite only the smallest unit; omit all but first craft designation.\n' +
+      '(j) "Commissioner of Internal Revenue" → "Commissioner" (or "Comm\'r" in citations).\n' +
+      '(k) Use common name if different from reporter name, with parenthetical.',
+    decisionSteps: [
+      'Step 1: Identify the parties — use only the FIRST-NAMED party on each side of "v." Omit et al., alternative names, and additional actions.',
+      'Step 2: Determine each party\'s type — individual, business, government entity, union, or organization. Each type has specific rules.',
+      'Step 3: Handle additional information — omit given names (for individuals), descriptive terms (Trustee, Executor, Esq., M.D.), "The" at start, and prepositional location phrases.',
+      'Step 4: Write the name with proper abbreviations — in citation sentences, abbreviate ALL T6 words; in text, abbreviate ONLY the 8 mandatory words (&, Ass\'n, Bros., Co., Corp., Inc., Ltd., No.).',
+    ],
+    tips: [
+      'NEVER rely on the caption itself for the citation form — always apply Bluebook rules.',
+      'Only 8 words are abbreviated in ALL contexts (textual + citation): &, Ass\'n, Bros., Co., Corp., Inc., Ltd., No.',
+      'Widely known acronyms use NO periods: "NAACP" not "N.A.A.C.P."',
+      'For government parties in state court: use "State v.", "Commonwealth v.", or "People v." — not the state name.',
+      'For government parties in federal court: use the full state name ("Georgia v. Charles").',
+      'Business designation rule: drop the SECOND business term only if BOTH are in the R. 10.2.1(h) list.',
+      'Individual initials-only names are preserved: "C.J. v. L.M." (close up adjacent capitals).',
+    ],
+    commonMistakes: [
+      'Including more than the first party on each side (e.g., including "et al.").',
+      'Abbreviating words in textual sentences that are only abbreviated in citation sentences.',
+      'Keeping "The" at the beginning of a case name.',
+      'Including descriptive terms like "Trustee" or "Administrator" after party names.',
+      'Dropping individual given names that are part of a business name (e.g., "J.K. Abernathy, Inc." should keep "J.K.").',
+      'Adding periods to widely known acronyms.',
+    ],
+    references: ['R. 10.2.1(a)', 'R. 10.2.1(b)', 'R. 10.2.1(c)', 'R. 10.2.1(d)', 'R. 10.2.1(e)', 'R. 10.2.1(f)', 'R. 10.2.1(g)', 'R. 10.2.1(h)', 'R. 10.2.1(i)', 'R. 10.2.1(j)', 'R. 10.2.1(k)', 'R. 10.2.2'],
   },
   'R. 10.2.1(a)': {
-    title: 'Party Names — Multiple Parties',
-    explanation: 'Cite only the first party on each side. Omit "et al.", "a.k.a.", "d/b/a", and alternative names.',
-    examples: ['Kant v. Bentham (not Kant, et al. v. Bentham, a.k.a. The Father of Utilitarianism)'],
+    title: 'Actions and Parties Cited',
+    explanation:
+      'For consolidated actions, cite only the first listed. Omit all parties other than the first listed on each side. Do not omit the first-listed relator or any portion of a partnership name. ' +
+      'Omit "et al." and alternative names (d/b/a, a.k.a.). For in rem cases, omit all but the first-listed item. Use the common street address for real property parties. ' +
+      'In bankruptcy with both adversary and nonadversary names, cite adversary name first with nonadversary in parentheses.',
+    examples: [
+      'Shelley v. Kraemer (not Shelley v. Kraemer, McGhee v. Sipes)',
+      'Massachusetts ex rel. Alison v. Pauly (retain relator)',
+      'Cheng v. Seinfeld (not Cheng et al. v. Seinfeld d/b/a The Man, Inc.)',
+      'United States v. 6109 Grubb Road (street address for real property)',
+      'Wallingford\'s, Inc. v. Waning (In re Waning), 120 B.R. 607, 611 (Bankr. D. Me. 1990).',
+    ],
+    references: ['R. 10.2.1'],
   },
   'R. 10.2.1(b)': {
     title: 'Procedural Phrases',
-    explanation: 'Abbreviate "in the matter of" to "In re" and "on the relation of" / "on behalf of" to "ex rel." When adversary parties are named, omit all procedural phrases except "ex rel."',
+    explanation:
+      'Abbreviate "on the relation of," "for the use of," "on behalf of," "as next friend of" → "ex rel." ' +
+      'Abbreviate "in the matter of," "petition of," "application of" → "In re." ' +
+      'Omit all procedural phrases except the first. When adversary parties are named, omit all procedural phrases except "ex rel." ' +
+      'Include introductory or descriptive phrases like "Estate of," "Will of." Procedural phrases should always be italicized.',
+    examples: [
+      'Gorman v. Bruh (not In re Gorman v. Bruh)',
+      'Massachusetts ex rel. Kennedy v. Armbruster',
+      'Ex parte Young',
+      'In re Will of Holt',
+      'Estate of Haas v. Commissioner',
+    ],
+    references: ['R. 10.2.1'],
   },
   'R. 10.2.1(c)': {
     title: 'Abbreviations in Textual Sentences',
-    explanation: 'In textual sentences (as opposed to citation sentences), abbreviate only: "&" (and), "Ass\'n" (Association), "Bros." (Brothers), "Co." (Company), "Corp." (Corporation), "Inc." (Incorporated), "Ltd." (Limited), and "No." (Number).',
+    explanation:
+      'In textual sentences (main text or footnote text), abbreviate only widely known acronyms under R. 6.1(b) and these eight words: ' +
+      '"&," "Ass\'n," "Bros.," "Co.," "Corp.," "Inc.," "Ltd.," and "No." ' +
+      'If one of these eight begins a party\'s name, do not abbreviate it. For abbreviations in citation sentences, see R. 10.2.2.',
+    examples: [
+      'Philadelphia Electric Co. v. Hirsch (not PECO v. Hirsch)',
+      'But: NAACP v. Kaminski (widely known acronym)',
+    ],
+    references: ['R. 6.1(b)', 'R. 10.2.2'],
   },
   'R. 10.2.1(d)': {
     title: 'Leading "The"',
-    explanation: 'Omit "The" as the first word of a party\'s name, except as part of the name of the object of an in rem action or when "The King" or "The Queen" is a party.',
+    explanation:
+      'Omit "The" as the first word of a party\'s name, except: (1) as part of the name of the object of an in rem action; ' +
+      '(2) in cases where "The King" or "The Queen" is a party; (3) in an established popular name in a citation (but omit when referring textually).',
+    examples: [
+      'Mia. Herald v. Sercus (omit "The")',
+      'But: In re The Clinton Bridge',
+      'The King v. Broadrup',
+      'See The Civil Rights Cases, 109 U.S. 3 (1883).',
+      'But in text: Neither of the Civil Rights Cases opinions was correct.',
+    ],
+    references: ['R. 10.2.1'],
   },
   'R. 10.2.1(e)': {
     title: 'Descriptive Terms',
-    explanation: 'Omit descriptive terms like "administrator," "appellee," "executor," "licensee," and "trustee" that describe a party already named.',
+    explanation:
+      'Omit terms such as "administrator," "appellee," "executor," "licensee," and "trustee" that describe a party already named. ' +
+      'Retain these terms when they are the only identification of the party.',
+    examples: [
+      'Burns v. McMillen (not Burns v. McMillen, Administrator)',
+      'But: Trustees of Dartmouth College v. Woodward',
+    ],
+    references: ['R. 10.2.1'],
   },
   'R. 10.2.1(f)': {
     title: 'Geographic Terms',
-    explanation: 'Omit "State of," "Commonwealth of," "City of" (unless it begins the party name), and prepositional phrases of location (unless omission would leave only one word). Omit "of America" after "United States."',
+    explanation:
+      'Omit "State of," "Commonwealth of," "People of" — except when citing decisions of that state\'s courts, in which case retain only "State," "Commonwealth," or "People." ' +
+      'Omit "City of," "County of," etc. unless the expression begins a party name. Omit prepositional phrases of location unless omission would leave only one word or the location is part of the entity\'s full name. ' +
+      'Include designations of national or larger areas (except in union names). Omit "of America" after "United States." Omit geographic designations that follow a comma.',
+    examples: [
+      'Blystone v. Pennsylvania, 494 U.S. 299 (1990). (not "Commonwealth of Pennsylvania")',
+      'Commonwealth v. Ferrone, 448 A.2d 637 (Pa. Super. Ct. 1982). (state\'s own court)',
+      'Butts v. City of New York (retain "City of" after party name)',
+      'Planned Parenthood of Southeastern Pennsylvania v. Casey (location part of entity name)',
+      'City of Arlington v. FCC (not City of Arlington, Texas v. FCC)',
+    ],
+    references: ['R. 10.2.1'],
   },
   'R. 10.2.1(g)': {
-    title: 'Given Names',
-    explanation: 'Omit given names and initials of individual parties. Retain given names in business firm names and where surnames are abbreviated.',
+    title: 'Given Names and Initials',
+    explanation:
+      'Generally omit given names or initials of individuals, but retain them in business firm names and where a party\'s surname is abbreviated. ' +
+      'Do not omit any part of a multi-word surname. Retain the full name where the name is entirely in a language where the surname is given first (Chinese, Korean, Vietnamese). ' +
+      'For Spanish/Portuguese names, cite the surname and all names following.',
+    examples: [
+      'Courtney v. Sandman (not Paul Vincent Courtney v. Joseph S. Sandman)',
+      'But: Linda R.S. v. Richard D. (surname abbreviated)',
+      'Van der Velt v. Standing Horse (multi-word surname)',
+      'Yao Zhen Guang v. Yeh Zhi An (Chinese — retain full name)',
+      'Ortega y Gasset v. Alcala de Larosa (Spanish — surname + following names)',
+    ],
+    references: ['R. 10.2.1'],
   },
   'R. 10.2.1(h)': {
     title: 'Business Firm Designations',
-    explanation: 'Omit "Inc.," "Ltd.," "L.L.C.," and similar terms if the name already contains "Co.," "Corp.," "Ass\'n," or another clear business indicator.',
+    explanation:
+      'Omit "Inc.," "Ltd.," "L.L.C.," "N.A.," "F.S.B.," and similar terms if the name also contains a word such as "Ass\'n," "Bros.," "Co.," "Corp.," "Ins.," or "R.R." ' +
+      'This rule should be read narrowly — omit the designation only if the name could not be mistaken for a natural person.',
+    examples: [
+      'Wisconsin Packing Co. v. Indiana Refrigerator Lines, Inc.',
+      'Not: Wisconsin Packing Co., Inc. v. Indiana Refrigerator Lines, Inc.',
+    ],
+    references: ['R. 10.2.1'],
+  },
+  'R. 10.2.1(i)': {
+    title: 'Union and Local Union Names',
+    explanation:
+      'Cite a union name exactly as given in the official reporter, subject to these exceptions:\n\n' +
+      '(i) Only the smallest unit should be cited.\n' +
+      '(ii) Omit all craft or industry designations except the first full designation.\n' +
+      '(iii) A widely recognized abbreviation (e.g., UAW) may be used per R. 6.1(b) and R. 10.2.1(c).\n' +
+      '(iv) Omit all prepositional phrases of location, including national or larger areas.',
+    examples: [
+      'NLRB v. Radio & Television Broadcast Engineers Local 1212 (omit parent union)',
+      'Douds v. Local 294, International Brotherhood of Teamsters (omit additional craft designations)',
+      'But: International Union of Doll & Toy Workers v. Local 379',
+    ],
+    references: ['R. 6.1(b)', 'R. 10.2.1(c)'],
+  },
+  'R. 10.2.1(j)': {
+    title: 'Commissioner of Internal Revenue',
+    explanation: 'Cite simply as "Commissioner" in text or "Comm\'r" in citations.',
+    examples: ['Commissioner (text)', 'Comm\'r (citations)'],
+    references: ['R. 10.2.1'],
+  },
+  'R. 10.2.1(k)': {
+    title: 'Common Names Different from Reporter',
+    explanation:
+      'For cases not known by the reporter name but by a common name, the common name must either be substituted entirely or indicated parenthetically in the same typeface as the case name. ' +
+      'For cases known by the reporter name but also by a different short name, the common name may be indicated parenthetically in italics but may not replace the reporter name in a full citation. ' +
+      'For mandamus actions and cases with multiple dispositions, a parenthetical identifier may be given. Once given, the identifier alone may be used as the case name in subsequent citations.',
+    examples: [
+      'The Prize Cases, 67 U.S. (2 Black) 635 (1863).',
+      'Youngstown Sheet & Tube Co. v. Sawyer (Steel Seizure), 343 U.S. 579 (1952).',
+      'United States v. U.S. District Court (Keith), 407 U.S. 297 (1972).',
+      'Hamdi v. Rumsfeld (Hamdi III), 316 F.3d 450 (4th Cir. 2003).',
+      'Fox Television Stations, Inc. v. FCC (Fox I), 280 F.3d 1027 (D.C. Cir. 2002).',
+    ],
+    references: ['R. 2.1(f)', 'R. 10.2.1'],
   },
   'R. 10.2.2': {
     title: 'Abbreviations in Citations',
@@ -271,33 +883,356 @@ export const RULE_EXPLANATIONS: Record<string, { title: string; explanation: str
     title: 'Table T10 State Abbreviations',
     explanation: 'In citation sentences, abbreviate state names per Table T10 (e.g., "California" → "Cal.", "New York" → "N.Y."), unless the state name is the entire party name.',
   },
+  'R. 10.3': {
+    title: 'Reporters and Other Sources',
+    explanation:
+      'R. 10.3 governs which sources to cite for judicial decisions and how to cite them. Table T1 indicates which reporters to cite for most courts. ' +
+      'The order of preference for sources is: (1) official or preferred unofficial reporter; (2) public domain citation; (3) another unofficial reporter; ' +
+      '(4) widely used electronic database (R. 18.4); (5) service (R. 19); (6) slip opinion (R. 10.8.1(b)); (7) internet source (R. 18.2.2); (8) newspaper (R. 16.6).',
+    references: ['R. 10.3.1', 'R. 10.3.2', 'R. 10.3.3', 'T1'],
+  },
+  'R. 10.3.1': {
+    title: 'Parallel Citations and Which Source(s) to Cite',
+    explanation:
+      '(a) State court documents: cite the source(s) required by local rules, which often require both the official state reporter and a parallel regional reporter citation. See B10.1.3 and BT2.2.\n\n' +
+      '(b) All other documents (memoranda, law review): cite the relevant regional reporter if the decision is found therein. ' +
+      'If a public domain citation is available, provide it along with a parallel citation to the regional reporter. ' +
+      'If not in a regional reporter or public domain format, cite other sources per T1 in order of preference.',
+    examples: [
+      'Swedloff v. Phila. Transp. Co., 187 A.2d 152 (Pa. 1963).',
+      'United States v. Carlisle, No. 90-2465SI, 1991 U.S. App. LEXIS 5863, at *3 (8th Cir. Apr. 10, 1991).',
+    ],
+    references: ['B10.1.3', 'T1', 'R. 10.8.1', 'R. 18.4', 'R. 19'],
+  },
   'R. 10.3 / T1': {
     title: 'Reporters',
     explanation: 'Cite cases using the reporter abbreviation listed in Table T1. A citation consists of: volume number, reporter abbreviation, and first page of the case.',
   },
   'R. 10.3.2': {
     title: 'Reporter Format',
-    explanation: 'A reporter citation must include a valid volume number, correct reporter abbreviation, and valid starting page number.',
+    explanation:
+      'A reporter citation consists of a volume designation (R. 3.1), the abbreviated name of the reporter (as shown in T1), and the page on which the case report begins (R. 3.2). ' +
+      'For spacing in reporter abbreviations, see R. 6.1(a). Early American reporters named after editors are now cited by the official series name only, except for U.S. Supreme Court reporters through 90 U.S. (23 Wall.) and certain early state reporters (T1.3), which include the editor\'s name.',
+    examples: [
+      'Burt v. Rumsfeld, 322 F. Supp. 2d 189 (D. Conn. 2004).',
+      'Green v. Biddle, 21 U.S. (8 Wheat.) 1 (1823).',
+      'Cobb v. Davenport, 32 N.J.L. 369 (Sup. Ct. 1867). (not 3 Vroom 369)',
+    ],
+    references: ['R. 3.1', 'R. 3.2', 'R. 6.1(a)', 'T1'],
+  },
+  'R. 10.3.3': {
+    title: 'Public Domain Format',
+    explanation:
+      'When citing a decision available in public domain (medium-neutral) format, provide: case name, year of decision, state postal code, T7 court abbreviation (unless highest court), ' +
+      'sequential decision number, and "U" if unpublished. Pinpoint citations use paragraph numbers. If available, include a parallel citation to the regional reporter.',
+    examples: [
+      'Beck v. Beck, 1999 ME 110, ¶ 6, 733 A.2d 981, 983.',
+      'Gregory v. Class, 1998 SD 106, ¶ 3, 584 N.W.2d 873, 875.',
+      'Jones v. Fisher, 1998 OK Civ. App. 120U.',
+    ],
+    references: ['T7', 'R. 10.3.1'],
   },
   'R. 10.4': {
-    title: 'Court Designation',
-    explanation: 'Include the court in the date parenthetical. For U.S. Supreme Court cases in U.S. Reports, no court designation is needed. Federal appellate cases need the circuit; district court cases need the district.',
+    title: 'Court and Jurisdiction',
+    explanation:
+      'Every case citation must indicate which court decided the case. In American citations, give the court name and geographic jurisdiction ' +
+      '(abbreviated per T1 or T2, and T7/T10) in the parenthetical that includes the date or year. For ordinals in court names, use R. 6.2(b) format.',
+    examples: [
+      'Commonwealth v. Virelli, 620 A.2d 543 (Pa. Super. Ct. 1992).',
+      'United States v. Andolschek, 142 F.2d 503 (2d Cir. 1944).',
+    ],
+    references: ['R. 10.4(a)', 'R. 10.4(b)', 'R. 6.2(b)', 'T1', 'T7', 'T10'],
   },
   'R. 10.4(a)': {
     title: 'Federal Court Designation',
-    explanation: 'Federal circuit courts use ordinals (e.g., "9th Cir.", "2d Cir."). District courts use abbreviations like "S.D.N.Y.", "D. Mass."',
+    explanation:
+      'In U.S. Reports citations, omit the Supreme Court\'s name. In U.S.L.W. citations, indicate "U.S." ' +
+      'Courts of appeals for numbered circuits: "2d Cir.", "9th Cir." (not C.C.A.2d or CA2). ' +
+      'D.C. Circuit: "D.C. Cir." Federal Circuit: "Fed. Cir." ' +
+      'District courts: give the district but not the division (e.g., "D.N.J.", "C.D. Cal.", not "C.D. Cal. E.D."). ' +
+      'Old circuit courts (abolished 1912): "C.C.S.D.N.Y." Bankruptcy: "Bankr. E.D. Va." or "B.A.P. 9th Cir." ' +
+      'FISA courts: "F.I.S.C." and "F.I.S.C.R." JPML: "J.P.M.L."',
+    examples: [
+      '2d Cir.', 'D.C. Cir.', 'Fed. Cir.', 'D.N.J.', 'C.D. Cal.', 'Bankr. E.D. Va.', 'B.A.P. 9th Cir.', 'J.P.M.L.',
+    ],
+    references: ['R. 10.4'],
+  },
+  'R. 10.4(b)': {
+    title: 'State Court Designation',
+    explanation:
+      'Indicate the state and court of decision. Do not include the court name if it is the highest court of the state. ' +
+      'Omit the jurisdiction and/or court abbreviation if unambiguously conveyed by the reporter title. ' +
+      'When the highest court\'s reporter matches the jurisdiction name, neither court nor state is needed. ' +
+      'Do not indicate department, district, or county unless particularly relevant.',
+    examples: [
+      'People v. Armour, 590 N.W.2d 61 (Mich. 1999). (highest court — no court name)',
+      'DiLucia v. Mandelker, 493 N.Y.S.2d 769 (App. Div. 1985). (reporter conveys jurisdiction)',
+      'Bates v. Tappan, 99 Mass. 376 (1868). (highest court, reporter = jurisdiction)',
+      'Schiffman v. Corsi, 50 N.Y.S.2d 897 (Sup. Ct. N.Y. Cnty. 1944). (county relevant)',
+    ],
+    references: ['R. 10.4', 'T1'],
   },
   'R. 10.5': {
-    title: 'Date/Year',
-    explanation: 'Provide the year of decision in a parenthetical after the reporter citation. For unreported and electronic database cases, include the full date.',
+    title: 'Date or Year',
+    explanation:
+      'The date or year of decision appears in the parenthetical at the end of the citation. ' +
+      'For reported decisions, provide the year (R. 10.5(a)). For unreported, electronic database, looseleaf, slip opinion, or newspaper cases, provide the full date (R. 10.5(b)). ' +
+      'For pending cases, use the date of the most recent major disposition (R. 10.5(c)). ' +
+      'When multiple decisions occur in the same year, include the year only with the last-cited decision in that year (R. 10.5(d)).',
+    references: ['R. 10.5(a)', 'R. 10.5(b)', 'R. 10.5(c)', 'R. 10.5(d)'],
+  },
+  'R. 10.5(a)': {
+    title: 'Year for Reported Decisions',
+    explanation:
+      'If possible, provide the year of decision; use the year of the term of court only if the year of decision is unavailable. ' +
+      'In ambiguous cases, follow the year given in the running head of the reporter. ' +
+      'The exact date is not necessary for cases labeled "unpublished" but nevertheless reported (e.g., in the Federal Appendix).',
+    examples: [
+      'United States v. Tando, 68 F. App\'x 85 (9th Cir. 2003).',
+    ],
   },
   'R. 10.5(b)': {
-    title: 'Full Date for Electronic Sources',
-    explanation: 'Cases cited to electronic databases (Westlaw, LEXIS) or unreported cases must include the full date of decision (e.g., "Jan. 15, 2023").',
+    title: 'Full Date for Unreported/Electronic Sources',
+    explanation:
+      'Give the exact date for all unreported cases and for all cases cited to a looseleaf service, a slip opinion, an electronic database, or a newspaper.',
+    examples: [
+      'Bedell v. Nessim, No. 90-567, slip op. 3458 (1st Cir. Jan. 19, 1991).',
+    ],
+    references: ['R. 10.8.1'],
+  },
+  'R. 10.5(c)': {
+    title: 'Pending Cases and Dismissals Without Opinion',
+    explanation:
+      'Use the date or year of the most recent major disposition. "Major dispositions" include: initial filing, appeal docketing, oral argument, and dismissal. ' +
+      'Indicate the significance of the date within the parenthetical unless explained elsewhere.',
+    examples: [
+      'Bedell v. Nessim, No. 90-567 (1st Cir. argued Jan. 10, 1991).',
+      'Bedell v. Nessim, 725 F. Supp. 1407 (D. Mass. 1990), appeal docketed, No. 90-567 (1st Cir. Dec. 20, 1990).',
+    ],
+  },
+  'R. 10.5(d)': {
+    title: 'Multiple Decisions Within a Single Year',
+    explanation:
+      'When citing a case with several decisions in the same year, include the year only with the last-cited decision in that year. ' +
+      'However, if an exact date is required in either citation, include both dates.',
+    examples: [
+      'United States v. Eller, 114 F. Supp. 284 (M.D.N.C.), rev\'d, 208 F.2d 716 (4th Cir. 1953).',
+    ],
+  },
+  'R. 10.6': {
+    title: 'Parenthetical Information Regarding Cases',
+    explanation:
+      'Parenthetical information may be added after the date parenthetical to indicate the weight of authority (R. 10.6.1), ' +
+      'in-chambers opinions (R. 10.6.2), quoting/citing parentheticals (R. 10.6.3), and explanatory parentheticals (R. 1.5). ' +
+      'Parentheticals are placed in this order: (i) weight of authority; (ii) quoting/citing; (iii) explanatory (R. 10.6.4).',
+    references: ['R. 10.6.1', 'R. 10.6.2', 'R. 10.6.3', 'R. 10.6.4', 'R. 1.5'],
+  },
+  'R. 10.6.1': {
+    title: 'Weight of Authority',
+    explanation:
+      '(a) Generally: Add parenthetical information about the weight of authority (e.g., en banc, per curiam, mem., 5-4 decision, dissenting opinion, plurality opinion) ' +
+      'following the date parenthetical. When a case is cited for a proposition that is not the single, clear holding of a majority, indicate that fact parenthetically.\n\n' +
+      '(b) "Mem." and "per curiam": "mem." = disposition without opinion. "Per curiam" = opinion issued by the court as an institution, not a particular judge. ' +
+      'District court opinions denominated "memorandum decision" are NOT designated "mem."\n\n' +
+      '(c) Seriatim opinions: For early SCOTUS opinions where each Justice wrote separately, use "(opinion of Lastname, J.)".',
+    examples: [
+      'Webb v. Baxter Healthcare Corp., 57 F.3d 1067 (4th Cir. 1995) (unpublished table decision).',
+      'Parker v. Randolph, 442 U.S. 62, 84 (1979) (Stevens, J., dissenting).',
+      'Garcia v. San Antonio Metro. Transit Auth., 469 U.S. 528, 570 (1985) (5-4 decision) (Powell, J., dissenting).',
+      'Wersba v. Seiler, 393 F.2d 937 (3d Cir. 1968) (per curiam).',
+    ],
+    references: ['R. 10.6', 'R. 1.5', 'T8'],
+  },
+  'R. 10.6.2': {
+    title: 'In-Chambers Opinions',
+    explanation:
+      'When a Supreme Court Justice rules on a stay, bail, or injunction application "in-chambers," include the parenthetical "(Lastname, J., in chambers)." ' +
+      'Pre-1969 in-chambers opinions not in U.S. Reports may be cited to Rapp\'s compilation. Since 1969, these opinions appear in the U.S. Reports.',
+    examples: [
+      'Maryland v. King, 567 U.S. 1301 (2012) (Roberts, C.J., in chambers).',
+      'Sacco v. Massachusetts, 1 Rapp 16 (1927) (Holmes, J., in chambers).',
+    ],
+    references: ['R. 10.6.1'],
+  },
+  'R. 10.6.3': {
+    title: 'Quoting/Citing Parentheticals in Case Citations',
+    explanation:
+      'When a cited case itself quotes or cites another case for the relevant point, a "quoting" or "citing" parenthetical is appropriate per R. 1.5(a). ' +
+      'Within the parenthetical, the same rules for typeface, pincites, and short forms apply. ' +
+      'Only one level of recursion is required — an additional level may be used if particularly relevant.',
+    examples: [
+      'Zadvydas v. Davis, 533 U.S. 678, 719 (2001) (Kennedy, J., dissenting) (citing Shaughnessy v. United States ex rel. Mezei, 345 U.S. 206 (1953)).',
+    ],
+    references: ['R. 1.5(a)', 'R. 10.6.4'],
+  },
+  'R. 10.6.4': {
+    title: 'Order of Parentheticals',
+    explanation:
+      'Parenthetical phrases are placed in this order: (i) weight of authority parentheticals; (ii) "quoting" and "citing" parentheticals; (iii) explanatory parentheticals. ' +
+      'If an explanatory parenthetical itself requires a quoting/citing parenthetical, the two should be nested.',
+    examples: [
+      'Wolf v. Colorado, 338 U.S. 25, 47 (1949) (Rutledge, J., dissenting) (rejecting the Court\'s conception), aff\'g, 187 P.2d 926 (Colo. 1947), overruled by, Mapp v. Ohio, 367 U.S. 643 (1961).',
+      'Kansas v. Crane, 534 U.S. 407, 409 (2002) ("[T]he statutory criterion ... satisfied \'"substantive" due process requirements.\'" (quoting Kansas v. Hendricks, 521 U.S. 346, 356 (1997))).',
+    ],
+    references: ['R. 1.5(b)', 'R. 10.6.1', 'R. 10.6.3'],
+  },
+  'R. 10.7': {
+    title: 'Prior and Subsequent History',
+    explanation:
+      'Whenever a decision is cited in full, give the entire subsequent history, but omit:\n' +
+      '• Denials of certiorari (unless < 2 years old or particularly relevant)\n' +
+      '• History on remand or denial of rehearing (unless relevant)\n' +
+      '• Dispositions withdrawn by the deciding authority\n\n' +
+      'Give prior history only if significant to the cited point or if the cited disposition does not intelligibly describe the issues. ' +
+      'Note cases that have been overruled, abrogated, or superseded by statute (R. 10.7.1(c)). ' +
+      'When the case name differs in history, use "sub nom." (R. 10.7.2).',
+    examples: [
+      'Cent. Ill. Pub. Serv. Co. v. Westervelt, 342 N.E.2d 463 (Ill. App. Ct. 1976), aff\'d, 367 N.E.2d 661 (Ill. 1977).',
+      'Cheng v. GAF Corp., 631 F.2d 1052 (2d Cir. 1980), vacated, 450 U.S. 903 (1981).',
+    ],
+    references: ['R. 10.7.1', 'R. 10.7.2', 'T8'],
+  },
+  'R. 10.7.1': {
+    title: 'Explanatory Phrases and Weight of Authority',
+    explanation:
+      '(a) Prior or subsequent history: Append with italicized explanatory phrases between each citation (see T8). If subsequent history itself has subsequent history, append further. Show prior history first when both are given.\n\n' +
+      '(b) Significance of disposition: Give the reason if the disposition does not carry normal significance (e.g., "vacated as moot," "appeal dismissed per stipulation").\n\n' +
+      '(c) Overruled/abrogated/superseded: Use "overruled by," for explicit repudiation by the same court; "abrogated by," for effective (non-explicit) overruling; ' +
+      '"superseded by statute" when a statute was enacted to reverse the outcome, citing session laws per R. 12.4.\n\n' +
+      '(d) Slave cases: Use "(enslaved party)" or "(enslaved person at issue)" parentheticals as appropriate.\n\n' +
+      '(e) Multiple dispositions: Connect with italicized "and."',
+    examples: [
+      'Cooper v. Dupnik, 924 F.2d 1520, 1530 (9th Cir. 1991), rev\'d en banc, 963 F.2d 1220 (9th Cir. 1992).',
+      'Herbert v. Lando, 73 F.R.D. 387 (S.D.N.Y.), rev\'d, 568 F.2d 974 (2d Cir. 1977), rev\'d, 441 U.S. 153 (1979).',
+      'Nat\'l League of Cities v. Usery, 426 U.S. 833 (1976), overruled by, Garcia v. San Antonio Metro. Transit Auth., 469 U.S. 528 (1985).',
+      'Dred Scott v. Sandford, 60 U.S. (19 How.) 393 (1857) (enslaved party), superseded by constitutional amendment, U.S. Const. amend. XIV.',
+    ],
+    references: ['T8', 'R. 10.7', 'R. 12.4'],
+  },
+  'R. 10.7.2': {
+    title: 'Different Case Name on Appeal',
+    explanation:
+      '(a) Subsequent history name changes: When the case name differs, introduce the new name with "sub nom.":\n\n' +
+      '(b) Prior history name changes: Use a similar form.\n\n' +
+      '(c) Exceptions — do not provide a different name: (i) when parties\' names are merely reversed; (ii) denial of cert/rehearing; ' +
+      '(iii) when in an administrative appeal the private party remains the same; (iv) when the change is merely stylistic.',
+    examples: [
+      'Great W. United Corp. v. Kidwell, 577 F.2d 1256 (5th Cir. 1978), rev\'d sub nom., Leroy v. Great W. United Corp., 443 U.S. 173 (1979).',
+      'United Dairy Farmers Coop. Ass\'n, 194 NLRB 1094, enforced, 465 F.2d 1401 (3d Cir. 1972). (no sub nom. — private party same)',
+    ],
+    references: ['R. 10.7'],
+  },
+  'R. 10.8': {
+    title: 'Special Citation Forms',
+    explanation:
+      'R. 10.8 covers special citation forms for pending and unreported cases (R. 10.8.1), Fifth Circuit split cases (R. 10.8.2), ' +
+      'briefs, court filings, and transcripts (R. 10.8.3), and court administrative orders (R. 10.8.4).',
+    references: ['R. 10.8.1', 'R. 10.8.2', 'R. 10.8.3', 'R. 10.8.4'],
+  },
+  'R. 10.8.1': {
+    title: 'Pending and Unreported Cases',
+    explanation:
+      '(a) Electronic media: Provide case name, docket number, database identifier (WL/LEXIS/BL), court, and full date. ' +
+      'Screen/page numbers are preceded by asterisk; paragraph numbers by ¶.\n\n' +
+      '(b) Slip opinions: Give docket number, court, and full date. Use "slip op. at [page]" for pagination. Always give the full docket number.\n\n' +
+      '(c) Other: Cite to services (R. 19), periodicals (R. 16), or internet (R. 18.2.2).\n\n' +
+      '(d) Depublished cases: Indicate "(depublished)" parenthetically or as subsequent history if there is a reported order.',
+    examples: [
+      'Int\'l Snowmobile Mfrs. Ass\'n v. Norton, No. 00-CV-229-B, 2004 WL 2337372, at *3 (D. Wyo. Oct. 14, 2004).',
+      'Gibbs v. Frank, No. 02-3924, 2004 U.S. App. LEXIS 21357, at *18–19 (3d Cir. Oct. 14, 2004).',
+      'Groucho Marx Prods. v. Playboy Enters., No. 77 Civ. 1782 (S.D.N.Y. Dec. 30, 1977).',
+      'Ross v. Weissman, No. 90-345, slip op. at 6 (D. Mass. Dec. 4, 1990).',
+      'Mitchell v. Cal. Fair Plan Ass\'n, 260 Cal. Rptr. 3 (Ct. App. 1989) (depublished).',
+    ],
+    references: ['R. 18.4', 'R. 19', 'R. 16', 'R. 18.2.2'],
+  },
+  'R. 10.8.2': {
+    title: 'Fifth Circuit Split',
+    explanation:
+      'On October 1, 1981, the Fifth Circuit was divided into the new Fifth and Eleventh Circuits. ' +
+      'Cite 1981 decisions labeled "5th Cir." by month; give unit information when available; ' +
+      'designate nonunit judgments as "Former 5th Cir." if rendered after September 30, 1981.',
+    examples: [
+      'Birl v. Estelle, 660 F.2d 592 (5th Cir. Nov. 1981).',
+      'Haitian Refugee Ctr. v. Smith, 676 F.2d 1023 (5th Cir. Unit B 1982).',
+      'McCormick v. United States, 680 F.2d 345 (Former 5th Cir. 1982).',
+    ],
+  },
+  'R. 10.8.3': {
+    title: 'Briefs, Court Filings, and Transcripts',
+    explanation:
+      'Cite with: full document name (abbreviated per R. 10.2.1(c)), pinpoint citation, full case citation, and docket number. ' +
+      'If no decision rendered, date = filing date. The PACER document number may be included but is not required unless essential.\n\n' +
+      'For amicus briefs with more than two signatories, "et al." may be used. ' +
+      'Audio recordings use time markers for pincites. ' +
+      'Court documents count as a citation to the case for R. 10.9 short form purposes. ' +
+      'The document itself may use supra form (unlike the case), but this does not count for the five-footnote rule.',
+    examples: [
+      'Complaint at 17, Kelly v. Wyman, 294 F. Supp. 893 (S.D.N.Y. 1968) (No. 68 Civ. 394).',
+      'Brief for Petitioner-Appellant at 48, United States v. Al-Marri, No. 03-3674 (7th Cir. Nov. 12, 2003).',
+      'Transcript of Oral Argument at 11, Ayers v. Belmontes, 127 S. Ct. 469 (2006) (No. 05-493).',
+      'Brief for Ringling Bros.-Barnum & Bailey Combined Shows, Inc. et al. as Amici Curiae, Moseley v. V Secret Catalogue, Inc., 537 U.S. 418 (2003) (No. 01-1015).',
+    ],
+    references: ['R. 10.2.1(c)', 'R. 10.9', 'R. 4.2(b)'],
+  },
+  'R. 10.8.4': {
+    title: 'Court Administrative Orders',
+    explanation: 'Cite the official reporter, if therein; give the title of the order, if any.',
+    examples: ['Order Discharging the Advisory Comm., 352 U.S. 803 (1956).'],
   },
   'R. 10.9': {
     title: 'Short Form Case Citations',
-    explanation: 'After a full citation, subsequent references may use a short form: "[Party], [Vol] [Rep] at [Page]." The short form must be used within 5 citations of the full citation.',
+    explanation:
+      'After a full citation, subsequent references may use a short form if it clearly identifies a case already cited in the same footnote ' +
+      'or in one of the preceding five footnotes (R. 10.9(a)). Acceptable short forms include: both parties, one party, volume/reporter only, or "id." ' +
+      'Use only one party\'s name if unambiguous; avoid using government units, officials, or common litigants as the short name. ' +
+      'For electronic database cases, include the unique database identifier in the short form. ' +
+      'For slip opinions, use "[Party], slip op. at [page]." ' +
+      'When citing the entire decision (not a pinpoint), include the case name, volume, reporter, and first page — but no date parenthetical.',
+    examples: [
+      'Youngstown Sheet & Tube Co. v. Sawyer, 343 U.S. at 585.',
+      'Youngstown, 343 U.S. at 585.',
+      '343 U.S. at 585.',
+      'Id. at 585.',
+      'Clark, 1991 WL 55402, at *3. (electronic database short form)',
+      'Sam, slip op. at 12. (slip opinion short form)',
+    ],
+    references: ['R. 10.9(a)', 'R. 10.9(b)', 'R. 10.9(c)', 'R. 4.1'],
+  },
+  'R. 10.9(a)': {
+    title: 'Short Forms in Footnotes',
+    explanation:
+      'A short form may be used if the case is (1) already cited in the same footnote or (2) cited in one of the preceding five footnotes. ' +
+      'Otherwise, a full citation is required. When using only one party\'s name, avoid government units, officials, or common litigants. ' +
+      'A case may be cited in short form by a different name if the full citation includes both versions per R. 10.2.1(k). ' +
+      'For electronic database cases, use the unique database identifier. For slip opinions, use "slip op. at [page]."',
+    examples: [
+      'Martinez-Fuerte, 428 U.S. at 550.',
+      'The Steel Seizure Case, 343 U.S. at 585.',
+      'Bossier Parish Sch. Bd., 520 U.S. at 480. (not Reno, 520 U.S. at 480)',
+      'Clark, 1991 WL 55402, at *3.',
+    ],
+    references: ['R. 10.2.1(k)', 'R. 10.8.1'],
+  },
+  'R. 10.9(b)': {
+    title: 'Exceptions When Using "Id." for Cases',
+    explanation:
+      '(i) Different opinions: When "id." refers to the same case but a different opinion, indicate parenthetically (e.g., "(Jackson, J., concurring)"). ' +
+      'After an intervening citation, the next case citation is presumed to be the majority opinion.\n\n' +
+      '(ii) Parallel citations: For cases requiring parallel citations, the "id." form must include both reporters to avoid confusion.',
+    examples: [
+      'Id. at 635 (Jackson, J., concurring).',
+      'Id. at 582 (majority opinion).',
+      'Id. at 465, 233 A.2d at 563. (parallel citation id. form)',
+    ],
+    references: ['R. 4.1', 'R. 10.9'],
+  },
+  'R. 10.9(c)': {
+    title: 'Short Form in Text',
+    explanation:
+      'A case that has been cited in full in the same general discussion may be referred to in main text or footnote text by one of the parties\' names without further citation.',
+    examples: ['The issue presented in Bakke has not been fully resolved.'],
+    references: ['R. 10.9'],
   },
   'B8': {
     title: 'Capitalization in Court Documents',
@@ -424,6 +1359,7 @@ export const RULE_EXPLANATIONS: Record<string, { title: string; explanation: str
       'U.S. Const. amend. XVIII, repealed by, U.S. Const. amend. XXI.',
       'Wash. Const. art. I, § 2 (West, Westlaw through Nov. 2024 amendments).',
     ],
+    references: ['R. 20.4', 'R. 22.2.1', 'T10', 'T16'],
   },
   'B13': {
     title: 'Legislative Materials — Bluepages',
@@ -1654,17 +2590,38 @@ export const RULE_EXPLANATIONS: Record<string, { title: string; explanation: str
   'R. 19': {
     title: 'Services',
     explanation:
-      'Services are topical compilations (looseleaf or bound) of cases, administrative materials, and commentary.\n\n' +
-      'R. 19.1 — Citation form: volume + abbreviated title (roman type) + publisher in parentheses + subdivision + date. Consult T15 for abbreviations. For cases, include abbreviated court name in the date parenthetical.\n' +
-      '(a) Volume: number, year, or descriptive subtitle (use brackets for years/words).\n' +
-      '(b) Publisher: required for every citation; abbreviate per T15 or R. 15.1(e).\n' +
-      '(c) Subdivision: paragraph/section number preferred; page number otherwise.\n' +
-      '(d) Date: exact date for looseleaf cases; year for bound. Statutes/regulations: date of enactment unless indicated elsewhere.\n\n' +
-      'R. 19.2 — Short citation forms: standard "id." and "supra" forms.',
+      'Cases, administrative materials, and brief commentaries are often published unofficially in topical compilations called "services," ' +
+      'which appear in looseleaf form initially and are sometimes published later as bound volumes. ' +
+      'R. 19.1 provides rules for citing services. R. 19.2 covers short citation forms.',
+    references: ['R. 19.1', 'R. 19.2', 'T15'],
+  },
+  'R. 19.1': {
+    title: 'Citation Form for Services',
+    explanation:
+      'Cite services by: volume + abbreviated title (roman type) + publisher in parentheses + subdivision + date. Consult T15 for service and publisher abbreviations; if not listed, use T6.\n\n' +
+      '(a) Volume: may be a number, year, descriptive subtitle, or combination. Use brackets for years/words to avoid confusion. Transfer binders: indicate years of material.\n' +
+      '(b) Publisher: required for every citation, enclosed in parentheses after the title. Abbreviate per T15 or R. 15.1(e).\n' +
+      '(c) Subdivision: cite by ¶ or § if possible, otherwise by page. A report number may be given if helpful.\n' +
+      '(d) Date: exact date for looseleaf cases; year for bound. Statutes/regulations: date of enactment unless indicated elsewhere.',
     examples: [
       'In re Smithfield Ests., Inc., [1985–1986 Transfer Binder] Bankr. L. Rep. (CCH) ¶ 70,707 (Bankr. D.R.I. Aug. 9, 1985).',
       'SEC v. Tex. Int\'l Airlines, 29 Fed. R. Serv. 2d (West) 408 (D.D.C. 1979).',
+      'Kovacs v. Comm\'r, 74 A.F.T.R.2d (RIA) 354 (6th Cir. 1994).',
+      '4 Lab. L. Rep. (CCH) ¶ 9046.',
     ],
+    references: ['T15', 'T6', 'R. 3.1', 'R. 3.2', 'R. 10.4', 'R. 10.5'],
+  },
+  'R. 19.2': {
+    title: 'Short Citation Forms — Services',
+    explanation:
+      '(a) Cases: use short forms per R. 10.9. Include the complete volume designation for the service binder and substitute ¶ or § numbers for page numbers where appropriate. ' +
+      'To cite the entire case in short form, give the ¶/§ number or first page number without "at."\n\n' +
+      '(b) Other materials: follow the relevant short citation rules (statutes per R. 12.10, regulations per R. 14.6, etc.).',
+    examples: [
+      'In re Looney, [1987–1989 Transfer Binder] Bankr. L. Rep. (CCH) at 93,591.',
+      'Defs. of Wildlife, [1982] 12 Envtl. L. Rep. (Envtl. Law Inst.) at 20,212.',
+    ],
+    references: ['R. 10.9'],
   },
   'R. 17.1': {
     title: 'Basic Citation Forms — Unpublished Sources',
@@ -1725,18 +2682,41 @@ export const RULE_EXPLANATIONS: Record<string, { title: string; explanation: str
   'R. 20': {
     title: 'Foreign Materials',
     explanation:
-      'Table T2 is the primary source for citing foreign materials. For sources not in T2, follow the country\'s own citation rules as modified by R. 20.\n\n' +
-      'R. 20.1 — Jurisdiction: always indicate the jurisdiction parenthetically (abbreviated per T10) at the end of the citation, before any parallel citations.\n' +
-      'R. 20.2 — Non-English documents: see R. 20.2.1 (translation) and R. 20.2.2 (transliteration/romanization).\n' +
-      'R. 20.3 — Cases: follow the jurisdiction\'s citation conventions per T2.\n' +
-      'R. 20.4 — Constitutions: cite per T2; for constitutions not in T2, cite analogously to R. 11.\n' +
-      'R. 20.5 — Statutes: cite per T2.\n' +
-      'R. 20.6 — Foreign periodicals: cite per R. 16 with appropriate modifications.\n' +
-      'R. 20.7 — Short citation forms: use standard short forms.',
+      'Table T2 is the primary source for citing foreign materials. For sources not in T2, follow the country\'s own citation rules as modified by R. 20.',
     examples: [
       'Chase v. Campbell, [1962] S.C.R. 425 (Can.).',
       'Berry v. Dorsey (1975) 101 ALR 35 (Austl.).',
     ],
+    references: ['R. 20.1', 'R. 20.2', 'R. 20.3', 'R. 20.4', 'R. 20.5', 'R. 20.6', 'R. 20.7', 'T2'],
+  },
+  'R. 20.1': {
+    title: 'Jurisdiction',
+    explanation:
+      'When citing any non-U.S. source, indicate parenthetically the jurisdiction issuing the source, abbreviated per T10. ' +
+      'The parenthetical is located at the end of the citation but before any parallel citations, unless otherwise indicated in T2.',
+    examples: [
+      'Chase v. Campbell, [1962] S.C.R. 425 (Can.).',
+      'Berry v. Dorsey (1975) 101 ALR 35 (Austl.).',
+      'Canada Act, 1982, c 11 (U.K.), reprinted in R.S.C. 1985, app II, no 44 (Can.).',
+    ],
+    references: ['T10', 'T2'],
+  },
+  'R. 20.2': {
+    title: 'Non-English-Language Documents',
+    explanation:
+      'R. 20.2.1 — Multiple languages: cite the most authoritative version; prefer English when equally authoritative.\n\n' +
+      'R. 20.2.2 — Titles in other languages:\n' +
+      '(a) Give the full title in the original language first, followed by brackets with the English translation in the same typeface.\n' +
+      '(b) Capitalize names/titles as they appear on the page; capitalize translations per R. 8.\n\n' +
+      'R. 20.2.3 — Abbreviations: give the full form the first time, with the abbreviation in brackets. Thereafter use the abbreviated form.\n\n' +
+      'R. 20.2.4 — Non-Roman alphabets: cite in the original language, followed by bracketed English translation. For personal names: use transliteration. For locations: use transliteration. For institutional authors: use translation (but transliterate proper nouns within).\n\n' +
+      'R. 20.2.5 — Translations: cite the original source per R. 20/21, then a parallel citation to the translation introduced by "translated in."',
+    examples: [
+      'Verdrag tot het Vermijden van Dubbele Belasting [Agreement for the Avoidance of Double Taxation]',
+      'Bürgerliches Gesetzbuch [BGB] [Civil Code] art. 13 (Ger.).',
+      'Ley Federal de Derechos de Autor [LFDA], DOF 21-12-1963 (Mex.), translated in Copyright Laws and Treaties of the World 521 (UNESCO et al. eds., 1992).',
+    ],
+    references: ['R. 8', 'R. 1.6(a)', 'R. 20.2.1', 'R. 20.2.2', 'R. 20.2.3', 'R. 20.2.4', 'R. 20.2.5'],
   },
   'R. 20.3': {
     title: 'Foreign Cases',
@@ -2065,21 +3045,38 @@ export const RULE_EXPLANATIONS: Record<string, { title: string; explanation: str
   'R. 22': {
     title: 'Tribal Nations',
     explanation:
-      'R. 22 provides guidelines for citing materials produced by Tribal Nations. When filing with Tribal courts that have their own citation conventions, follow Tribal citation conventions.\n\n' +
-      'R. 22.1 — Tribal Nations with established citation format: use the Tribal Nation\'s format as the primary citation, with a parallel citation in square brackets per R. 22.2.\n\n' +
-      'R. 22.2 — Tribal Nations without established format:\n' +
-      '22.2.1 — Constitutions: "Const. of the [Tribal Nation]" + art./§. Do not abbreviate Tribal Nation names. Amendments: indicate parenthetically. Superseded: cite by year of adoption.\n' +
-      '22.2.2 — Codes: (1) title/chapter number; (2) full code name (Tribal language if applicable + [English]); (3) § number; (4) year; (5) URL. Do not abbreviate code or Tribal Nation names. Subject-matter codes: include subject name.\n' +
-      '22.2.3 — Orders/Ordinances/Resolutions: (1) name; (2) number; (3) year; (4) (Tribal Council/body); (5) (Tribal Nation if not evident). Resolutions enacting code: add parenthetical. Special types: identify classification.\n' +
-      '22.2.4 — Cases: (1) case name (don\'t abbreviate Tribal parties); (2) tribal reporter if available; (3) docket number; (4) (court, date); (5) URL or database; (6) subsequent history. Cite internet source primarily, with optional parallel reporter.\n' +
-      '22.2.5 — Treaties: cite per R. 21.4.\n\n' +
-      'R. 22.3 — Short citation form: use standard short forms.',
+      'R. 22 provides guidelines for citing official materials produced by Tribal Nations within the United States. ' +
+      'When filing with Tribal governments and Tribal courts that have their own citation conventions, follow Tribal citation conventions.\n\n' +
+      'For a list of federally recognized Tribal Nations, consult the Department of the Interior or the Federal Register. For Tribal Nation listings, see Table T1.5.',
+    references: ['R. 22.1', 'R. 22.2', 'R. 22.3', 'T1.5'],
+  },
+  'R. 22.1': {
+    title: 'Tribal Nations with an Established Citation Format',
+    explanation:
+      'When citing legal materials from a Tribal Nation with an established citation format, use the Tribal Nation\'s format as the primary citation. ' +
+      'Provide a parallel citation in square brackets according to R. 22.2. If the tribe does not specify its own method, use R. 22.2.',
+    examples: [
+      'Section 1, SNI Constitution of 1848 (amended 1993), [Const. of the Seneca Nation of Indians of 1848, § 1, (amended 1993)].',
+    ],
+    references: ['R. 22.2'],
+  },
+  'R. 22.2': {
+    title: 'Tribal Nations Without an Established Citation Format',
+    explanation:
+      '22.2.1 — Constitutions: "Const. of the [Tribal Nation]" + art./§. Do not abbreviate Tribal Nation names. URL may be included. Amendments: indicate parenthetically. Superseded: cite by year of adoption.\n\n' +
+      '22.2.2 — Codes: (1) title/chapter number; (2) full code name (Tribal language with [English] if applicable); (3) § number; (4) year; (5) URL. Do not abbreviate names. Subject-matter codes per R. 12.3.1(c).\n\n' +
+      '22.2.3 — Orders/Ordinances/Resolutions: (1) name; (2) number; (3) year; (4) (Tribal Council/body + alternative names); (5) (Tribal Nation if not evident). Resolutions enacting code: add parenthetical.\n\n' +
+      '22.2.4 — Cases: (1) case name per R. 10.2 (don\'t abbreviate Tribal parties); (2) tribal reporter if available; (3) docket number; (4) (court, full date); (5) parentheticals per R. 10.6; (6) URL or database; (7) subsequent history per R. 10.7. Cite internet source primarily.\n\n' +
+      '22.2.5 — Treaties: cite per R. 21.4.',
     examples: [
       'Const. of the Comanche Nation art. II, § 1.',
+      'Yurok Tribe Const. pmbl., https://yurok.tribal.codes/Constitution/Preamble.',
       'Pueblo de San Ildefonso Code § 4.1.1.010 (2023).',
+      'Waganakising Odawak [Little Traverse Bay Bands of Odawa Indians] Tribal Code of Law § 13.101 (2023).',
       'Healing to Wellness Court, Res. No. 023-22 (2022) (Stockbridge-Munsee Tribal Council).',
       'The People of the Pokagon Band of Potawatomi Indians v. Edelberg, No. 18-4723-CR (Pokagon Band of Potawatomi Indians Tribal Ct. Jan. 18, 2019).',
     ],
+    references: ['R. 10.2', 'R. 10.6', 'R. 10.7', 'R. 12.3.1', 'R. 21.4', 'T16'],
   },
   'R. 20.7': {
     title: 'Short Citation Forms — Foreign Materials',
@@ -2102,33 +3099,1124 @@ export const RULE_EXPLANATIONS: Record<string, { title: string; explanation: str
   'R. 23': {
     title: 'Archival Sources',
     explanation:
-      'R. 23 covers citations to documents and objects housed in archival collections.\n\n' +
-      'R. 23.1 — Basic form: author + title + institutional affiliation + pincite + (date) + (on file with [archive owner], [collection], [location]).\n\n' +
-      'R. 23.2 — Author: (a) signed materials: per R. 15.1 in roman type. (b) Unsigned: omit author. (c) Pen names: per R. 15.1(d). (d) Letters/memos: per R. 17.2.3.\n\n' +
-      'R. 23.3 — Title: (a) full title as on first page, capitalized per R. 8, roman type. (b) No title: use objective descriptors. (c) Letters/memos: per R. 17.2.3.\n\n' +
-      'R. 23.4 — Institutional affiliation: add when document was prepared for an institution but archived elsewhere. Abbreviate per T6, T7, T10, T13.\n\n' +
-      'R. 23.5 — Date: use date printed/signed. Undated: "(n.d.)". Approximate: "(c. [year])".\n\n' +
-      'R. 23.6 — Archival information (on file with parenthetical):\n' +
-      '(a) Archive owner: main overseeing institution.\n' +
-      '(b) Collection: principal archive name + subcollection, largest to smallest.\n' +
-      '(c) Location: box/folder/reel/record group; most specific available.\n\n' +
-      'R. 23.7 — Case materials:\n' +
-      '23.7.1 — Justices\' papers: retain "Justice" honorific. Law clerks: include position + court. Case info: include case name + docket number.\n' +
-      '23.7.2 — Other courts: (a) admin proceedings: title + exhibit + agency + case number. (b) Other courts: use usual case citation.\n\n' +
-      'R. 23.8 — Pre-1900 newspapers: cite per R. 16.6 + archival parenthetical. Online-only databases: use URL for archival location.\n\n' +
-      'R. 23.9 — Databases reprinting primary sources: cite with "reprinted by" + database owner + database name + URL.\n\n' +
-      'R. 23.10 — Handwritten/typewritten documents:\n' +
-      '(a) Typeface: roman type default. Cursive emphasis: italics.\n' +
-      '(b) Deletions: omit without parenthetical or use strikethrough. Isolated quotes: "(strikethrough omitted).".\n' +
-      '(c) Unintelligible: use ellipses + "(unintelligible text omitted).".\n\n' +
-      'R. 23.11 — Tangible objects: cite like archival documents, omitting author. Use object creation date. Use archive\'s title; shorten if needed. Add object nature (photograph, painting) if not clear.',
+      'R. 23 covers citations to documents and objects housed in archival collections. The citation has a two-part structure:\n\n' +
+      'First half (the document): Author → optional title → document title → institutional affiliation → pincite → date.\n' +
+      'Second half (archival info): "(on file with [archive owner], [collection], [location])"\n\n' +
+      'Scope: Use R. 23 (not R. 17) when the document is in an organized, official archive. Published materials generally fall under R. 15. Exception: originally unpublished texts reprinted in digital archives → R. 23.9. Physical objects → R. 23.11. Pre-1900 newspapers → R. 23.8.',
+    references: ['R. 23.1', 'R. 23.2', 'R. 23.3', 'R. 23.4', 'R. 23.5', 'R. 23.6', 'R. 23.7', 'R. 23.8', 'R. 23.9', 'R. 23.10', 'R. 23.11', 'R. 23.12'],
+  },
+  'R. 23.1': {
+    title: 'Basic Citation Forms',
+    explanation:
+      'The basic archival citation: [Author], [Title (optional)], [Document Title], [Institutional Association] [Pincite] ([Date]) (on file with [Archive Owner], [Archival Collection], [Archival Location]).',
     examples: [
       'Jordan A. Kei-Rahn, Law Clerk, Redacted Report on Jurisdiction Stripping in FTCA Claims, Dep\'t of Just. 143 (July 7, 2022) (on file with Yale L.J., Managing Editor Records, Box 7, Folder 34).',
       'Letter from Maria Nichols to Oliver Otis Howard (Oct. 11, 1866) (on file with Nat\'l Archives, Records of the Bureau of Refugees, Record Group 105.5).',
-      'Thomas Jefferson, Ice Cream Recipe (n.d.) (on file with Libr. of Cong., Thomas Jefferson Papers, Series I, Microfilm Reel 056).',
+      'Justice Harry A. Blackmun, Case Notes, Fitzpatrick v. Bitzer, No. 75-251 (Apr. 16, 1976) (on file with Libr. of Cong., Harry A. Blackmun Papers, Box 229, Folder 7).',
       'Alexander Hamilton, Report on the Subject of Manufactures (Dec. 5, 1791), reprinted by Nat\'l Archives: Founders Online, https://founders.archives.gov/...',
-      'Death Mask of Napolean Bonaparte (1833) (on file with Brown Univ., John Hay Library, Hoffman Collection on Napolean).',
     ],
+    references: ['R. 23.2', 'R. 23.3', 'R. 23.4', 'R. 23.5', 'R. 23.6'],
+  },
+  'R. 23.2': {
+    title: 'Author',
+    explanation:
+      '(a) Signed materials: follow R. 15.1 in ordinary roman type.\n' +
+      '(b) Author unavailable: omit if not contemporaneously signed. Exception: if verifiably attributed per R. 15.1(d).\n' +
+      '(c) Pen names: per R. 15.1(d).\n' +
+      '(d) Letters/memoranda/press releases: format per R. 17.2.3.',
+    examples: [
+      'J. Harvie Wilkinson III, Law Clerk, U.S. Sup. Ct., Certiorari Memorandum 2, ... (on file with Wash. & Lee Univ. Sch. of L., Lewis F. Powell, Jr. Papers, Box 380, Folder 7).',
+      'Letter from William Prosser, Dean, Univ. of Cal., Berkley, Sch. of L., to Robert Hudec, Ed.-in-Chief, Yale L.J. (Apr. 27, 1960) (on file with Yale L.J., General Archives, Box 1, Folder 6).',
+    ],
+    references: ['R. 15.1', 'R. 15.1(d)', 'R. 17.2.3'],
+  },
+  'R. 23.3': {
+    title: 'Title',
+    explanation:
+      '(a) Full title as on the first page, capitalized per R. 8, in roman type. Do not abbreviate words or omit articles.\n' +
+      '(b) Title unavailable: use objective descriptors.\n' +
+      '(c) Letters/memos/press releases: format per R. 17.2.3.',
+    examples: [
+      'Ledger of Goods Sold in the General Store of Longmeadow, Massachusetts (1774) (on file with Longmeadow Town Archives, Record Group 5, Box 312).',
+    ],
+    references: ['R. 8', 'R. 17.2.3'],
+  },
+  'R. 23.4': {
+    title: 'Institutional Affiliation',
+    explanation:
+      'Add when the document was prepared for a particular institution but is not archived with that institution. Abbreviate per T6, T7, T10, T13. Do not omit "in" or "of." Does not apply to Justices\' papers (R. 23.7.1) or other courts\' papers (R. 23.7.2(b)).',
+    references: ['T6', 'T7', 'T10', 'T13', 'R. 23.7'],
+  },
+  'R. 23.5': {
+    title: 'Date',
+    explanation:
+      'Use the date printed or signed. Undated: "(n.d.)". Approximate: "(c. [year])". If the date is obscured or unintelligible, see R. 23.10(c).',
+    examples: ['(July 7, 2022)', '(n.d.)', '(c. Sep. 1862)'],
+    references: ['R. 23.10'],
+  },
+  'R. 23.6': {
+    title: 'Archival Information',
+    explanation:
+      'The "on file with" parenthetical has three components:\n' +
+      '(a) Archive owner: the main overseeing institution. If stored at a university, the university is the owner (not a specific library), unless they share a name.\n' +
+      '(b) Archival collection: principal archive name + subcollection(s), from largest to smallest, separated by commas.\n' +
+      '(c) Archival location: box/folder/reel/record group — the most specific available. Do not use call numbers unless it is the only categorization.',
+    examples: [
+      '(on file with Yale L.J., Managing Editor Records, Box 7, Folder 34)',
+      '(on file with Nat\'l Archives, Records of the Bureau of Refugees, Freedmen, and Abandoned Lands, Record Group 105.5)',
+    ],
+  },
+  'R. 23.7': {
+    title: 'Case Materials',
+    explanation:
+      '23.7.1 — Justices\' papers: retain "Justice" honorific. Law clerks: include position + court. Include case name + docket number. Omit reporter info unless docket number is unavailable.\n\n' +
+      '23.7.2 — Other courts:\n' +
+      '(a) Administrative proceedings: cite title + exhibit + agency tribunal + case number.\n' +
+      '(b) Other courts: use standard case citation per R. 10.4.',
+    examples: [
+      'Justice William Rehnquist, Third Draft Opinion 13, Edelman v. Jordan, No. 72-1410 (Jan. 17, 1974) (on file with Wash. & Lee Univ. Sch. of L., Lewis F. Powell, Jr. Papers, Box 399, Folders 1-3).',
+      'Judge Benjamin Cardozo, Case Notes, In re Adler, 173 N.E. 265 (N.Y. 1930) (on file with Harv. L. Sch. Libr., Benjamin N. Cardozo Papers, Box 1, Folder 5).',
+    ],
+    references: ['R. 10.4'],
+  },
+  'R. 23.8': {
+    title: 'Pre-1900 Newspapers',
+    explanation:
+      'For original images of pre-1900 newspapers in archival databases, cite per R. 16.6 + archival parenthetical. If the database is online-only, use the URL for archival location.',
+    examples: [
+      'News and Gossip from Washington, Springfield Wkly. Republican, Jan. 12, 1861, at 5 (on file with Libr. of Cong., Chronicling America, https://chroniclingamerica.loc.gov/...).',
+    ],
+    references: ['R. 16.6'],
+  },
+  'R. 23.9': {
+    title: 'Databases Reprinting Primary Sources',
+    explanation:
+      'When originally unpublished materials (covered by R. 17) that were published in hard-copy compilations are subsequently reprinted online, cite to the database. ' +
+      'Include in small capitals: database owner (abbreviated per R. 18.2.2(b)) + database name + URL. ' +
+      '"Reprinting" does not refer to databases displaying original images — those use standard archival format.',
+    examples: [
+      'Thomas Jefferson, Notes on British and American Alienage (c. 1783), reprinted by Nat\'l Archives: Founders Online, https://founders.archives.gov/...',
+    ],
+    references: ['R. 17', 'R. 18.2.2'],
+  },
+  'R. 23.10': {
+    title: 'Handwritten and Typewritten Documents',
+    explanation:
+      '(a) Typeface: roman type default. Cursive emphasis in original: use italics. Lined form responses: do not underline.\n' +
+      '(b) Deletions: omit crossed-out text without parenthetical when quoting. Use strikethrough in larger quotations. Isolated quotes of deleted text: "(strikethrough omitted)."\n' +
+      '(c) Unintelligible script: omit with ellipses per R. 5.3 and include "(unintelligible text omitted)."',
+    references: ['R. 5.3'],
+  },
+  'R. 23.11': {
+    title: 'Tangible Objects',
+    explanation:
+      'Cite like archival documents, omitting author. Use the object\'s creation date (not discovery/purchase/archival date). Default to the archive\'s title; shorten if unnecessarily long. ' +
+      'If the nature of the object is not clear, add it to the title (e.g., "Photograph of..."). Include the creator only if known and relevant.',
+    examples: [
+      'Death Mask of Napolean Bonaparte (1833) (on file with Brown Univ., John Hay Library, Hoffman Collection on Napolean).',
+      'Lincoln\'s Emancipation Proclamation Pen (Jan. 1, 1863) (on file with Yale Univ., Beinecke Rare Book and Manuscript Library Repository, Abraham Lincoln Collection, Box 3, Folder 24).',
+      'Charles Albertus, Photograph of Accelerator (1964) (on file with Yale Univ., Manuscripts and Archives Repository, Charles Alburtus Photograph Collection, Box 1, Folder 55).',
+    ],
+  },
+  'R. 23.12': {
+    title: 'Short Citation Forms — Archival Sources',
+    explanation:
+      'Follow R. 4 for short form citations. Use "id." for immediately preceding sources and "supra" with the document title or author as reference anchor.',
+    examples: [
+      'Ledger of Goods Sold in the General Store of Longmeadow, Massachusetts, supra note 2.',
+    ],
+    references: ['R. 4', 'R. 4.1', 'R. 4.2'],
+  },
+  'T1': {
+    title: 'United States Jurisdictions',
+    explanation:
+      'Table T1 lists citation conventions for all U.S. jurisdictions. Abbreviations are intended for a national audience; practitioners should also follow local rules (see BT2).\n\n' +
+      'T1.1 — Federal Judicial and Legislative Materials: reporters for SCOTUS (U.S., S. Ct., L. Ed., U.S.L.W.), circuits (F., F.2d, F.3d, F.4th), districts (F. Supp., F. Supp. 2d, F. Supp. 3d), plus statutory compilations (U.S.C.) and session laws (Stat.).\n' +
+      'T1.2 — Federal Administrative and Executive Materials: agency-specific citation forms for NLRB, SEC, FCC, EPA, FTC, and dozens more.\n' +
+      'T1.3 — States and the District of Columbia: official and unofficial reporters, statutes, and session laws for each state.\n' +
+      'T1.4 — Other U.S. Jurisdictions (territories, D.C.).\n' +
+      'T1.5 — Tribal Nations.',
+    references: ['R. 10.3', 'R. 10.4', 'R. 12', 'R. 14', 'BT2'],
+  },
+  'T1.3': {
+    title: 'States and the District of Columbia',
+    explanation:
+      'T1.3 lists citation conventions for all 50 states and D.C. For each jurisdiction it provides:\n\n' +
+      '1. Court hierarchy and abbreviations (e.g., "Ala." for Alabama Supreme Court, "Ala. Civ. App." for civil appeals)\n' +
+      '2. Preferred reporters — always cite to the regional reporter (So., S.E., N.E., N.W., P., S.W., A.) if the case appears therein\n' +
+      '3. Statutory compilations — official and annotated codes with proper citation format\n' +
+      '4. Session laws — proper citation for uncodified legislation\n' +
+      '5. Administrative compilations and registers\n\n' +
+      'Some states have adopted public domain (medium-neutral) citation formats for recent decisions (e.g., Arkansas, Colorado, Illinois, Louisiana, Maine, Mississippi, Montana, New Mexico, North Dakota, Ohio, Oklahoma). When a public domain format exists, include it along with the regional reporter citation.\n\n' +
+      'Key pattern: [Volume] [Reporter] [Page] ([Court abbrev.] [Year]). Omit the court abbreviation when citing the highest court of the state and the reporter unambiguously identifies the jurisdiction.',
+    references: ['T1', 'R. 10.3', 'R. 10.4', 'T10'],
+  },
+  'T1.3:Ala.': {
+    title: 'Alabama',
+    explanation:
+      'Supreme Court (Ala.): Cite to So., So. 2d, or So. 3d, if therein. Official: Alabama Reports (Ala.), 1840–1976.\n' +
+      'Court of Civil Appeals (Ala. Civ. App.) and Court of Criminal Appeals (Ala. Crim. App.), before 1969 Court of Appeals (Ala. Ct. App.): Cite to So., So. 2d, or So. 3d.\n\n' +
+      'Statutory compilations: Cite to Ala. Code (West), if therein.\n' +
+      '  Code of Alabama, 1975 (West): Ala. Code § x-x-x (year)\n' +
+      'Session laws: Cite to Ala. Laws.\n' +
+      'Admin compilation: Ala. Admin. Code r. x-x-x.x (year)',
+    examples: [
+      'Ex parte Jones, 350 So. 3d 416 (Ala. 2021).',
+      'Smith v. State, 312 So. 3d 18 (Ala. Crim. App. 2020).',
+      'Ala. Code § 6-5-410 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.4'],
+  },
+  'T1.3:Alaska': {
+    title: 'Alaska',
+    explanation:
+      'Supreme Court (Alaska): Cite to P.2d or P.3d.\n' +
+      'Court of Appeals (Alaska Ct. App.): Cite to P.2d or P.3d.\n\n' +
+      'Note: District Courts of Alaska (D. Alaska) had local jurisdiction 1884–1959; cite to F. Supp., F., or F.2d.\n\n' +
+      'Statutory compilations: Cite to Alaska Stat. (LexisNexis), if therein.\n' +
+      'Session laws: Cite to Alaska Sess. Laws.\n' +
+      'Admin compilation: Alaska Admin. Code tit. x, § x.x (year)',
+    examples: [
+      'State v. Doe, 425 P.3d 115 (Alaska 2018).',
+      'Smith v. State, 310 P.3d 928 (Alaska Ct. App. 2013).',
+      'Alaska Stat. § 11.41.100 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Ariz.': {
+    title: 'Arizona',
+    explanation:
+      'Supreme Court (Ariz.): Cite to P., P.2d, or P.3d, if therein.\n' +
+      'Court of Appeals (Ariz. Ct. App.): Cite to P.2d or P.3d.\n' +
+      'Tax Court (Ariz. Tax Ct.): Cite to P.2d or P.3d.\n\n' +
+      'Statutory compilations: Cite to one of the annotated codes.\n' +
+      '  Ariz. Rev. Stat. Ann. § x-x (West year) or Ariz. Rev. Stat. § x-x (LexisNexis year)\n' +
+      'Session laws: Cite to Ariz. Sess. Laws.\n' +
+      'Admin compilation: Ariz. Admin. Code § x-x-x (year)',
+    examples: [
+      'State v. Smith, 520 P.3d 190 (Ariz. 2022).',
+      'Ariz. Rev. Stat. Ann. § 13-1105 (West 2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Ark.': {
+    title: 'Arkansas',
+    explanation:
+      'Public domain citation format adopted for cases after February 13, 2009:\n' +
+      '  Smith v. Hickman, 2009 Ark. 12, at 1, 273 S.W.3d 340, 343.\n' +
+      '  Doe v. State, 2009 Ark. App. 318, at 7.\n\n' +
+      'Supreme Court (Ark.): Cite to S.W., S.W.2d, or S.W.3d, if therein.\n' +
+      'Court of Appeals (Ark. Ct. App.): Cite to S.W.2d or S.W.3d.\n\n' +
+      'Statutory compilations: Cite to Ark. Code Ann. (LexisNexis), if therein.\n' +
+      'Session laws: Cite to Ark. Acts.',
+    examples: [
+      'Smith v. Hickman, 2009 Ark. 12, 273 S.W.3d 340.',
+      'Ark. Code Ann. § 5-10-101 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Cal.': {
+    title: 'California',
+    explanation:
+      'Supreme Court (Cal.): Cite to P., P.2d, or P.3d, if therein. Official: Cal., Cal. 2d–5th.\n' +
+      'Court of Appeal (Cal. Ct. App.): Cite to Cal. Rptr., Cal. Rptr. 2d, or Cal. Rptr. 3d (after 1959), or P./P.2d (before 1960).\n' +
+      'Appellate Divisions of Superior Court (Cal. App. Dep\'t Super. Ct.): Same reporter preference.\n\n' +
+      'Statutory compilations: Cite to a subject-matter code:\n' +
+      '  Cal. [Subject] Code § x (West year) — e.g., Cal. Civ. Code, Cal. Penal Code, Cal. Evid. Code\n' +
+      'Session laws: Cite to Cal. Stat.\n' +
+      'Admin compilation: Cal. Code Regs. tit. x, § x (year)',
+    examples: [
+      'People v. Banks, 12 Cal. 5th 652, 504 P.3d 247 (2022).',
+      'Smith v. Jones, 75 Cal. App. 5th 1100, 291 Cal. Rptr. 3d 55 (2022).',
+      'Cal. Civ. Code § 1714 (West 2024).',
+      'Cal. Penal Code § 187 (West 2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Colo.': {
+    title: 'Colorado',
+    explanation:
+      'Public domain citation format adopted for cases after January 1, 2012:\n' +
+      '  Iannone v. Callahan, 2012 CO 22, ¶ 13.\n' +
+      '  Callahan v. Iannone, 2015 COA 14, ¶¶ 8–12.\n\n' +
+      'Supreme Court (Colo.): Cite to P., P.2d, or P.3d, if therein.\n' +
+      'Court of Appeals (Colo. App.): Cite to P., P.2d, or P.3d, if therein.\n\n' +
+      'Statutory compilations: Cite to Colo. Rev. Stat. (LexisNexis), if therein.\n' +
+      'Session laws: Cite to Colo. Sess. Laws.\n' +
+      'Admin compilation: Colo. Code Regs. § x-x (year)',
+    examples: [
+      'Iannone v. Callahan, 2012 CO 22, ¶ 13.',
+      'Colo. Rev. Stat. § 18-3-102 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Conn.': {
+    title: 'Connecticut',
+    explanation:
+      'Supreme Court (Conn.): Cite to A., A.2d, or A.3d, if therein. Official: Connecticut Reports (Conn.).\n' +
+      'Appellate Court (Conn. App. Ct.): Cite to A.2d or A.3d.\n' +
+      'Superior Court (Conn. Super. Ct.): Cite to A.2d or A.3d, if therein; otherwise Conn. Supp.\n\n' +
+      'Statutory compilations: Cite to Conn. Gen. Stat., if therein.\n' +
+      'Session laws: Cite to Conn. Acts, Conn. Pub. Acts, or Conn. Spec. Acts.\n' +
+      'Admin compilation: Conn. Agencies Regs. § x-x-x (year)',
+    examples: [
+      'State v. Smith, 310 A.3d 412 (Conn. 2024).',
+      'Conn. Gen. Stat. § 53a-54a (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Del.': {
+    title: 'Delaware',
+    explanation:
+      'Supreme Court (Del.): Cite to A., A.2d, or A.3d, if therein.\n' +
+      'Court of Chancery (Del. Ch.): Cite to A., A.2d, or A.3d. Delaware Chancery is uniquely important in corporate law.\n' +
+      'Superior Court (Del. Super. Ct.): Cite to A.2d or A.3d.\n' +
+      'Family Court (Del. Fam. Ct.): Cite to A.2d or A.3d.\n\n' +
+      'Statutory compilations: Cite to Del. Code Ann. (LexisNexis), if therein.\n' +
+      'Session laws: Cite to Del. Laws.\n' +
+      'Admin compilation: x-x-x Del. Admin. Code § x (year)',
+    examples: [
+      'Smith v. Van Gorkom, 488 A.2d 858 (Del. 1985).',
+      'In re MFW S\'holders Litig., 67 A.3d 496 (Del. Ch. 2013).',
+      'Del. Code Ann. tit. 8, § 102 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:D.C.': {
+    title: 'District of Columbia',
+    explanation:
+      'Court of Appeals (D.C.): Cite to A.2d or A.3d. (Municipal court of appeals before 1971.)\n' +
+      'U.S. Court of Appeals for the D.C. Circuit (D.C. Cir.): Cite to F., F.2d, F.3d, or F.4th.\n' +
+      'Superior Court (D.C. Super. Ct.): Cite to Daily Wash. L. Rptr.\n\n' +
+      'Statutory compilations: Cite to D.C. Code (LexisNexis), if therein.\n' +
+      'Session laws: Cite to Stat., D.C. Reg., or D.C. Code Adv. Leg. Serv.\n' +
+      'Municipal regulations: D.C. Mun. Regs. tit. x, § x (year)',
+    examples: [
+      'Smith v. United States, 305 A.3d 750 (D.C. 2023).',
+      'D.C. Code § 22-2104 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.4'],
+  },
+  'T1.3:Fla.': {
+    title: 'Florida',
+    explanation:
+      'Supreme Court (Fla.): Cite to So., So. 2d, or So. 3d, if therein.\n' +
+      'District Court of Appeal (Fla. Dist. Ct. App.): Cite to So. 2d or So. 3d.\n' +
+      'Circuit/County Courts: Cite to Fla. Supp. or Fla. L. Weekly Supp.\n\n' +
+      'Statutory compilations: Cite to Fla. Stat., if therein.\n' +
+      'Session laws: Cite to Fla. Laws.\n' +
+      'Admin compilation: Fla. Admin. Code Ann. r. x-x.x (year)',
+    examples: [
+      'State v. Doe, 375 So. 3d 210 (Fla. 2023).',
+      'Fla. Stat. § 782.04 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Ga.': {
+    title: 'Georgia',
+    explanation:
+      'Supreme Court (Ga.): Cite to S.E. or S.E.2d, if therein.\n' +
+      'Court of Appeals (Ga. Ct. App.): Cite to S.E. or S.E.2d.\n\n' +
+      'Statutory compilations: Cite to Ga. Code Ann. (LexisNexis), if therein.\n' +
+      'Session laws: Cite to Ga. Laws.\n' +
+      'Admin compilation: Ga. Comp. R. & Regs. x-x-x.x (year)',
+    examples: [
+      'State v. Smith, 890 S.E.2d 100 (Ga. 2023).',
+      'Ga. Code Ann. § 16-5-1 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Haw.': {
+    title: 'Hawaii',
+    explanation:
+      'Supreme Court (Haw.): Cite to P.2d or P.3d, if therein.\n' +
+      'Intermediate Court of Appeals (Haw. Ct. App.): Cite to P.2d or P.3d.\n\n' +
+      'Statutory compilations: Cite to Haw. Rev. Stat., if therein.\n' +
+      'Session laws: Cite to Haw. Sess. Laws.',
+    examples: [
+      'State v. Smith, 530 P.3d 120 (Haw. 2023).',
+      'Haw. Rev. Stat. § 707-701 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Idaho': {
+    title: 'Idaho',
+    explanation:
+      'Supreme Court (Idaho): Cite to P., P.2d, or P.3d, if therein.\n' +
+      'Court of Appeals (Idaho Ct. App.): Cite to P.2d or P.3d.\n\n' +
+      'Statutory compilations: Cite to Idaho Code (LexisNexis), if therein.\n' +
+      'Session laws: Cite to Idaho Sess. Laws.\n' +
+      'Admin compilation: Idaho Admin. Code r. x.x.x.x (year)',
+    examples: [
+      'State v. Jones, 530 P.3d 400 (Idaho 2023).',
+      'Idaho Code § 18-4001 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Ill.': {
+    title: 'Illinois',
+    explanation:
+      'Public domain citation format adopted for cases filed after June 30, 2011:\n' +
+      '  People v. Jolly, 2014 IL 117142, ¶ 32.\n' +
+      '  People v. Jolly, 2016 IL App (4th) 150494-V, ¶¶ 7-11.\n\n' +
+      'Supreme Court (Ill.): Cite to N.E., N.E.2d, or N.E.3d, if therein.\n' +
+      'Appellate Court (Ill. App. Ct.): Cite to N.E.2d or N.E.3d.\n\n' +
+      'Statutory compilations: Cite to Ill. Comp. Stat., if therein.\n' +
+      '  [ch. no.] Ill. Comp. Stat. [act no.] / [sec. no.] (year)\n' +
+      'Session laws: Cite to Ill. Laws.\n' +
+      'Admin compilation: Ill. Admin. Code tit. x, § x (year)',
+    examples: [
+      'People v. Jolly, 2014 IL 117142, ¶ 32, 14 N.E.3d 437.',
+      '720 Ill. Comp. Stat. 5/9-1 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Ind.': {
+    title: 'Indiana',
+    explanation:
+      'Supreme Court (Ind.): Cite to N.E., N.E.2d, or N.E.3d, if therein.\n' +
+      'Court of Appeals (Ind. Ct. App.): Cite to N.E., N.E.2d, or N.E.3d.\n' +
+      'Tax Court (Ind. T.C.): Cite to N.E.2d or N.E.3d.\n\n' +
+      'Statutory compilations: Cite to Ind. Code, if therein.\n' +
+      'Session laws: Cite to Ind. Acts.\n' +
+      'Admin compilation: [tit. no.] Ind. Admin. Code [rule no.] (year)',
+    examples: [
+      'State v. Smith, 220 N.E.3d 115 (Ind. 2023).',
+      'Ind. Code § 35-42-1-1 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Iowa': {
+    title: 'Iowa',
+    explanation:
+      'Supreme Court (Iowa): Cite to N.W., N.W.2d, or N.W.3d, if therein.\n' +
+      'Court of Appeals (Iowa Ct. App.): Cite to N.W.2d or N.W.3d.\n\n' +
+      'Statutory compilations: Cite to Iowa Code, if therein.\n' +
+      'Session laws: Cite to Iowa Acts.\n' +
+      'Admin compilation: Iowa Admin. Code r. x-x.x (year)',
+    examples: [
+      'State v. Doe, 998 N.W.2d 300 (Iowa 2023).',
+      'Iowa Code § 707.2 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Kan.': {
+    title: 'Kansas',
+    explanation:
+      'Supreme Court (Kan.): Cite to P., P.2d, or P.3d, if therein.\n' +
+      'Court of Appeals (Kan. Ct. App.): Cite to P., P.2d, or P.3d.\n\n' +
+      'Statutory compilations: Cite to Kan. Stat. Ann., if therein.\n' +
+      'Session laws: Cite to Kan. Sess. Laws.\n' +
+      'Admin compilation: Kan. Admin. Regs. § x-x-x (year)',
+    examples: [
+      'State v. Jones, 530 P.3d 25 (Kan. 2023).',
+      'Kan. Stat. Ann. § 21-5402 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Ky.': {
+    title: 'Kentucky',
+    explanation:
+      'Supreme Court (Ky.): Before 1976, the Court of Appeals (Ky.) was the highest court. Cite to S.W., S.W.2d, or S.W.3d, if therein.\n' +
+      'Court of Appeals (Ky. Ct. App.) (for decisions before 1976, see Supreme Court): Cite to S.W.2d or S.W.3d.\n\n' +
+      'Statutory compilations: Cite to one of the annotated codes.\n' +
+      '  Ky. Rev. Stat. Ann. § x.x (West year) or (LexisNexis year)\n' +
+      'Session laws: Cite to Ky. Acts.\n' +
+      'Admin compilation: [tit. no.] Ky. Admin. Regs. [rule no.] (year)',
+    examples: [
+      'Commonwealth v. Smith, 680 S.W.3d 50 (Ky. 2023).',
+      'Ky. Rev. Stat. Ann. § 507.020 (West 2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:La.': {
+    title: 'Louisiana',
+    explanation:
+      'Public domain citation format adopted for cases after December 31, 1993:\n' +
+      '  State v. Ray, 97-1093 (La. App. 3 Cir. 2/4/98), 705 So. 2d 1295.\n' +
+      '  State v. Fleury, 2001-0871, p. 5 (La. 10/16/01), 799 So. 2d 468, 472.\n\n' +
+      'Supreme Court (La.): Cite to So., So. 2d, or So. 3d, if therein.\n' +
+      'Court of Appeal (La. Ct. App.): Cite to So., So. 2d, or So. 3d.\n\n' +
+      'Statutory compilations: Louisiana uses subject-matter civil law codes:\n' +
+      '  La. Civ. Code Ann. art. x (year), La. Code Crim. Proc. Ann. art. x (year), etc.\n' +
+      'Session laws: Cite to La. Acts.',
+    examples: [
+      'State v. Ray, 97-1093 (La. App. 3 Cir. 2/4/98), 705 So. 2d 1295.',
+      'La. Civ. Code Ann. art. 2315 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Me.': {
+    title: 'Maine',
+    explanation:
+      'Public domain citation format adopted for cases after December 31, 1996:\n' +
+      '  Bangor Publ\'g Co. v. Union St. Mkt., 1998 ME 37, 706 A.2d 595.\n\n' +
+      'Supreme Judicial Court (Me.): Cite to A., A.2d, or A.3d, if therein.\n\n' +
+      'Statutory compilations: Cite to Me. Stat. (West) or Me. Rev. Stat. Ann. (West).\n' +
+      'Session laws: Cite to Me. Laws.',
+    examples: [
+      'Bangor Publ\'g Co. v. Union St. Mkt., 1998 ME 37, ¶ 3, 706 A.2d 595, 595.',
+      'Me. Rev. Stat. Ann. tit. 17-A, § 201 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Md.': {
+    title: 'Maryland',
+    explanation:
+      'Supreme Court (Md.), before December 14, 2022, Court of Appeals (Md.): Cite to A., A.2d, or A.3d, if therein.\n' +
+      'Appellate Court (Md. App. Ct.), before December 14, 2022, Court of Special Appeals (Md. Ct. Spec. App.): Cite to A.2d or A.3d.\n\n' +
+      'Statutory compilations: Cite by subject to Md. Code Ann. (LexisNexis or West).\n' +
+      '  Md. Code Ann., [subject] § x-x (LexisNexis year)\n' +
+      'Session laws: Cite to Md. Laws.\n' +
+      'Admin compilation: Md. Code Regs. [reg. no.] (year)',
+    examples: [
+      'State v. Smith, 300 A.3d 110 (Md. 2023).',
+      'Md. Code Ann., Crim. Law § 2-201 (LexisNexis 2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Mass.': {
+    title: 'Massachusetts',
+    explanation:
+      'Supreme Judicial Court (Mass.): Cite to N.E., N.E.2d, or N.E.3d, if therein.\n' +
+      'Appeals Court (Mass. App. Ct.): Cite to N.E.2d or N.E.3d.\n' +
+      'Lower courts (Mass. Dist. Ct., Bos. Mun. Ct.): Cite to Mass. App. Div., if therein.\n\n' +
+      'Statutory compilations: Cite to Mass. Gen. Laws (West), if therein.\n' +
+      '  Mass. Gen. Laws ch. x, § x (year)\n' +
+      'Session laws: Cite to Mass. Acts.\n' +
+      'Admin compilation: [tit. no.] Mass. Code Regs. [sec. no.] (year)',
+    examples: [
+      'Commonwealth v. Smith, 220 N.E.3d 50 (Mass. 2023).',
+      'Mass. Gen. Laws ch. 265, § 1 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Mich.': {
+    title: 'Michigan',
+    explanation:
+      'Supreme Court (Mich.): Cite to N.W., N.W.2d, or N.W.3d, if therein.\n' +
+      'Court of Appeals (Mich. Ct. App.): Cite to N.W.2d or N.W.3d.\n\n' +
+      'Statutory compilations: Cite to Mich. Comp. Laws, if therein.\n' +
+      'Session laws: Cite to Mich. Pub. Acts.\n' +
+      'Admin compilation: Mich. Admin. Code r. x.x (year)',
+    examples: [
+      'People v. Smith, 1 N.W.3d 100 (Mich. 2024).',
+      'Mich. Comp. Laws § 750.316 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Minn.': {
+    title: 'Minnesota',
+    explanation:
+      'Supreme Court (Minn.): Cite to N.W., N.W.2d, or N.W.3d, if therein.\n' +
+      'Court of Appeals (Minn. Ct. App.): Cite to N.W.2d or N.W.3d.\n\n' +
+      'Statutory compilations: Cite to Minn. Stat., if therein.\n' +
+      'Session laws: Cite to Minn. Laws.\n' +
+      'Admin compilation: Minn. R. [rule no.] (year)',
+    examples: [
+      'State v. Doe, 5 N.W.3d 200 (Minn. 2024).',
+      'Minn. Stat. § 609.185 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Miss.': {
+    title: 'Mississippi',
+    explanation:
+      'Public domain citation format adopted for cases after July 1, 1997:\n' +
+      '  Pro-Choice Miss. v. Fordice, 95-CA-00960-SCT (¶ 1) (Miss. 1998).\n\n' +
+      'Supreme Court (Miss.): Cite to So., So. 2d, or So. 3d, if therein.\n' +
+      'Court of Appeals (Miss. Ct. App.): Cite to So. 2d or So. 3d.\n\n' +
+      'Statutory compilations: Cite to Miss. Code Ann. (LexisNexis), if therein.\n' +
+      'Session laws: Cite to Miss. Laws.',
+    examples: [
+      'State v. Smith, 370 So. 3d 200 (Miss. 2023).',
+      'Miss. Code Ann. § 97-3-19 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Mo.': {
+    title: 'Missouri',
+    explanation:
+      'Supreme Court (Mo.): Cite to S.W., S.W.2d, or S.W.3d, if therein.\n' +
+      'Court of Appeals (Mo. Ct. App.): Cite to S.W., S.W.2d, or S.W.3d.\n\n' +
+      'Statutory compilations: Cite to Mo. Rev. Stat., if therein.\n' +
+      'Session laws: Cite to Mo. Laws.\n' +
+      'Admin compilation: Mo. Code Regs. Ann. tit. x, § x-x.x (year)',
+    examples: [
+      'State v. Smith, 680 S.W.3d 100 (Mo. 2023).',
+      'Mo. Rev. Stat. § 565.020 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Mont.': {
+    title: 'Montana',
+    explanation:
+      'Public domain citation format adopted for cases after January 1, 1998:\n' +
+      '  Mont. Env\'t Info. Ctr. v. Dep\'t of Env\'t Quality, 1999 MT 248, ¶ 21, 296 Mont. 207, 988 P.2d 1236.\n\n' +
+      'Supreme Court (Mont.): Cite to P., P.2d, or P.3d, if therein.\n\n' +
+      'Statutory compilations: Cite to Mont. Code Ann., if therein.\n' +
+      'Session laws: Mont. Laws.\n' +
+      'Admin compilation: Mont. Admin. R. [rule no.] (year)',
+    examples: [
+      'Mont. Env\'t Info. Ctr. v. Dep\'t of Env\'t Quality, 1999 MT 248, 988 P.2d 1236.',
+      'Mont. Code Ann. § 45-5-102 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Neb.': {
+    title: 'Nebraska',
+    explanation:
+      'Supreme Court (Neb.): Cite to N.W., N.W.2d, or N.W.3d, if therein.\n' +
+      'Court of Appeals (Neb. Ct. App.): Cite to N.W.2d or N.W.3d.\n\n' +
+      'Statutory compilations: Cite to Neb. Rev. Stat., if therein.\n' +
+      'Session laws: Cite to Neb. Laws.\n' +
+      'Admin compilation: [tit. no.] Neb. Admin. Code § x-x (year)',
+    examples: [
+      'State v. Jones, 5 N.W.3d 50 (Neb. 2024).',
+      'Neb. Rev. Stat. § 28-303 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Nev.': {
+    title: 'Nevada',
+    explanation:
+      'Supreme Court (Nev.): Cite to P., P.2d, or P.3d, if therein.\n' +
+      'Court of Appeals (Nev. Ct. App.): Cite to P.3d.\n\n' +
+      'Statutory compilations: Cite to Nev. Rev. Stat., if therein.\n' +
+      'Session laws: Cite to Nev. Stat.\n' +
+      'Admin compilation: Nev. Admin. Code § x.x (year)',
+    examples: [
+      'State v. Smith, 535 P.3d 300 (Nev. 2023).',
+      'Nev. Rev. Stat. § 200.010 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:N.H.': {
+    title: 'New Hampshire',
+    explanation:
+      'Supreme Court (N.H.): Cite to A., A.2d, or A.3d, if therein.\n\n' +
+      'Statutory compilations: Cite to N.H. Rev. Stat. Ann. (West), if therein.\n' +
+      'Session laws: Cite to N.H. Laws or N.H. Legis. Serv.\n' +
+      'Admin compilation: N.H. Code Admin. R. Ann. [dep\'t abbrev.] [rule no.] (year)',
+    examples: [
+      'State v. Doe, 310 A.3d 50 (N.H. 2024).',
+      'N.H. Rev. Stat. Ann. § 630:1-a (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:N.J.': {
+    title: 'New Jersey',
+    explanation:
+      'Supreme Court (N.J.): Cite to A., A.2d, or A.3d, if therein.\n' +
+      'Superior Court (N.J. Super. Ct. App. Div., Ch. Div., Law Div.): Cite to A., A.2d, or A.3d.\n' +
+      'Tax Court (N.J. Tax Ct.): Cite to N.J. Tax.\n\n' +
+      'Statutory compilations: Cite to N.J. Stat. Ann. (West), if therein.\n' +
+      'Session laws: Cite to N.J. Laws.\n' +
+      'Admin compilation: N.J. Admin. Code § x:x-x.x (year)',
+    examples: [
+      'State v. Smith, 310 A.3d 100 (N.J. 2024).',
+      'N.J. Stat. Ann. § 2C:11-3 (West 2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:N.M.': {
+    title: 'New Mexico',
+    explanation:
+      'Public domain citation format adopted effective July 1, 2013:\n' +
+      '  Atlixco Coal. v. Maggiore, 1998-NMCA-134, ¶ 14, 125 N.M. 786, 965 P.2d 370.\n\n' +
+      'Supreme Court (N.M.): Cite to P., P.2d, or P.3d, if therein.\n' +
+      'Court of Appeals (N.M. Ct. App.): Cite to P.2d or P.3d.\n\n' +
+      'Statutory compilations: Cite to N.M. Stat. Ann. (Conway Greene), if therein.\n' +
+      'Session laws: Cite to N.M. Laws.',
+    examples: [
+      'Atlixco Coal. v. Maggiore, 1998-NMCA-134, 965 P.2d 370.',
+      'N.M. Stat. Ann. § 30-2-1 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:N.Y.': {
+    title: 'New York',
+    explanation:
+      'Court of Appeals (N.Y.): Cite to N.E., N.E.2d, or N.E.3d, if therein. Official: N.Y., N.Y.2d, N.Y.3d.\n' +
+      'Supreme Court, Appellate Division (N.Y. App. Div.): Cite to N.Y.S., N.Y.S.2d, or N.Y.S.3d.\n' +
+      'Other lower courts (N.Y. Sup. Ct., N.Y. Ct. Cl., etc.): Cite to N.Y.S., N.Y.S.2d, or N.Y.S.3d; otherwise Misc., Misc. 2d.\n\n' +
+      'Note: The first series of N.Y. is reprinted in N.Y.S. without separate pagination — do not include a parallel cite to N.Y.S. for first series N.Y.\n\n' +
+      'Statutory compilations: Cite to McKinney\'s or Consolidated Laws Service by subject:\n' +
+      '  N.Y. [Subject] Law § x (McKinney year)\n' +
+      'Session laws: Cite to N.Y. Laws or N.Y. Sess. Laws (McKinney).\n' +
+      'Admin compilation: N.Y. Comp. Codes R. & Regs. tit. x, § x (year)',
+    examples: [
+      'People v. Smith, 220 N.E.3d 50 (N.Y. 2023).',
+      'Jones v. Doe, 210 N.Y.S.3d 100 (App. Div. 2023).',
+      'N.Y. Penal Law § 125.25 (McKinney 2024).',
+      'N.Y. C.P.L.R. 3212 (McKinney 2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:N.C.': {
+    title: 'North Carolina',
+    explanation:
+      'Supreme Court (N.C.): Cite to S.E. or S.E.2d, if therein.\n' +
+      'Court of Appeals (N.C. Ct. App.): Cite to S.E.2d.\n\n' +
+      'Statutory compilations: Cite to N.C. Gen. Stat. (LexisNexis), if therein.\n' +
+      'Session laws: Cite to N.C. Sess. Laws.\n' +
+      'Admin compilation: [tit. no.] N.C. Admin. Code [rule no.] (year)',
+    examples: [
+      'State v. Smith, 890 S.E.2d 100 (N.C. 2023).',
+      'N.C. Gen. Stat. § 14-17 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:N.D.': {
+    title: 'North Dakota',
+    explanation:
+      'Public domain citation format adopted for cases after December 31, 1996:\n' +
+      '  Kautzman v. Kautzman, 2003 ND 140, ¶ 9, 668 N.W.2d 59, 63.\n\n' +
+      'Supreme Court (N.D.): Cite to N.W., N.W.2d, or N.W.3d, if therein.\n' +
+      'Court of Appeals (N.D. Ct. App.): Cite to N.W.2d or N.W.3d.\n\n' +
+      'Statutory compilations: Cite to N.D. Cent. Code (LexisNexis), if therein.\n' +
+      'Session laws: Cite to N.D. Laws.\n' +
+      'Admin compilation: N.D. Admin. Code [rule no.] (year)',
+    examples: [
+      'Kautzman v. Kautzman, 2003 ND 140, 668 N.W.2d 59.',
+      'N.D. Cent. Code § 12.1-16-01 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Ohio': {
+    title: 'Ohio',
+    explanation:
+      'Public domain citation format adopted for cases decided after April 30, 2002:\n' +
+      '  State v. Lynch, 98 Ohio St. 3d 514, 2003-Ohio-2284, 787 N.E.2d 1185.\n' +
+      '  State v. Lynch, 98 Ohio St. 3d 514, 2003-Ohio-2284, 787 N.E.2d 1185, at ¶ 3.\n\n' +
+      'Supreme Court (Ohio): Cite to N.E., N.E.2d, or N.E.3d, if therein.\n' +
+      'Court of Appeals (Ohio Ct. App.): Cite to N.E., N.E.2d, or N.E.3d.\n\n' +
+      'Statutory compilations: Cite to one of the annotated codes.\n' +
+      '  Ohio Rev. Code Ann. § x.x (LexisNexis year) or (West year)\n' +
+      'Session laws: Cite to Ohio Laws.',
+    examples: [
+      'State v. Lynch, 98 Ohio St. 3d 514, 2003-Ohio-2284, 787 N.E.2d 1185.',
+      'Ohio Rev. Code Ann. § 2903.01 (LexisNexis 2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Okla.': {
+    title: 'Oklahoma',
+    explanation:
+      'Public domain citation format adopted for cases after May 1, 1997:\n' +
+      '  Herbert v. Okla. Christian Coal., 1999 OK 90, ¶ 2, 992 P.2d 322, 325.\n\n' +
+      'Supreme Court (Okla.): Cite to P., P.2d, or P.3d, if therein.\n' +
+      'Court of Criminal Appeals (Okla. Crim. App.): Cite to P., P.2d, or P.3d.\n' +
+      'Court of Civil Appeals (Okla. Civ. App.): Cite to P.2d or P.3d.\n\n' +
+      'Statutory compilations: Cite to Okla. Stat. (West), if therein.\n' +
+      '  Okla. Stat. tit. x, § x (year)\n' +
+      'Session laws: Cite to Okla. Sess. Laws.\n' +
+      'Admin compilation: Okla. Admin. Code § x:x-x-x (year)',
+    examples: [
+      'Herbert v. Okla. Christian Coal., 1999 OK 90, 992 P.2d 322.',
+      'Okla. Stat. tit. 21, § 701.7 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Or.': {
+    title: 'Oregon',
+    explanation:
+      'Supreme Court (Or.): Cite to P., P.2d, or P.3d, if therein.\n' +
+      'Court of Appeals (Or. Ct. App.): Cite to P.2d or P.3d.\n' +
+      'Tax Court (Or. T.C.): Cite to Or. Tax.\n\n' +
+      'Statutory compilations: Cite to Or. Rev. Stat., if therein.\n' +
+      'Session laws: Cite to Or. Laws.\n' +
+      'Admin compilation: Or. Admin. R. [rule no.] (year)',
+    examples: [
+      'State v. Smith, 530 P.3d 100 (Or. 2023).',
+      'Or. Rev. Stat. § 163.005 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Pa.': {
+    title: 'Pennsylvania',
+    explanation:
+      'Supreme Court (Pa.): Cite to A., A.2d, or A.3d, if therein.\n' +
+      'Superior Court (Pa. Super. Ct.): Cite to A., A.2d, or A.3d. Public domain format adopted after Dec. 31, 1998.\n' +
+      'Commonwealth Court (Pa. Commw. Ct.): Cite to A.2d or A.3d.\n' +
+      'Lower courts: Cite to Pa. D. & C. through Pa. D. & C.5th.\n\n' +
+      'Statutory compilations: Cite to Pa. Cons. Stat. (not Pa. Code, which is regulations).\n' +
+      '  [tit. no.] Pa. Cons. Stat. § x (year)\n' +
+      'Session laws: Cite to Pa. Laws.\n' +
+      'Admin compilation: [tit. no.] Pa. Code § x.x (year)',
+    examples: [
+      'Commonwealth v. Smith, 310 A.3d 100 (Pa. 2024).',
+      '18 Pa. Cons. Stat. § 2501 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:R.I.': {
+    title: 'Rhode Island',
+    explanation:
+      'Supreme Court (R.I.): Cite to A., A.2d, or A.3d, if therein.\n\n' +
+      'Statutory compilations: Cite to R.I. Gen. Laws (LexisNexis), if therein.\n' +
+      '  [tit. no.] R.I. Gen. Laws § x-x-x (year)\n' +
+      'Session laws: Cite to R.I. Pub. Laws.',
+    examples: [
+      'State v. Doe, 310 A.3d 200 (R.I. 2024).',
+      'R.I. Gen. Laws § 11-23-1 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:S.C.': {
+    title: 'South Carolina',
+    explanation:
+      'Supreme Court (S.C.) after 1868: Cite to S.E. or S.E.2d, if therein.\n' +
+      'Court of Appeals (S.C. Ct. App.): Cite to S.E.2d.\n' +
+      'Courts of law before 1868: Cite to S.C.L. Courts of equity before 1868: Cite to S.C. Eq.\n\n' +
+      'Statutory compilations: S.C. Code Ann. § x-x-x (year)\n' +
+      'Session laws: Cite to S.C. Acts.\n' +
+      'Admin compilation: S.C. Code Ann. Regs. [reg no.] (year)',
+    examples: [
+      'State v. Smith, 890 S.E.2d 50 (S.C. 2023).',
+      'S.C. Code Ann. § 16-3-10 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:S.D.': {
+    title: 'South Dakota',
+    explanation:
+      'Public domain citation format adopted for cases after December 31, 1995:\n' +
+      '  Wulf v. Senst, 2003 SD 105, ¶ 14, 669 N.W.2d 135, 141.\n\n' +
+      'Supreme Court (S.D.): Cite to N.W., N.W.2d, or N.W.3d, if therein.\n\n' +
+      'Statutory compilation: S.D. Codified Laws § x-x-x (year)\n' +
+      'Session laws: Cite to S.D. Sess. Laws.\n' +
+      'Admin compilation: S.D. Admin. R. [rule no.] (year)',
+    examples: [
+      'Wulf v. Senst, 2003 SD 105, 669 N.W.2d 135.',
+      'S.D. Codified Laws § 22-16-4 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Tenn.': {
+    title: 'Tennessee',
+    explanation:
+      'Supreme Court (Tenn.): Cite to S.W., S.W.2d, or S.W.3d, if therein.\n' +
+      'Court of Appeals (Tenn. Ct. App.): Cite to S.W.2d or S.W.3d.\n' +
+      'Court of Criminal Appeals (Tenn. Crim. App.): Cite to S.W.2d or S.W.3d.\n\n' +
+      'Statutory compilations: Cite to Tenn. Code Ann. (LexisNexis), if therein.\n' +
+      'Session laws: Cite to Tenn. Pub. Acts or Tenn. Priv. Acts.\n' +
+      'Admin compilation: Tenn. Comp. R. & Regs. [rule no.] (year)',
+    examples: [
+      'State v. Smith, 680 S.W.3d 200 (Tenn. 2023).',
+      'Tenn. Code Ann. § 39-13-202 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Tex.': {
+    title: 'Texas',
+    explanation:
+      'Supreme Court (Tex.): Cite to S.W., S.W.2d, or S.W.3d, if therein.\n' +
+      'Court of Criminal Appeals (Tex. Crim. App.): Cite to S.W., S.W.2d, or S.W.3d.\n' +
+      'Courts of Appeals (Tex. App.): Cite to S.W., S.W.2d, or S.W.3d.\n\n' +
+      'Statutory compilations: Texas uses subject-matter codes (Vernon\'s Texas Codes Annotated).\n' +
+      '  Tex. [Subject] Code Ann. § x (West year) — e.g., Tex. Penal Code Ann., Tex. Fam. Code Ann.\n' +
+      '  For unrecodified statutes: Tex. Rev. Civ. Stat. Ann. art. x, § x (West year)\n' +
+      'Session laws: Cite to Tex. Gen. Laws.\n' +
+      'Admin compilation: [tit. no.] Tex. Admin. Code § x.x (year)\n\n' +
+      'Note: For Texas-specific citation rules, also consult The Greenbook: Texas Rules of Form.',
+    examples: [
+      'State v. Smith, 680 S.W.3d 50 (Tex. 2023).',
+      'Tex. Penal Code Ann. § 19.02 (West 2024).',
+      'Tex. Civ. Prac. & Rem. Code Ann. § 16.003 (West 2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Utah': {
+    title: 'Utah',
+    explanation:
+      'Public domain citation format adopted for cases after December 31, 1998:\n' +
+      '  Wickham v. Galetka, 2002 UT 72, 61 P.3d 979.\n' +
+      '  Gilley v. Blackstock, 2002 UT App 414, ¶ 10, 61 P.3d 305.\n\n' +
+      'Supreme Court (Utah): Cite to P., P.2d, or P.3d, if therein.\n' +
+      'Court of Appeals (Utah Ct. App.): Cite to P.2d or P.3d.\n\n' +
+      'Statutory compilations: Cite to Utah Code Ann. (LexisNexis or West).\n' +
+      'Session laws: Cite to Utah Laws.\n' +
+      'Admin compilation: Utah Admin. Code Rx-x-x (LexisNexis year)',
+    examples: [
+      'Wickham v. Galetka, 2002 UT 72, 61 P.3d 979.',
+      'Utah Code Ann. § 76-5-202 (LexisNexis 2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Vt.': {
+    title: 'Vermont',
+    explanation:
+      'Public domain citation format adopted for cases after December 31, 2002:\n' +
+      '  Charbonneau v. Gorczyk, 2003 VT 105, ¶ 3, 176 Vt. 140, 838 A.2d 117.\n\n' +
+      'Supreme Court (Vt.): Cite to A., A.2d, or A.3d, if therein.\n\n' +
+      'Statutory compilations: Cite to Vt. Stat. Ann. (LexisNexis), if therein.\n' +
+      '  Vt. Stat. Ann. tit. x, § x (year)\n' +
+      'Session laws: Cite to Vt. Acts & Resolves.',
+    examples: [
+      'Charbonneau v. Gorczyk, 2003 VT 105, 838 A.2d 117.',
+      'Vt. Stat. Ann. tit. 13, § 2301 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Va.': {
+    title: 'Virginia',
+    explanation:
+      'Supreme Court (Va.): Cite to S.E. or S.E.2d, if therein.\n' +
+      'Court of Appeals (Va. Ct. App.): Cite to S.E.2d.\n' +
+      'Circuit Court (Va. Cir. Ct.): Cite to Va. Cir.\n\n' +
+      'Statutory compilations: Cite to Va. Code Ann. (LexisNexis), if therein.\n' +
+      'Session laws: Cite to Va. Acts.\n' +
+      'Admin compilation: [tit. no.] Va. Admin. Code § x-x-x (year)',
+    examples: [
+      'Commonwealth v. Smith, 890 S.E.2d 100 (Va. 2023).',
+      'Va. Code Ann. § 18.2-32 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Wash.': {
+    title: 'Washington',
+    explanation:
+      'Supreme Court (Wash.): Cite to P., P.2d, or P.3d, if therein.\n' +
+      'Court of Appeals (Wash. Ct. App.): Cite to P.2d or P.3d.\n\n' +
+      'Statutory compilations: Cite to Wash. Rev. Code, if therein.\n' +
+      'Session laws: Cite to Wash. Sess. Laws.\n' +
+      'Admin compilation: Wash. Admin. Code § x-x-x (year)',
+    examples: [
+      'State v. Smith, 535 P.3d 100 (Wash. 2023).',
+      'Wash. Rev. Code § 9A.32.030 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:W. Va.': {
+    title: 'West Virginia',
+    explanation:
+      'Supreme Court of Appeals (W. Va.): Cite to S.E. or S.E.2d, if therein.\n' +
+      'Intermediate Court of Appeals (W. Va. Ct. App.): Cite to S.E.2d (established 2022).\n\n' +
+      'Statutory compilations: Cite to W. Va. Code, if therein.\n' +
+      'Session laws: Cite to W. Va. Acts.\n' +
+      'Admin compilation: W. Va. Code R. § x-x-x (year)',
+    examples: [
+      'State v. Doe, 890 S.E.2d 50 (W. Va. 2023).',
+      'W. Va. Code § 61-2-1 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3'],
+  },
+  'T1.3:Wis.': {
+    title: 'Wisconsin',
+    explanation:
+      'Public domain citation format adopted for cases decided after December 31, 1999:\n' +
+      '  Glaeske v. Shaw, 2003 WI App 71, ¶ 9, 261 Wis. 2d 549, 661 N.W.2d 72.\n\n' +
+      'Supreme Court (Wis.): Cite to N.W., N.W.2d, or N.W.3d, if therein.\n' +
+      'Court of Appeals (Wis. Ct. App.): Cite to N.W.2d or N.W.3d.\n\n' +
+      'Statutory compilations: Cite to Wis. Stat., if therein.\n' +
+      'Session laws: Cite to Wis. Sess. Laws.\n' +
+      'Admin compilation: Wis. Admin. Code [agency abbrev.] § x-x (year)',
+    examples: [
+      'Glaeske v. Shaw, 2003 WI App 71, 661 N.W.2d 72.',
+      'Wis. Stat. § 940.01 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.3:Wyo.': {
+    title: 'Wyoming',
+    explanation:
+      'Public domain citation format adopted for cases decided after December 31, 2003:\n' +
+      '  CLC v. Wyoming, 2004 WY 2, ¶ 4, 82 P.3d 1235, 1236 (Wyo. 2004).\n\n' +
+      'Supreme Court (Wyo.): Cite to P., P.2d, or P.3d, if therein.\n\n' +
+      'Statutory compilations: Cite to Wyo. Stat. Ann. (LexisNexis), if therein.\n' +
+      'Session laws: Cite to Wyo. Sess. Laws.\n' +
+      'Admin compilation: [tit. no.]-[ch. no.] Wyo. Code R. § x (LexisNexis year)',
+    examples: [
+      'CLC v. Wyoming, 2004 WY 2, 82 P.3d 1235.',
+      'Wyo. Stat. Ann. § 6-2-101 (2024).',
+    ],
+    references: ['T1.3', 'R. 10.3', 'R. 10.3.3'],
+  },
+  'T1.4': {
+    title: 'Other United States Jurisdictions',
+    explanation:
+      'T1.4 covers citation conventions for U.S. territories and other non-state jurisdictions: American Samoa, Canal Zone (historical), Guam, Northern Mariana Islands, Puerto Rico, and the Virgin Islands.\n\n' +
+      'Each territory has its own court system and statutory compilation. Some have adopted public domain citation formats (Guam, Northern Mariana Islands, Puerto Rico, Virgin Islands).\n\n' +
+      'For federal courts in territories, cite to F. Supp. or F. Supp. 2d/3d as appropriate.',
+    references: ['T1', 'R. 10.3', 'R. 10.4'],
+  },
+  'T1.4:Am. Sam.': {
+    title: 'American Samoa',
+    explanation:
+      'High Court of American Samoa (Am. Sam.): Cite to A.S.R., A.S.R.2d, or A.S.R.3d.\n\n' +
+      'Statutory compilation: Am. Sam. Code Ann. § x (year)\n' +
+      'Session laws: Am. Sam. Pub. L. No. xx-xx § x (year)\n' +
+      'Admin compilation: Am. Sam. Admin. Code § x (year)',
+    examples: [
+      'Doe v. Am. Sam. Gov\'t, 12 A.S.R.3d 45 (Am. Sam. 2020).',
+      'Am. Sam. Code Ann. § 46.3501 (2024).',
+    ],
+    references: ['T1.4'],
+  },
+  'T1.4:C.Z.': {
+    title: 'Canal Zone',
+    explanation:
+      'Historical jurisdiction (now part of Panama). The U.S. District Court for the District of the Canal Zone (D.C.Z.) ceased to exist March 31, 1982. Litigation pending was transferred to the Eastern District of Louisiana (E.D. La.).\n\n' +
+      'Cite to F. Supp.\n' +
+      'Statutory compilation: C.Z. Code tit. x, § x (year) (enacted as Canal Zone Code and redesignated by the Panama Canal Act of 1979)',
+    references: ['T1.4'],
+  },
+  'T1.4:Guam': {
+    title: 'Guam',
+    explanation:
+      'Public domain citation format:\n' +
+      '  Adams v. Duenas, 1998 Guam 15.\n' +
+      '  Adams v. Duenas, 1998 Guam 15 ¶ 2.\n\n' +
+      'Supreme Court of Guam (Guam): Cite using public domain format.\n' +
+      'District Court (D. Guam): Cite to F. Supp., F. Supp. 2d, or F. Supp. 3d.\n\n' +
+      'Statutory compilation: [tit. no.] Guam Code Ann. § x (year)\n' +
+      'Session laws: Guam Pub. L. [law no.] (year)\n' +
+      'Admin compilation: [tit. no.] Guam Admin. R. & Regs. § x (year)',
+    examples: [
+      'Adams v. Duenas, 1998 Guam 15.',
+      '9 Guam Code Ann. § 80.40 (2024).',
+    ],
+    references: ['T1.4', 'R. 10.3.3'],
+  },
+  'T1.4:N. Mar. I.': {
+    title: 'Northern Mariana Islands',
+    explanation:
+      'Public domain citation format for cases after June 15, 1996:\n' +
+      '  Lifoifoi v. Lifoifoi-Aldan, 1996 MP 14.\n\n' +
+      'Supreme Court (N. Mar. I.): Cite to N. Mar. I.\n' +
+      'District Court (D. N. Mar. I.): Cite to F. Supp., F. Supp. 2d, or F. Supp. 3d.\n\n' +
+      'Statutory compilation: [tit. no.] N. Mar. I. Code § x (year)\n' +
+      'Session laws: [year] N. Mar. I. Pub. L. [law no.]',
+    examples: [
+      'Lifoifoi v. Lifoifoi-Aldan, 1996 MP 14.',
+      '6 N. Mar. I. Code § 3101 (2024).',
+    ],
+    references: ['T1.4', 'R. 10.3.3'],
+  },
+  'T1.4:P.R.': {
+    title: 'Puerto Rico',
+    explanation:
+      'Public domain citation format for cases decided after December 31, 1997:\n' +
+      '  English: Guzman Rosario v. Departamento de Hacienda, 98 PRSC 148.\n' +
+      '  Spanish: Guzman Rosario v. Departamento de Hacienda, 98 TSPR 148.\n\n' +
+      'Supreme Court (P.R.): Cite to P.R. or P.R. Offic. Trans., if therein; otherwise P.R. Dec. or P.R. Sent.\n' +
+      'Circuit Court of Appeals (P.R. Cir.): Cite to T.C.A.\n\n' +
+      'Statutory compilation: P.R. Laws Ann. tit. x, § x (year)\n' +
+      'Session laws: [year] P.R. Laws [page no.]',
+    examples: [
+      'Guzman Rosario v. Departamento de Hacienda, 98 PRSC 148.',
+      'P.R. Laws Ann. tit. 33, § 4889 (2024).',
+    ],
+    references: ['T1.4', 'R. 10.3.3'],
+  },
+  'T1.4:V.I.': {
+    title: 'Virgin Islands',
+    explanation:
+      'Public domain citation format for cases decided after January 1, 2019:\n' +
+      '  Burt v. Lockheed Martin Corp., 2024 V.I. 33.\n\n' +
+      'Supreme Court (V.I.) and Superior Court (V.I. Super. Ct.): Cite to V.I.\n' +
+      'District Court (D.V.I.): Cite to F. Supp., F. Supp. 2d, or F. Supp. 3d.\n\n' +
+      'Statutory compilation: V.I. Code Ann. tit. x, § x-x (year)\n' +
+      'Session laws: [year] V.I. Sess. Laws [page no.]',
+    examples: [
+      'Burt v. Lockheed Martin Corp., 2024 V.I. 33.',
+      'V.I. Code Ann. tit. 14, § 922 (2024).',
+    ],
+    references: ['T1.4', 'R. 10.3.3'],
+  },
+  'T1.5': {
+    title: 'Tribal Nations',
+    explanation:
+      'T1.5 lists all 574 federally recognized Tribal Nations. Before citing tribal materials, check whether the Tribal Nation has its own citation format (see R. 22.1).\n\n' +
+      'For Tribal Nations with established citation formats (R. 22.1), cite according to their rules. For Tribal Nations without established citation formats (R. 22.2), use the general framework:\n' +
+      '  Constitutions: [Tribal Nation] Const. art. x, § x\n' +
+      '  Codes: [Tribal Nation] Code tit. x, § x (year)\n' +
+      '  Cases: [Case name], No. [docket no.] ([Tribal court] [date])\n\n' +
+      'Notable Tribal Nations with established citation systems include: Cherokee Nation, Chickasaw Nation, Choctaw Nation of Oklahoma, Muscogee (Creek) Nation, Navajo Nation, Seminole Nation of Oklahoma, among others.',
+    references: ['R. 22', 'R. 22.1', 'R. 22.2', 'T1'],
+  },
+  'T2': {
+    title: 'Foreign Jurisdictions',
+    explanation:
+      'Table T2 provides citation conventions for foreign jurisdictions. It is the primary source for citing foreign cases (R. 20.3), constitutions (R. 20.4), statutes (R. 20.5), and other materials. ' +
+      'T2 is now located online at legalbluebook.com.',
+    references: ['R. 20'],
+  },
+  'T6': {
+    title: 'Abbreviations',
+    explanation:
+      'Table T6 lists standard abbreviations for words commonly used in case names, institutional names, court documents, and other legal citations. ' +
+      'In citation sentences, abbreviate all T6 words (R. 10.2.2). In textual sentences, only abbreviate the 8 words in R. 10.2.1(c). ' +
+      'Common examples: "Association" → "Ass\'n", "Department" → "Dep\'t", "University" → "Univ.", "National" → "Nat\'l", "Corporation" → "Corp."',
+    references: ['R. 10.2.2', 'R. 10.2.1(c)'],
+  },
+  'T7': {
+    title: 'Court Names',
+    explanation:
+      'Table T7 provides abbreviations for court names used in citation parentheticals. Includes federal courts, state courts, and specialized courts. ' +
+      'Used with R. 10.4 for court designation and R. 10.3.3 for public domain citations.',
+    references: ['R. 10.4', 'R. 10.3.3'],
+  },
+  'T8': {
+    title: 'Explanatory Phrases',
+    explanation:
+      'Table T8 lists abbreviated explanatory phrases used in case history: aff\'d, rev\'d, vacated, cert. denied, cert. granted, overruled by, superseded by statute, sub nom., etc. ' +
+      'These phrases are italicized and appear between citations in prior/subsequent history (R. 10.7).',
+    references: ['R. 10.7', 'R. 10.7.1'],
+  },
+  'T9': {
+    title: 'Legislative Documents',
+    explanation:
+      'Table T9 provides abbreviations for legislative documents: S. (Senate), H.R. (House of Representatives), S. Rep. No., H.R. Rep. No., S. Con. Res., H.R.J. Res., etc. Used with R. 13.',
+    references: ['R. 13'],
+  },
+  'T10': {
+    title: 'Geographical Terms',
+    explanation:
+      'Table T10 provides standard abbreviations for U.S. states and territories (e.g., "California" → "Cal.", "New York" → "N.Y.", "Massachusetts" → "Mass.") ' +
+      'and for countries/regions (e.g., "Australia" → "Austl.", "Canada" → "Can.", "Germany" → "Ger."). Used in case citations (R. 10.2.2), court designations (R. 10.4), and foreign materials (R. 20.1).',
+    references: ['R. 10.2.2', 'R. 10.4', 'R. 20.1'],
+  },
+  'T11': {
+    title: 'Judges and Officials',
+    explanation:
+      'Table T11 provides abbreviations for judges and officials: "Justice" → "J." (plural "JJ."), "Chief Justice" → "C.J.", "Judge" → "J.", "Commissioner" → "Comm\'r". ' +
+      'Used in weight-of-authority parentheticals (R. 10.6.1).',
+    references: ['R. 10.6.1', 'B9'],
+  },
+  'T12': {
+    title: 'Months',
+    explanation:
+      'Table T12 abbreviates months with more than four letters: Jan., Feb., Mar., Apr., Aug., Sep., Oct., Nov., Dec. May, June, and July are not abbreviated.',
+  },
+  'T13': {
+    title: 'Periodicals',
+    explanation:
+      'Table T13 provides abbreviations for legal and non-legal periodicals: law reviews, journals, and other publications. ' +
+      'Used with R. 16 for periodical citations. For foreign periodicals, see R. 20.6.',
+    references: ['R. 16', 'R. 20.6'],
+  },
+  'T14': {
+    title: 'Services',
+    explanation:
+      'Table T14 provides abbreviations for commonly cited legal services. Largely replaced by T15 in the 21st edition.',
+    references: ['T15', 'R. 19'],
+  },
+  'T15': {
+    title: 'Services and Publishers',
+    explanation:
+      'Table T15 provides abbreviations for service titles and publisher names used in service citations (R. 19). ' +
+      'Common publishers: CCH, BL (Bloomberg Law), West, RIA, Envtl. Law Inst.',
+    references: ['R. 19', 'R. 19.1'],
+  },
+  'T16': {
+    title: 'Subdivisions',
+    explanation:
+      'Table T16 provides standard abbreviations for document subdivisions: article → art., section → §, clause → cl., amendment → amend., ' +
+      'chapter → ch., paragraph → para./¶, preamble → pmbl., part → pt., schedule → sched., title → tit. ' +
+      'Use §§ for multiple sections. Use "amends." for multiple amendments.',
+    references: ['R. 3.3', 'R. 11'],
   },
   'Indigo R11': {
     title: 'Indigo Book — Case Names',
@@ -2141,5 +4229,110 @@ export const RULE_EXPLANATIONS: Record<string, { title: string; explanation: str
   'Indigo R15': {
     title: 'Indigo Book — Court and Year',
     explanation: 'Every case citation must include the year of decision.',
+  },
+  'R. 6.2(c)': {
+    title: 'Section and Paragraph Symbol Spacing',
+    explanation: 'Always insert a space between a section (§) or paragraph (¶) symbol and the following number. Use "§§" or "¶¶" for multiple sections/paragraphs (no space between the doubled symbols). Never use "§ §" or "¶ ¶" with a space between them.',
+    examples: [
+      '§ 1983 (correct)',
+      '§1983 (incorrect — missing space)',
+      '§§ 1981–1983 (correct)',
+      '§§1981–1983 (incorrect — missing space)',
+    ],
+    tips: [
+      'The space after § or ¶ is one of the most frequently checked formatting rules.',
+      'Double symbols (§§, ¶¶) are closed up with no space between them.',
+    ],
+    commonMistakes: [
+      'Forgetting the space after § or ¶.',
+      'Writing "§ §" with a space between consecutive section symbols.',
+    ],
+  },
+  'R. 10.9': {
+    title: 'Short Forms for Cases',
+    explanation: 'After a full case citation has been given, short forms may be used in the same general discussion. Three acceptable forms: (1) "Id." (for the immediately preceding single authority), (2) one party name + volume + reporter + "at" + page, (3) one party name + "at" + page (when the case is clear from context).\n\n"At" must always precede the pinpoint page number in case short forms.',
+    examples: [
+      'Id. at 563.',
+      'Brown, 347 U.S. at 495.',
+      'Brown, at 495. (only when clear from context)',
+    ],
+    tips: [
+      'Short form case citations must include "at" before the pinpoint page.',
+      'The party name may be shortened to one recognizable party.',
+      'Only use short forms after the full citation has appeared in the same general discussion.',
+    ],
+    commonMistakes: [
+      'Omitting "at" before the pinpoint page in a case short form.',
+      'Using a short form without having given the full citation first.',
+      'Using Id. when the preceding citation has multiple authorities.',
+    ],
+  },
+  'R. 12.3.1(d)': {
+    title: 'Publisher Information for Unofficial Codes',
+    explanation: 'Unofficial code citations (U.S.C.A., U.S.C.S., and annotated state codes) must include the publisher name in the parenthetical. Even when no year is given, the publisher must still appear.',
+    examples: [
+      '42 U.S.C.A. § 1983 (West 2020).',
+      '42 U.S.C.S. § 1983 (LexisNexis 2020).',
+    ],
+    tips: [
+      'U.S.C.A. is published by West; U.S.C.S. is published by LexisNexis.',
+      'Even without a year, unofficial codes need the publisher: "(West)" or "(LexisNexis)".',
+    ],
+  },
+  'R. 12.3.1(e)': {
+    title: 'Supplement Citations',
+    explanation: '"Supplement" must be abbreviated as "Supp." in citations. It appears before the year in the parenthetical, optionally after the publisher name.',
+    examples: [
+      '42 U.S.C. § 1397b (Supp. V 2017).',
+      '42 U.S.C.A. § 1983 (West Supp. 2020).',
+    ],
+    tips: [
+      '"Supp." goes BEFORE the year, not after.',
+      'Include the supplement volume number when applicable: "Supp. V".',
+    ],
+    commonMistakes: [
+      'Writing "Supplement" instead of "Supp."',
+      'Placing "Supp." after the year: "(2020 Supp.)" instead of "(Supp. 2020)".',
+    ],
+  },
+  'R. 14.5': {
+    title: 'Treasury Regulations and IRS Materials',
+    explanation: 'Treasury Regulations are cited as "Treas. Reg. § [section] ([year])". Revenue Rulings use "Rev. Rul." and Revenue Procedures use "Rev. Proc." The Internal Revenue Code may be cited as "I.R.C. § [section]" or "26 U.S.C. § [section]".',
+    examples: [
+      'Treas. Reg. § 1.61-1 (2024).',
+      'Rev. Rul. 99-7, 1999-1 C.B. 361.',
+      'I.R.C. § 501(c)(3).',
+    ],
+    tips: [
+      'Subsections in I.R.C. citations are parenthesized with no spaces: "§ 501(c)(3)" not "§ 501 (c)(3)".',
+      'Practitioners may omit the year for current Treasury Regulations.',
+    ],
+    commonMistakes: [
+      'Writing "Treasury Regulation" instead of "Treas. Reg."',
+      'Omitting the § symbol in I.R.C. or Treas. Reg. citations.',
+      'Adding a space before subsection parentheses: "§ 501 (c)(3)" instead of "§ 501(c)(3)".',
+    ],
+  },
+  'B12.1.3': {
+    title: 'Procedural and Court Rules (Bluepages)',
+    explanation: 'Federal procedural rules use specific abbreviations: Fed. R. Civ. P., Fed. R. Crim. P., Fed. R. Evid., Fed. R. App. P. Current rules are cited without a date. Court-specific rules use the court abbreviation followed by "R." and the rule number.',
+    examples: [
+      'Fed. R. Civ. P. 12(b)(6).',
+      'Fed. R. Evid. 702.',
+      '8th Cir. R. 27B.',
+      'S.D.N.Y. R. 56.1.',
+    ],
+    tips: [
+      'Current rules have NO date — only include a date for rules no longer in force.',
+      'Do NOT use "supra" or "hereinafter" for procedural rules.',
+      'Common wrong abbreviations: "F.R.C.P." (should be "Fed. R. Civ. P."), "F.R.E." (should be "Fed. R. Evid.").',
+      'Rule subdivisions immediately follow the number with no space: "12(b)(6)" not "12 (b)(6)".',
+    ],
+    commonMistakes: [
+      'Using incorrect abbreviations like "F.R.C.P." instead of "Fed. R. Civ. P."',
+      'Including a year for current rules.',
+      'Using "supra" for procedural rules.',
+      'Adding a space before rule subdivisions.',
+    ],
   },
 };

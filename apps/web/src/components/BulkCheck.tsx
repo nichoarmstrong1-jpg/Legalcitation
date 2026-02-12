@@ -102,7 +102,7 @@ export function BulkCheck({ onResults, onSelectCitation, results }: BulkCheckPro
 
       {/* Stats */}
       {results.length > 0 && (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="card text-center py-5">
             <ScoreCounter value={stats.total} className="text-3xl font-bold text-primary-900" />
             <div className="text-xs text-surface-400 mt-1 font-medium">Total</div>
@@ -124,8 +124,8 @@ export function BulkCheck({ onResults, onSelectCitation, results }: BulkCheckPro
 
       {/* Results Table */}
       {results.length > 0 && (
-        <div className="card overflow-hidden p-0">
-          <table className="w-full text-sm">
+        <div className="card overflow-x-auto p-0">
+          <table className="w-full text-sm min-w-[500px]">
             <thead>
               <tr className="border-b border-surface-200 bg-surface-50">
                 <th className="text-left py-3 px-4 text-surface-500 font-medium text-xs w-8">#</th>

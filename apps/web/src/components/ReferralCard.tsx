@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { API_BASE } from '../services/api.ts';
+import { useToast } from '../context/ToastContext.tsx';
 
 export function ReferralCard() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [referralLink, setReferralLink] = useState('');
   const [stats, setStats] = useState({ totalReferrals: 0, bonusChecks: 0 });
   const [copied, setCopied] = useState(false);
@@ -28,6 +30,7 @@ export function ReferralCard() {
     try {
       await navigator.clipboard.writeText(referralLink);
       setCopied(true);
+      showToast('Referral link copied', 'success');
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback
@@ -38,6 +41,7 @@ export function ReferralCard() {
       document.execCommand('copy');
       document.body.removeChild(input);
       setCopied(true);
+      showToast('Referral link copied', 'success');
       setTimeout(() => setCopied(false), 2000);
     }
   };
@@ -50,7 +54,7 @@ export function ReferralCard() {
       </p>
 
       {/* Referral link */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <input
           readOnly
           value={referralLink}
@@ -59,7 +63,7 @@ export function ReferralCard() {
         />
         <button
           onClick={handleCopy}
-          className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex-shrink-0 ${
+          className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex-shrink-0 text-center ${
             copied
               ? 'bg-verified-50 text-verified-700'
               : 'btn-primary'

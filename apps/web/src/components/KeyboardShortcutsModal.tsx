@@ -6,9 +6,9 @@ interface KeyboardShortcutsModalProps {
 
 export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps) {
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-3xl shadow-modal max-w-sm w-full p-8 animate-scale-in" onClick={e => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold text-primary-900 mb-4">Keyboard Shortcuts</h2>
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title" onClick={onClose}>
+      <div className="bg-white rounded-3xl shadow-modal max-w-sm w-full p-5 sm:p-8 animate-scale-in" onClick={e => e.stopPropagation()}>
+        <h2 id="shortcuts-modal-title" className="text-lg font-semibold text-primary-900 mb-4">Keyboard Shortcuts</h2>
         <div className="space-y-3">
           {SHORTCUTS.map(shortcut => (
             <div key={shortcut.description} className="flex items-center justify-between">

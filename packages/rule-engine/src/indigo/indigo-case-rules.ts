@@ -46,18 +46,9 @@ function checkIndigoCaseName(
     });
   }
 
-  // Check that case name is underlined or italicized (we look for formatting markers)
-  // This is a reminder — actual formatting is checked at rendering
-  if (!rawText.includes('*') && !rawText.startsWith('_')) {
-    issues.push({
-      id: uuid(),
-      rule: 'Indigo R11',
-      source: 'Indigo',
-      severity: 'suggestion',
-      message: 'Case names should be italicized or underlined.',
-      suggestion: 'Apply italics or underline to the case name.',
-    });
-  }
+  // Note: Formatting (italics/underline) is a rendering concern, not a raw-text
+  // validation concern. The rule engine receives plain text, so checking for
+  // markdown markers (*/_) here would always trigger a false positive.
 
   // Check for comma after case name before volume
   const nameVolumePattern = /v\.\s+[^,]+\s+\d{1,4}\s+/;

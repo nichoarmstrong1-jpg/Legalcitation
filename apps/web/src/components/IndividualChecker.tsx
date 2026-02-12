@@ -181,8 +181,8 @@ export function IndividualChecker({ onResult }: IndividualCheckerProps) {
           )}
         </div>
 
-        <div className="flex items-center justify-between mt-4">
-          <span className="text-xs text-surface-400">Paste to auto-analyze or press Cmd+Enter</span>
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0 mt-4">
+          <span className="text-xs text-surface-400 text-center sm:text-left">Paste to auto-analyze or press Cmd+Enter</span>
           <button
             onClick={() => handleAnalyze()}
             disabled={!input.trim() || loading}
@@ -221,10 +221,10 @@ export function IndividualChecker({ onResult }: IndividualCheckerProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
             <button
               onClick={() => handleUseSuggestion(suggestion.suggestedCitation)}
-              className="btn-primary flex items-center gap-2"
+              className="btn-primary flex items-center justify-center gap-2"
               disabled={loading}
             >
               {loading ? (
@@ -324,7 +324,10 @@ export function IndividualChecker({ onResult }: IndividualCheckerProps) {
             ].map(example => (
               <button
                 key={example}
-                onClick={() => setInput(example)}
+                onClick={() => {
+                  setInput(example);
+                  handleAnalyze(example);
+                }}
                 className="block w-full text-left text-sm text-primary-600 hover:text-primary-800 hover:bg-primary-50 px-4 py-2 rounded-xl transition-all duration-200 font-mono"
               >
                 {example}

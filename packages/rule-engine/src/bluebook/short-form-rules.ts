@@ -57,9 +57,9 @@ function validateId(
     });
   }
 
-  // Check for missing "at" before page number
+  // Check for missing "at" before page number (but NOT before § or ¶)
   const missingAtPattern = /\bId\.\s+(\d)/;
-  if (missingAtPattern.test(rawText) && !/\bId\.\s+at\s+/.test(rawText)) {
+  if (missingAtPattern.test(rawText) && !/\bId\.\s+at\s+/.test(rawText) && !/\bId\.\s+[§¶]/.test(rawText)) {
     issues.push({
       id: uuid(),
       rule: 'R. 4.1',
@@ -67,6 +67,43 @@ function validateId(
       severity: 'error',
       message: 'When citing a different page with "Id.", include "at" before the page number.',
       suggestion: 'Change "Id. [page]" to "Id. at [page]".',
+    });
+  }
+
+  // R. 4.1: "Id. at §" is WRONG — do not use "at" before section symbol
+  if (/\bId\.\s+at\s+[§¶]/.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 4.1',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'Do not use "at" before a section (§) or paragraph (¶) symbol. Use "Id. § [number]" not "Id. at § [number]".',
+      suggestion: 'Remove "at" before the § or ¶ symbol.',
+    });
+  }
+
+  // R. 4.1: Id. with section symbol must include full section number
+  // "Id. § (f)" is WRONG — must include section number: "Id. § 166(f)"
+  if (/\bId\.\s+[§¶]\s*\([a-zA-Z0-9]+\)/.test(rawText) && !/\bId\.\s+[§¶]\s*\d/.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 4.1',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'Include the full section number with "Id." — not just the subsection. Use "Id. § 166(f)" not "Id. § (f)".',
+      suggestion: 'Include the section number before the subsection letter.',
+    });
+  }
+
+  // R. 4.1: Double period — "Id.." is WRONG
+  if (/\bId\.\.\s/.test(rawText) || /\bId\.\.$/.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 4.1',
+      source: 'Bluebook',
+      severity: 'error',
+      message: '"Id." already ends with a period. Do not add a second period at the end of a citation sentence.',
+      suggestion: 'Remove the extra period: "Id." not "Id.."',
     });
   }
 
@@ -81,6 +118,18 @@ function validateId(
       suggestion: 'Replace "Ibid." with "Id."',
     });
   }
+
+  // R. 4.1: "ID." (all caps) is wrong
+  if (/\bID\./.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 4.1',
+      source: 'Bluebook',
+      severity: 'error',
+      message: '"ID." (all capitals) is incorrect. Use "Id." with only the first letter capitalized.',
+      suggestion: 'Change "ID." to "Id."',
+    });
+  }
 }
 
 function validateSupra(
@@ -88,27 +137,63 @@ function validateSupra(
   components: ShortFormComponents,
   issues: ValidationIssue[]
 ): void {
-  // Supra should not be used for cases or statutes
-  // (This is a context-dependent check — we flag it as a warning)
-  issues.push({
-    id: uuid(),
-    rule: 'R. 4.2',
-    source: 'Bluebook',
-    severity: 'suggestion',
-    message: '"Supra" should only be used for secondary sources (books, articles, etc.), not for cases or statutes.',
-    suggestion: 'Verify that this supra reference is to a secondary source, not a case or statute.',
-  });
+  // B4 / R. 4.2: Supra NEVER used for cases, statutes, constitutions,
+  // court rules, regulations, restatements, model codes, or legislative materials (except hearings).
+  // Detect if the antecedent might be a prohibited source.
+  const prohibitedPatterns = [
+    { pattern: /\bv\.\s/, label: 'case' },
+    { pattern: /\b(?:U\.S\.C\.|Stat\.|Code|Rev\.)\b/, label: 'statute' },
+    { pattern: /\bConst\.\b/, label: 'constitution' },
+    { pattern: /\bC\.F\.R\.\b/, label: 'regulation' },
+    { pattern: /\bFed\.\s+R\.\b/, label: 'procedural rule' },
+  ];
 
-  // Check format: Author, supra note X, at Y
-  if (components.partyName && !/\bsupra\s+note\s+\d+/.test(rawText) && !/\bsupra\s*,/.test(rawText)) {
+  let isProhibited = false;
+  for (const { pattern, label } of prohibitedPatterns) {
+    if (pattern.test(rawText)) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 4.2',
+        source: 'Bluebook',
+        severity: 'error',
+        message: `"Supra" cannot be used for ${label} citations. Use "Id." or a specific short form instead.`,
+        suggestion: `Replace with the appropriate short form for ${label} citations.`,
+      });
+      isProhibited = true;
+      break;
+    }
+  }
+
+  if (!isProhibited) {
+    // Generic reminder for supra — suggest verification
     issues.push({
       id: uuid(),
       rule: 'R. 4.2',
       source: 'Bluebook',
-      severity: 'warning',
-      message: 'Supra references should include "note" followed by the footnote number.',
-      suggestion: 'Format as "[Author], supra note [X], at [page]".',
+      severity: 'suggestion',
+      message: '"Supra" may only be used for secondary sources (books, articles, pamphlets, reports, hearings, periodicals, treaties, unpublished materials). It is NEVER used for cases, statutes, constitutions, court rules, or regulations.',
+      suggestion: 'Verify this supra reference is to an eligible secondary source.',
     });
+  }
+
+  // Check format: Author, supra, at Y or Author, supra note X, at Y
+  if (components.partyName) {
+    const hasNote = /\bsupra\s+note\s+\d+/.test(rawText);
+    const hasCommaAfterSupra = /\bsupra\s*,/.test(rawText);
+    const hasAt = /\bat\s+\d/.test(rawText);
+
+    // In practitioners' documents (no footnotes), format is: Author, supra, at [page]
+    // In academic documents (with footnotes), format is: Author, supra note [X], at [page]
+    if (!hasNote && !hasCommaAfterSupra && !hasAt) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 4.2',
+        source: 'Bluebook',
+        severity: 'warning',
+        message: 'Supra short form should include a pinpoint. Format: "[Author], supra, at [page]" or "[Author], supra note [X], at [page]".',
+        suggestion: 'Add "at [page]" to the supra citation.',
+      });
+    }
   }
 }
 

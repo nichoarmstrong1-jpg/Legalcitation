@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Header } from './components/Header.tsx';
 import { NavigationTabs } from './components/NavigationTabs.tsx';
 import { InTextChecker } from './components/InTextChecker.tsx';
@@ -6,27 +6,31 @@ import { IndividualChecker } from './components/IndividualChecker.tsx';
 import { CitationBuilder } from './components/CitationBuilder.tsx';
 import { BulkCheck } from './components/BulkCheck.tsx';
 import { AnalysisSidebar } from './components/AnalysisSidebar.tsx';
-import { HistoryPanel } from './components/HistoryPanel.tsx';
+import { HistoryView } from './components/HistoryView.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
 import { PricingModal } from './components/PricingModal.tsx';
 import { OnboardingFlow } from './components/OnboardingFlow.tsx';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal.tsx';
-import { useHistory } from './hooks/useHistory.ts';
+import { ToastProvider } from './context/ToastContext.tsx';
+import { ToastContainer } from './components/ui/Toast.tsx';
+import { SkeletonCard } from './components/ui/SkeletonCard.tsx';
+import { useHistory, type HistoryEntry } from './hooks/useHistory.ts';
 import { useAuth } from './context/AuthContext.tsx';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.ts';
 import type { AnalyzedCitation } from './services/api.ts';
 
-type Mode = 'in_text' | 'individual' | 'builder' | 'bulk';
+type Mode = 'in_text' | 'individual' | 'builder' | 'bulk' | 'history';
 type FormatStyle = 'italics' | 'underline';
-const MODES: Mode[] = ['in_text', 'individual', 'builder', 'bulk'];
+const MODES: Mode[] = ['in_text', 'individual', 'builder', 'bulk', 'history'];
 
-export default function App() {
+function AppContent() {
   const { refreshUser } = useAuth();
   const [mode, setMode] = useState<Mode>('individual');
   const [formatStyle, setFormatStyle] = useState<FormatStyle>('italics');
   const [selectedCitation, setSelectedCitation] = useState<AnalyzedCitation | null>(null);
   const [allResults, setAllResults] = useState<AnalyzedCitation[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | undefined>();
   const [showAuth, setShowAuth] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -35,6 +39,7 @@ export default function App() {
   );
   const [authMessage, setAuthMessage] = useState<string | undefined>();
   const { history, saveToHistory, deleteEntry, clearHistory } = useHistory();
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
   // Handle checkout success redirect
   useEffect(() => {
@@ -45,36 +50,53 @@ export default function App() {
     }
   }, [refreshUser]);
 
+  // Auto-scroll to sidebar on mobile when a result is selected
+  useEffect(() => {
+    if (!selectedCitation) return;
+    if (window.innerWidth >= 1024) return;
+    const timer = setTimeout(() => {
+      sidebarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [selectedCitation]);
+
   const handleResults = useCallback((results: AnalyzedCitation[], input: string) => {
+    setIsAnalyzing(false);
     setAllResults(results);
     if (results.length > 0) {
       setSelectedCitation(results[0]);
     }
-    saveToHistory({ mode, input, results });
+    saveToHistory({ mode: mode as Exclude<Mode, 'history'>, input, results });
   }, [mode, saveToHistory]);
 
   const handleSingleResult = useCallback((result: AnalyzedCitation, input: string) => {
+    setIsAnalyzing(false);
     setAllResults([result]);
     setSelectedCitation(result);
-    saveToHistory({ mode, input, results: [result] });
+    saveToHistory({ mode: mode as Exclude<Mode, 'history'>, input, results: [result] });
   }, [mode, saveToHistory]);
+
+  const handleRestoreHistory = useCallback((entry: HistoryEntry) => {
+    setSelectedHistoryId(entry.id);
+    setAllResults(entry.results);
+    if (entry.results.length > 0) {
+      setSelectedCitation(entry.results[0]);
+    }
+  }, []);
 
   const openAuth = useCallback((message?: string) => {
     setAuthMessage(message);
     setShowAuth(true);
   }, []);
 
-  // Close any open modal
   const closeAllModals = useCallback(() => {
     if (showShortcuts) { setShowShortcuts(false); return; }
     if (showAuth) { setShowAuth(false); return; }
     if (showPricing) { setShowPricing(false); return; }
-    if (showHistory) { setShowHistory(false); return; }
-  }, [showShortcuts, showAuth, showPricing, showHistory]);
+  }, [showShortcuts, showAuth, showPricing]);
 
-  // Keyboard shortcuts
   const shortcutHandlers = useMemo(() => ({
-    onToggleHistory: () => setShowHistory(prev => !prev),
+    onToggleHistory: () => setMode(prev => prev === 'history' ? 'individual' : 'history'),
     onSwitchMode: (index: number) => {
       if (index >= 0 && index < MODES.length) setMode(MODES[index]);
     },
@@ -89,7 +111,7 @@ export default function App() {
       <Header
         formatStyle={formatStyle}
         onFormatChange={setFormatStyle}
-        onHistoryToggle={() => setShowHistory(!showHistory)}
+        onHistoryToggle={() => setMode(prev => prev === 'history' ? 'individual' : 'history')}
         onPricingOpen={() => setShowPricing(true)}
         onAuthOpen={() => openAuth()}
       />
@@ -97,8 +119,11 @@ export default function App() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <NavigationTabs mode={mode} onModeChange={(newMode) => {
           setMode(newMode);
-          setSelectedCitation(null);
-          setAllResults([]);
+          if (newMode !== 'history') {
+            setSelectedCitation(null);
+            setAllResults([]);
+            setSelectedHistoryId(undefined);
+          }
         }} />
 
         <div className="mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
@@ -124,15 +149,26 @@ export default function App() {
                 results={allResults}
               />
             )}
+            {mode === 'history' && (
+              <HistoryView
+                history={history}
+                onRestore={handleRestoreHistory}
+                onDelete={deleteEntry}
+                onClear={clearHistory}
+                selectedEntryId={selectedHistoryId}
+              />
+            )}
           </div>
 
           {/* Sidebar */}
-          <div className="lg:col-span-1">
+          <div ref={sidebarRef} className="lg:col-span-1">
             {selectedCitation ? (
               <AnalysisSidebar
                 citation={selectedCitation}
                 formatStyle={formatStyle}
               />
+            ) : isAnalyzing ? (
+              <SkeletonCard />
             ) : (
               <div className="card text-center text-surface-400 py-16">
                 <div className="w-14 h-14 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
@@ -149,16 +185,6 @@ export default function App() {
       {/* Onboarding */}
       {showOnboarding && (
         <OnboardingFlow onComplete={() => setShowOnboarding(false)} />
-      )}
-
-      {/* History Panel */}
-      {showHistory && (
-        <HistoryPanel
-          history={history}
-          onClose={() => setShowHistory(false)}
-          onDelete={deleteEntry}
-          onClear={clearHistory}
-        />
       )}
 
       {/* Auth Modal */}
@@ -184,6 +210,16 @@ export default function App() {
       {showShortcuts && (
         <KeyboardShortcutsModal onClose={() => setShowShortcuts(false)} />
       )}
+
+      <ToastContainer />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 }

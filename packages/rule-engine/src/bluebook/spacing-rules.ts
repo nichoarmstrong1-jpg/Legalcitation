@@ -22,6 +22,18 @@ export function validateSpacing(rawText: string): ValidationIssue[] {
   // Bad: "F. 3d" should be "F.3d"
   checkReporterSeriesSpacing(rawText, issues);
 
+  // R. 6.1(a): Section symbol spacing
+  checkSectionSymbolSpacing(rawText, issues);
+
+  // R. 6.1(a): Paragraph symbol spacing
+  checkParagraphSymbolSpacing(rawText, issues);
+
+  // R. 6.1(a): Double spaces
+  checkDoubleSpaces(rawText, issues);
+
+  // R. 6.1(a): Comma spacing
+  checkCommaSpacing(rawText, issues);
+
   return issues;
 }
 
@@ -109,5 +121,117 @@ function checkReporterSeriesSpacing(text: string, issues: ValidationIssue[]): vo
         suggestion: `Change to "F. Supp. ${match[2]}".`,
       });
     }
+  }
+}
+
+/**
+ * R. 6.2(c): Section symbol (§) must have a space after it before a number.
+ */
+function checkSectionSymbolSpacing(text: string, issues: ValidationIssue[]): void {
+  // §123 → should be § 123
+  if (/§\d/.test(text)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 6.2(c)',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'There must be a space between the section symbol (§) and the number.',
+      suggestion: 'Add a space: "§ 1983" not "§1983".',
+    });
+  }
+
+  // §§123 → should be §§ 123
+  if (/§§\d/.test(text)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 6.2(c)',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'There must be a space between the double section symbol (§§) and the number.',
+      suggestion: 'Add a space: "§§ 1981–1983" not "§§1981–1983".',
+    });
+  }
+
+  // § § (space between consecutive §) → should be §§
+  if (/§\s+§/.test(text)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 6.2(c)',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'Do not place a space between consecutive section symbols. Use "§§" not "§ §".',
+      suggestion: 'Close up the symbols: "§§" for multiple sections.',
+    });
+  }
+}
+
+/**
+ * R. 6.2(c): Paragraph symbol (¶) must have a space after it before a number.
+ */
+function checkParagraphSymbolSpacing(text: string, issues: ValidationIssue[]): void {
+  if (/¶\d/.test(text)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 6.2(c)',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'There must be a space between the paragraph symbol (¶) and the number.',
+      suggestion: 'Add a space: "¶ 45" not "¶45".',
+    });
+  }
+
+  if (/¶¶\d/.test(text)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 6.2(c)',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'There must be a space between the double paragraph symbol (¶¶) and the number.',
+      suggestion: 'Add a space: "¶¶ 45–47" not "¶¶45–47".',
+    });
+  }
+
+  if (/¶\s+¶/.test(text)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 6.2(c)',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'Do not place a space between consecutive paragraph symbols. Use "¶¶" not "¶ ¶".',
+      suggestion: 'Close up the symbols: "¶¶" for multiple paragraphs.',
+    });
+  }
+}
+
+/**
+ * General spacing: detect double spaces within citations.
+ */
+function checkDoubleSpaces(text: string, issues: ValidationIssue[]): void {
+  if (/  /.test(text)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 6.1',
+      source: 'Bluebook',
+      severity: 'warning',
+      message: 'Citation contains a double space. Use single spaces throughout.',
+      suggestion: 'Remove the extra space.',
+    });
+  }
+}
+
+/**
+ * General spacing: comma followed by a letter (missing space after comma).
+ */
+function checkCommaSpacing(text: string, issues: ValidationIssue[]): void {
+  // Comma followed by letter without space (but not inside numbers like "1,000")
+  if (/,[A-Za-z]/.test(text)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 6.1',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'Missing space after comma in citation.',
+      suggestion: 'Add a space after the comma.',
+    });
   }
 }

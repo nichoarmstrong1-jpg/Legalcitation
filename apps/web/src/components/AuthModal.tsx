@@ -37,10 +37,10 @@ export function AuthModal({ onClose, initialTab = 'signup', message }: AuthModal
   };
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-3xl shadow-modal max-w-sm w-full p-8 animate-scale-in" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" onClick={onClose}>
+      <div className="bg-white rounded-3xl shadow-modal max-w-sm w-full p-5 sm:p-8 animate-scale-in" onClick={e => e.stopPropagation()}>
         {/* Close */}
-        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-xl text-surface-400 hover:text-surface-600 hover:bg-surface-100 transition-colors">
+        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-xl text-surface-400 hover:text-surface-600 hover:bg-surface-100 transition-colors" aria-label="Close">
           &#10005;
         </button>
 
@@ -49,7 +49,7 @@ export function AuthModal({ onClose, initialTab = 'signup', message }: AuthModal
           &#9878;
         </div>
 
-        <h2 className="text-xl font-semibold text-primary-900 text-center">
+        <h2 id="auth-modal-title" className="text-xl font-semibold text-primary-900 text-center">
           {tab === 'login' ? 'Welcome back' : 'Create your account'}
         </h2>
 

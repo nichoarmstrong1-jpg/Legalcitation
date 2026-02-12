@@ -47,16 +47,27 @@
 
   /* ---- Cards ---- */
   .card {
-    @apply bg-white rounded-2xl shadow-card p-6 border border-surface-200
+    @apply bg-white rounded-2xl shadow-card border border-surface-200
            transition-all duration-300 ease-out;
+    padding: 1rem;
   }
   .card:hover {
     @apply shadow-elevated;
   }
 
   .card-flat {
-    @apply bg-white rounded-2xl p-6 border border-surface-200;
+    @apply bg-white rounded-2xl border border-surface-200;
+    padding: 1rem;
   }
+}
+
+@media (min-width: 640px) {
+  .card, .card-flat {
+    padding: 1.5rem;
+  }
+}
+
+@layer components {
 
   /* ---- Badges ---- */
   .badge-verified {

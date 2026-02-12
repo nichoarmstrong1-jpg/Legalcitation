@@ -78,7 +78,7 @@ export function validateTypeface(
     const idMatch = rawText.match(/\bid\b\./i);
     if (idMatch) {
       const matched = idMatch[0];
-      // "id." (no period) or "ID." (all caps) are formatting errors
+      // "ID." (all caps) is a formatting error
       if (matched === 'ID.') {
         issues.push({
           id: uuid(),
@@ -92,5 +92,101 @@ export function validateTypeface(
     }
   }
 
+  // B2: Check that "supra" is italicized (detect formatting issues)
+  if (citation.type === 'supra') {
+    if (/\bSUPRA\b/.test(rawText)) {
+      issues.push({
+        id: uuid(),
+        rule: 'B2',
+        source: 'Bluebook',
+        severity: 'error',
+        message: '"Supra" should not be in all capitals. It should be italicized in lowercase.',
+        suggestion: 'Use "supra" (italicized) not "SUPRA".',
+      });
+    }
+  }
+
+  // B2: Detect mixing of italics/underscoring markers (if markup is present)
+  checkTypefaceMixing(rawText, issues);
+
+  // B2: Check that signals are formatted as italicized
+  checkSignalFormatting(rawText, issues);
+
+  // B2: Check related authority phrases
+  checkRelatedAuthorityPhrases(rawText, issues);
+
   return issues;
+}
+
+/**
+ * B2: Detect mixing of italics and underscoring within the same citation.
+ */
+function checkTypefaceMixing(rawText: string, issues: ValidationIssue[]): void {
+  const hasItalicMarker = /<i>|<em>|\*[^*]+\*/i.test(rawText);
+  const hasUnderlineMarker = /<u>|__[^_]+__/i.test(rawText);
+
+  if (hasItalicMarker && hasUnderlineMarker) {
+    issues.push({
+      id: uuid(),
+      rule: 'B2',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'Do not mix italics and underscoring within the same citation. Choose one typeface convention and use it consistently.',
+      suggestion: 'Use either italics or underscoring throughout, not both.',
+    });
+  }
+}
+
+/**
+ * B2: Introductory signals should be italicized.
+ * We check for common signals in ALL CAPS which suggests they're not properly formatted.
+ */
+function checkSignalFormatting(rawText: string, issues: ValidationIssue[]): void {
+  const ALL_CAPS_SIGNALS = [
+    { pattern: /\bSEE ALSO\b/, correct: 'See also' },
+    { pattern: /\bSEE GENERALLY\b/, correct: 'See generally' },
+    { pattern: /\bBUT SEE\b/, correct: 'But see' },
+    { pattern: /\bBUT CF\.\b/, correct: 'But cf.' },
+    { pattern: /\bCONTRA\b/, correct: 'Contra' },
+    { pattern: /\bCOMPARE\b/, correct: 'Compare' },
+  ];
+
+  for (const { pattern, correct } of ALL_CAPS_SIGNALS) {
+    if (pattern.test(rawText)) {
+      issues.push({
+        id: uuid(),
+        rule: 'B2',
+        source: 'Bluebook',
+        severity: 'warning',
+        message: `Signal "${rawText.match(pattern)?.[0]}" should be in italics, not all capitals.`,
+        suggestion: `Use "${correct}" (italicized).`,
+      });
+    }
+  }
+}
+
+/**
+ * B2: Related authority phrases (e.g., "quoted in", "reprinted in") should be italicized.
+ * Detect ALL CAPS versions as formatting errors.
+ */
+function checkRelatedAuthorityPhrases(rawText: string, issues: ValidationIssue[]): void {
+  const CAPS_PHRASES = [
+    { pattern: /\bQUOTED IN\b/, correct: 'quoted in' },
+    { pattern: /\bREPRINTED IN\b/, correct: 'reprinted in' },
+    { pattern: /\bAVAILABLE AT\b/, correct: 'available at' },
+    { pattern: /\bCITED IN\b/, correct: 'cited in' },
+  ];
+
+  for (const { pattern, correct } of CAPS_PHRASES) {
+    if (pattern.test(rawText)) {
+      issues.push({
+        id: uuid(),
+        rule: 'B2',
+        source: 'Bluebook',
+        severity: 'warning',
+        message: `Related authority phrase "${rawText.match(pattern)?.[0]}" should be in italics, not all capitals.`,
+        suggestion: `Use "${correct}" (italicized).`,
+      });
+    }
+  }
 }

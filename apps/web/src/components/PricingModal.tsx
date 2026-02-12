@@ -106,11 +106,11 @@ export function PricingModal({ onClose, onSignupRequired }: PricingModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-3xl shadow-modal max-w-3xl w-full p-8 animate-scale-in overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="pricing-modal-title" onClick={onClose}>
+      <div className="bg-white rounded-3xl shadow-modal max-w-3xl w-full p-5 sm:p-8 animate-scale-in overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-primary-900">Choose Your Plan</h2>
+          <h2 id="pricing-modal-title" className="text-2xl font-bold text-primary-900">Choose Your Plan</h2>
           <p className="text-sm text-surface-400 mt-1">All plans include full Claude AI verification</p>
 
           {/* Interval Toggle */}

@@ -47,6 +47,15 @@ export function validateCaseName(
   // R. 10.2.1(h): Redundant business designations
   checkBusinessDesignations(fullName, issues);
 
+  // R. 10.2.1(f): Local government party rules
+  checkLocalGovernmentParties(fullName, issues);
+
+  // R. 10.2.1(i): Union names
+  checkUnionNames(fullName, issues);
+
+  // R. 10.2.1(j): Commissioner of Internal Revenue
+  checkIRSCommissioner(fullName, context, issues);
+
   // R. 10.2.2: "United States" as named party (never abbreviate)
   checkUnitedStatesParty(components, issues);
 
@@ -54,36 +63,75 @@ export function validateCaseName(
 }
 
 function checkMultipleParties(name: string, issues: ValidationIssue[]): void {
+  // R. 10.2.1(a): Omit "et al." and similar phrases
   if (/\bet\s+al\.?\b/i.test(name)) {
     issues.push({
       id: uuid(),
       rule: 'R. 10.2.1(a)',
       source: 'Bluebook',
       severity: 'error',
-      message: 'Omit "et al." and similar phrases indicating multiple parties.',
+      message: 'Omit "et al." — include only the first-named party on each side.',
       suggestion: 'Remove "et al." from the case name.',
     });
   }
 
-  if (/\ba\.?k\.?a\.?\b/i.test(name)) {
+  // R. 10.2.1(a): Omit "et ux." (and wife)
+  if (/\bet\s+ux\.?\b/i.test(name)) {
     issues.push({
       id: uuid(),
       rule: 'R. 10.2.1(a)',
       source: 'Bluebook',
       severity: 'error',
-      message: 'Omit alternative names such as "a.k.a."',
-      suggestion: 'Remove the "a.k.a." and alternative name.',
+      message: 'Omit "et ux." — these phrases indicate additional parties not specifically named.',
+      suggestion: 'Remove "et ux." from the case name.',
     });
   }
 
-  if (/\bd\/b\/a\b/i.test(name)) {
+  // R. 10.2.1(a): Omit "etc."
+  if (/\betc\.?\b/i.test(name)) {
     issues.push({
       id: uuid(),
       rule: 'R. 10.2.1(a)',
       source: 'Bluebook',
       severity: 'error',
-      message: 'Omit "d/b/a" and alternative business names.',
-      suggestion: 'Remove "d/b/a" designation.',
+      message: 'Omit "etc." from the case name.',
+      suggestion: 'Remove "etc." from the case name.',
+    });
+  }
+
+  // R. 10.2.1(a): Omit alternate names — a/k/a, f/k/a, d/b/a, alias, previously known as
+  const alternateNamePatterns = [
+    { pattern: /\ba\.?k\.?a\.?\b/i, label: 'a.k.a.' },
+    { pattern: /\bf\.?k\.?a\.?\b/i, label: 'f.k.a.' },
+    { pattern: /\bd\/b\/a\b/i, label: 'd/b/a' },
+    { pattern: /\balias\b/i, label: 'alias' },
+    { pattern: /\bpreviously known as\b/i, label: 'previously known as' },
+    { pattern: /\bformerly known as\b/i, label: 'formerly known as' },
+  ];
+
+  for (const { pattern, label } of alternateNamePatterns) {
+    if (pattern.test(name)) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 10.2.1(a)',
+        source: 'Bluebook',
+        severity: 'error',
+        message: `Omit "${label}" and the alternate name from the case name.`,
+        suggestion: `Remove "${label}" and the alternate name.`,
+      });
+    }
+  }
+
+  // R. 10.2.1(a): Multiple "v." — only include the first action
+  const vCount = (name.match(/\bv\.\s/g) || []).length;
+  if (vCount > 1) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 10.2.1(a)',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'When multiple actions are consolidated, include only the first "v." — omit subsequent actions.',
+      suggestion: 'Remove all parties and "v." after the first action.',
     });
   }
 }
@@ -247,17 +295,65 @@ function checkGeographicRules(name: string, issues: ValidationIssue[]): void {
 }
 
 function checkGivenNames(components: CaseComponents, issues: ValidationIssue[]): void {
-  // Check each party for given names (first name + last name pattern)
   for (const party of [components.partyOne, components.partyTwo]) {
     if (!party) continue;
-    // Simple heuristic: if a party name has 2+ capitalized words separated by space
-    // and doesn't look like a business name, it might contain a given name
+
+    // Exception 1: Initials-only names like "C.J." or "J.K." — preserve as-is
+    if (/^[A-Z]\.[A-Z]\.?$/.test(party.trim())) continue;
+    // Exception 1: First name + last initial like "Jasmine D."
+    if (/^[A-Z][a-z]+\s+[A-Z]\.$/.test(party.trim())) continue;
+
+    // Exception 2: Business names with individual's given name (J.K. Abernathy, Inc.)
+    const hasBusinessIndicator = /\b(Co\.|Corp\.|Inc\.|Ltd\.|LLC|L\.L\.C\.|Ass'n|Bros\.|Grp\.|Sys\.|Groceries|Design|Industries)\b/.test(party);
+    if (hasBusinessIndicator) continue;
+
+    // Detect "Jr.", "Sr.", "III", "IV", "M.D.", "Esq." — should be omitted
+    const titlePatterns = [
+      { pattern: /,?\s*Jr\.?\s*$/i, label: 'Jr.' },
+      { pattern: /,?\s*Sr\.?\s*$/i, label: 'Sr.' },
+      { pattern: /,?\s*III\s*$/i, label: 'III' },
+      { pattern: /,?\s*IV\s*$/i, label: 'IV' },
+      { pattern: /,?\s*M\.D\.?\s*$/i, label: 'M.D.' },
+      { pattern: /,?\s*Esq\.?\s*$/i, label: 'Esq.' },
+      { pattern: /,?\s*Ph\.D\.?\s*$/i, label: 'Ph.D.' },
+      { pattern: /\bDr\.\s+/i, label: 'Dr.' },
+      { pattern: /\bProf\.\s+/i, label: 'Prof.' },
+      { pattern: /\bSgt\.\s+/i, label: 'Sgt.' },
+      { pattern: /\bMr\.\s+/i, label: 'Mr.' },
+      { pattern: /\bMrs\.\s+/i, label: 'Mrs.' },
+      { pattern: /\bMs\.\s+/i, label: 'Ms.' },
+    ];
+
+    for (const { pattern, label } of titlePatterns) {
+      if (pattern.test(party)) {
+        issues.push({
+          id: uuid(),
+          rule: 'R. 10.2.1(g)',
+          source: 'Bluebook',
+          severity: 'error',
+          message: `Omit "${label}" from individual party names.`,
+          suggestion: `Remove "${label}" from "${party}".`,
+        });
+      }
+    }
+
+    // Check for "FirstName LastName" pattern (given name should be omitted)
     const words = party.split(/\s+/);
     if (words.length >= 2 && /^[A-Z][a-z]+$/.test(words[0]) && /^[A-Z][a-z]+$/.test(words[1])) {
-      // This looks like "FirstName LastName" — but only flag if it's clearly an individual
-      // (not a business like "General Motors")
-      const hasBusinessIndicator = /\b(Co\.|Corp\.|Inc\.|Ltd\.|LLC|L\.L\.C\.|Ass'n|Bros\.|Grp\.|Sys\.)\b/.test(party);
-      if (!hasBusinessIndicator && words.length === 2) {
+      // Exception 2: Non-Western surname-first names — if the name appears to be
+      // Asian (3+ words, no typical Western pattern), preserve full name
+      // This is a heuristic and may need human review
+      if (words.length >= 3 && words.every(w => /^[A-Z][a-z]+$/.test(w))) {
+        // Could be a surname-first name like "Fong Yue Ting" — suggest review
+        issues.push({
+          id: uuid(),
+          rule: 'R. 10.2.1(g)',
+          source: 'Bluebook',
+          severity: 'suggestion',
+          message: `"${party}" may include a given name. If this is a Western name, use only the surname. If the surname comes first (as in many Asian names), include the full name.`,
+          suggestion: 'Verify whether this is a surname-first name that should be preserved in full.',
+        });
+      } else if (words.length === 2) {
         issues.push({
           id: uuid(),
           rule: 'R. 10.2.1(g)',
@@ -272,20 +368,160 @@ function checkGivenNames(components: CaseComponents, issues: ValidationIssue[]):
 }
 
 function checkBusinessDesignations(name: string, issues: ValidationIssue[]): void {
-  // If name contains a business indicator word AND "Inc." or "Ltd.", flag the redundancy
-  const hasIndicator = BUSINESS_FIRM_INDICATORS.some(ind => name.includes(ind));
-  if (hasIndicator) {
-    for (const redundant of ['Inc.', 'Ltd.', 'L.L.C.', 'N.A.', 'F.S.B.']) {
-      if (name.includes(redundant)) {
+  // R. 10.2.1(h): The complete list of terms from the rule.
+  // When BOTH designations in a name appear in this list, omit the second.
+  const RULE_10_2_1_H_TERMS = [
+    'Inc.', 'Ltd.', 'L.L.C.', 'N.A.', 'F.S.B.', 'R.R.',
+    "Ass'n", 'Bros.', 'Co.', 'Corp.', 'Ins.',
+  ];
+
+  // Find all R. 10.2.1(h) terms present in the name
+  const foundTerms = RULE_10_2_1_H_TERMS.filter(term => name.includes(term));
+
+  // Only omit the second if BOTH terms appear in the R. 10.2.1(h) list
+  if (foundTerms.length >= 2) {
+    // The second term found should be dropped
+    const secondTerm = foundTerms[foundTerms.length - 1];
+    issues.push({
+      id: uuid(),
+      rule: 'R. 10.2.1(h)',
+      source: 'Bluebook',
+      severity: 'error',
+      message: `When two business designations from R. 10.2.1(h) appear, omit the second: "${secondTerm}".`,
+      suggestion: `Remove "${secondTerm}" from the case name. Both "${foundTerms[0]}" and "${secondTerm}" are in the R. 10.2.1(h) list — keep only the first.`,
+    });
+  }
+
+  // R. 6.1(b): Widely known acronyms should NOT have periods
+  // e.g., "F.H.A." should be "FHA", "N.B.C." should be "NBC"
+  const acronymWithPeriods = /\b([A-Z]\.){3,}\s/g;
+  let match;
+  while ((match = acronymWithPeriods.exec(name)) !== null) {
+    const withPeriods = match[0].trim();
+    const withoutPeriods = withPeriods.replace(/\./g, '');
+    // Only flag if this looks like an acronym (3+ capitals), not a standard abbreviation
+    if (withoutPeriods.length >= 3 && !['U.S.', 'S.E.', 'N.E.', 'N.W.', 'S.W.'].some(a => withPeriods.startsWith(a))) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 6.1(b)',
+        source: 'Bluebook',
+        severity: 'suggestion',
+        message: `If "${withPeriods}" is a widely known acronym, omit the periods: "${withoutPeriods}".`,
+        suggestion: `Consider using "${withoutPeriods}" instead of "${withPeriods}" if the acronym is widely recognized.`,
+      });
+    }
+  }
+}
+
+/**
+ * R. 10.2.1(f): Enhanced geographic and government party rules.
+ * Checks for county/city/town party name formatting.
+ */
+function checkLocalGovernmentParties(name: string, issues: ValidationIssue[]): void {
+  // County/City/Town: Do NOT abbreviate when the geographic unit is the entire party name
+  // "City of Chicago" stays as "City of Chicago" — NOT "City of Chi."
+  const localGovPatterns = [
+    /\b(City of \w+)/,
+    /\b(County of \w+)/,
+    /\b(Town of \w+)/,
+    /\b(Village of \w+)/,
+    /\b(Borough of \w+)/,
+  ];
+
+  for (const pattern of localGovPatterns) {
+    const match = name.match(pattern);
+    if (match) {
+      // Check if any T6/T10 abbreviation was applied to a local government name
+      const govName = match[1];
+      const hasAbbreviation = /\b[A-Z][a-z]*\.\b/.test(govName.replace(/^(City|County|Town|Village|Borough)\s+of\s+/, ''));
+      if (hasAbbreviation) {
         issues.push({
           id: uuid(),
-          rule: 'R. 10.2.1(h)',
+          rule: 'R. 10.2.1(f)',
           source: 'Bluebook',
-          severity: 'error',
-          message: `Omit "${redundant}" because the name already contains a business firm indicator.`,
-          suggestion: `Remove "${redundant}" from the case name.`,
+          severity: 'warning',
+          message: `Do not abbreviate words when the geographic unit is the entire name of the party: "${govName}".`,
+          suggestion: 'Spell out the full name of the local government party.',
         });
       }
+    }
+  }
+
+  // R. 10.2.1(f): Two prepositional phrases — include only the geographic unit
+  // "Mayor of the City of Sparta" → "Mayor of Sparta"
+  const twoPrepPattern = /\b(\w+)\s+of\s+the\s+(City|County|Town|Village)\s+of\s+(\w+)/i;
+  const twoPrepMatch = name.match(twoPrepPattern);
+  if (twoPrepMatch) {
+    const [fullMatch, title, , location] = twoPrepMatch;
+    issues.push({
+      id: uuid(),
+      rule: 'R. 10.2.1(f)',
+      source: 'Bluebook',
+      severity: 'warning',
+      message: `When two prepositional phrases appear, include only the geographic unit: "${title} of ${location}".`,
+      suggestion: `Shorten "${fullMatch}" to "${title} of ${location}".`,
+    });
+  }
+
+  // "People of the State of X" → "People"
+  if (/\bPeople of the State of\b/i.test(name)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 10.2.1(f)',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'Shorten "People of the State of [X]" to "People" for state court cases.',
+      suggestion: 'Replace with "People" (for state court) or the full state name (for federal court).',
+    });
+  }
+}
+
+/**
+ * R. 10.2.1(i): Union party name rules.
+ */
+function checkUnionNames(name: string, issues: ValidationIssue[]): void {
+  // Detect union-related terms
+  const unionIndicators = /\b(Union|Local|AFL-CIO|AFL|CIO|Brotherhood|Workers|Teamsters|International)\b/i;
+  if (!unionIndicators.test(name)) return;
+
+  // Check for location words that should be omitted
+  const locationInUnion = /\b(of\s+(?:Northern|Southern|Eastern|Western|Central)\s+\w+)\b/i;
+  const locMatch = name.match(locationInUnion);
+  if (locMatch) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 10.2.1(i)',
+      source: 'Bluebook',
+      severity: 'warning',
+      message: `Omit location words from union names: "${locMatch[1]}".`,
+      suggestion: 'Remove geographic references from the union name.',
+    });
+  }
+}
+
+/**
+ * R. 10.2.1(j): Commissioner of Internal Revenue.
+ */
+function checkIRSCommissioner(name: string, context: CitationContext, issues: ValidationIssue[]): void {
+  if (/\bCommissioner of Internal Revenue\b/i.test(name)) {
+    if (context === 'citation_sentence' || context === 'citation_clause') {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 10.2.1(j)',
+        source: 'Bluebook',
+        severity: 'error',
+        message: 'Shorten "Commissioner of Internal Revenue" to "Comm\'r" in citation sentences and clauses.',
+        suggestion: 'Replace with "Comm\'r".',
+      });
+    } else {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 10.2.1(j)',
+        source: 'Bluebook',
+        severity: 'error',
+        message: 'Shorten "Commissioner of Internal Revenue" to "Commissioner" in embedded citations.',
+        suggestion: 'Replace with "Commissioner".',
+      });
     }
   }
 }

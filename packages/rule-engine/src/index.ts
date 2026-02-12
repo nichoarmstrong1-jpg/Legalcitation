@@ -42,8 +42,11 @@ import { validateNumerals, validateApostropheAbbreviations } from './bluebook/ab
 import { validateItalicization } from './bluebook/italicization-rules.js';
 import { validateCapitalization } from './bluebook/capitalization-rules.js';
 import { validateLegislativeMaterial } from './bluebook/legislative-rules.js';
+import { validatePinpoints } from './bluebook/pinpoint-rules.js';
+import { validateProceduralRules } from './bluebook/procedural-rule-rules.js';
 
 export { RULE_EXPLANATIONS } from './explanations.js';
+export type { RuleExplanation } from './explanations.js';
 export { validateContext } from './context/context-rules.js';
 
 /**
@@ -89,6 +92,10 @@ export function runBluebookRules(citation: ParsedCitation): ValidationIssue[] {
   issues.push(...validateSpacing(citation.rawText));
   issues.push(...validateOrdinals(citation.rawText));
   issues.push(...validatePageRanges(citation.rawText));
+  issues.push(...validatePinpoints(citation, citation.rawText));
+
+  // R. 12.9.3 / B12.1.3: Procedural and court rule checks
+  issues.push(...validateProceduralRules(citation.rawText));
 
   // Type-specific checks
   switch (citation.type) {
@@ -197,25 +204,52 @@ export function runFullAnalysis(citations: ParsedCitation[]): Map<string, Valida
 }
 
 /**
+ * Rule-specific weight multipliers for critical rules.
+ * Higher weights for rules whose violations are most impactful.
+ */
+const RULE_WEIGHTS: Record<string, number> = {
+  'R. 4.1': 2.0,        // Id. misuse breaks citation chain
+  'R. 3.2(a)': 1.5,     // Pinpoint errors highly visible
+  'R. 3.3': 1.5,        // Section pinpoint errors common
+  'R. 10.2.1': 1.3,     // Case name errors affect readability
+  'R. 10.2.1(c)': 1.3,  // Abbreviation errors
+  'R. 10.2.1(f)': 1.3,  // Government party errors
+  'R. 10.2.1(g)': 1.3,  // Given name errors
+  'R. 10.2.1(h)': 1.3,  // Business designation errors
+  'R. 10.4': 1.2,       // Court designation
+  'R. 12.9.3': 1.2,     // Procedural rule abbreviation
+  'R. 6.2(c)': 1.2,     // Section symbol spacing
+  'R. 11': 1.2,         // Constitution citation
+  'R. 14.2': 1.1,       // Regulation citation
+  'B1.1': 1.2,          // Placement errors affect flow
+};
+
+/**
  * Calculate a compliance score (0-100) based on issues.
+ * Uses rule-specific weights for critical rules.
  */
 export function calculateScore(issues: ValidationIssue[]): number {
   if (issues.length === 0) return 100;
 
   let penalty = 0;
   for (const issue of issues) {
+    let basePenalty: number;
     switch (issue.severity) {
       case 'error':
-        penalty += 15;
+        basePenalty = 15;
         break;
       case 'warning':
-        penalty += 8;
+        basePenalty = 8;
         break;
       case 'suggestion':
-        penalty += 3;
+        basePenalty = 3;
         break;
     }
+
+    // Apply rule-specific weight multiplier
+    const weight = RULE_WEIGHTS[issue.rule] || 1.0;
+    penalty += basePenalty * weight;
   }
 
-  return Math.max(0, 100 - penalty);
+  return Math.max(0, Math.round(100 - penalty));
 }

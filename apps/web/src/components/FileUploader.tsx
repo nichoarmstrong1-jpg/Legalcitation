@@ -40,10 +40,10 @@ export function FileUploader({ onTextExtracted, compact = false }: FileUploaderP
 
   if (compact) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
         <button
           onClick={() => inputRef.current?.click()}
-          className="btn-secondary text-sm"
+          className="btn-secondary text-sm shrink-0"
           disabled={isProcessing}
         >
           {isProcessing ? 'Processing...' : 'Upload File'}
