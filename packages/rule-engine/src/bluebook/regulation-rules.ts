@@ -20,6 +20,9 @@ export function validateRegulation(components: RegulationComponents, rawText?: s
   checkSourceAbbreviation(components, issues);
   checkSectionFormat(components, rawText, issues);
   checkYearParenthetical(components, rawText, issues);
+  checkProceduralPhrases(rawText, issues);
+  checkProposedRuleFormat(rawText, issues);
+  checkSpelledOutSourceName(rawText, issues);
 
   return issues;
 }
@@ -119,13 +122,96 @@ function checkYearParenthetical(components: RegulationComponents, rawText: strin
 
   // Year should be in parentheses
   if (rawText.includes(components.year) && !rawText.includes(`(${components.year})`)) {
+    // Allow date parentheticals like "(Sep. 29, 1995)" for Fed. Reg. citations
+    const dateParenPattern = new RegExp(`\\([A-Z][a-z]{2,8}\\.?\\s+\\d{1,2},\\s*${components.year}\\)`);
+    if (!dateParenPattern.test(rawText)) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 14.2',
+        source: 'Bluebook',
+        severity: 'warning',
+        message: 'The year should be enclosed in parentheses at the end of the citation.',
+        suggestion: `Place the year in parentheses: "(${components.year})".`,
+      });
+    }
+  }
+}
+
+/**
+ * R. 14.3.1: Administrative adjudications should omit procedural phrases.
+ */
+function checkProceduralPhrases(rawText: string | undefined, issues: ValidationIssue[]): void {
+  if (!rawText) return;
+
+  if (/\bIn the Matter of\b/i.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 14.3.1',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'Omit "In the Matter of" from administrative adjudication citations.',
+      suggestion: 'Cite by the reported name of the first-listed private party only.',
+    });
+  }
+
+  // "In re" should also be omitted per R. 14.3.1 in admin adjudications
+  // Only flag if this looks like an admin citation (has an admin reporter)
+  if (/\bIn re\b/i.test(rawText) && /\b(NLRB|F\.T\.C\.|F\.C\.C\.|S\.E\.C\.|I\.C\.C\.|Agric\.\s*Dec)\b/.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 14.3.1',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'Omit "In re" from administrative adjudication citations.',
+      suggestion: 'Cite by the reported name of the first-listed private party or the subject-matter title.',
+    });
+  }
+}
+
+/**
+ * R. 14.2(b): Proposed rules should include "proposed" in the date parenthetical.
+ */
+function checkProposedRuleFormat(rawText: string | undefined, issues: ValidationIssue[]): void {
+  if (!rawText) return;
+
+  // If "proposed" appears in the title/name but not in a parenthetical
+  if (/\bproposed\s+rul/i.test(rawText) && !/\(proposed\b/i.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 14.2(b)',
+      source: 'Bluebook',
+      severity: 'warning',
+      message: 'Proposed rules should include "(proposed [date])" in the date parenthetical.',
+      suggestion: 'Add "proposed" to the date parenthetical — e.g., "(proposed Mar. 7, 1991) (to be codified at ...)".',
+    });
+  }
+}
+
+/**
+ * Check for spelled-out source names that should be abbreviated.
+ */
+function checkSpelledOutSourceName(rawText: string | undefined, issues: ValidationIssue[]): void {
+  if (!rawText) return;
+
+  if (/\bCode of Federal Regulations\b/i.test(rawText) && !/\bC\.F\.R\.\b/.test(rawText)) {
     issues.push({
       id: uuid(),
       rule: 'R. 14.2',
       source: 'Bluebook',
-      severity: 'warning',
-      message: 'The year should be enclosed in parentheses at the end of the citation.',
-      suggestion: `Place the year in parentheses: "(${components.year})".`,
+      severity: 'error',
+      message: '"Code of Federal Regulations" should be abbreviated as "C.F.R." in citations.',
+      suggestion: 'Use "C.F.R." — e.g., "40 C.F.R. § 261.3 (2024)".',
+    });
+  }
+
+  if (/\bFederal Register\b/i.test(rawText) && !/\bFed\.\s*Reg\.\b/.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 14.2',
+      source: 'Bluebook',
+      severity: 'error',
+      message: '"Federal Register" should be abbreviated as "Fed. Reg." in citations.',
+      suggestion: 'Use "Fed. Reg." — e.g., "60 Fed. Reg. 50379".',
     });
   }
 }

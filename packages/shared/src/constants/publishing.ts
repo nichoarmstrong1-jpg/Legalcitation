@@ -1,0 +1,37 @@
+/**
+ * T14 — Publishing Terms
+ * Abbreviations for publishing terms used in citations.
+ */
+export const T14_PUBLISHING: Record<string, string> = {
+  'appendix': 'app.',
+  'compiler': 'comp.',
+  'compilers': 'comps.',
+  'edition': 'ed.',
+  'editions': 'eds.',
+  'editor': 'ed.',
+  'editors': 'eds.',
+  'manuscript': 'ms.',
+  'manuscripts': 'mss.',
+  'no date': 'n.d.',
+  'no place': 'n.p.',
+  'no publisher': 'n.pub.',
+  'number': 'no.',
+  'numbers': 'nos.',
+  'page': 'p.',
+  'pages': 'pp.',
+  'part': 'pt.',
+  'parts': 'pts.',
+  'preface': 'pref.',
+  'printing': 'prtg.',
+  'reprinted': 'reprinted',
+  'revised': 'rev.',
+  'section': '§',
+  'sections': '§§',
+  'series': 'ser.',
+  'supplement': 'supp.',
+  'supplements': 'supps.',
+  'translated by': 'trans.',
+  'translator': 'trans.',
+  'volume': 'vol.',
+  'volumes': 'vols.',
+};

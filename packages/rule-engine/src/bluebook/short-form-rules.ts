@@ -2,7 +2,19 @@ import { v4 as uuid } from 'uuid';
 import type { ValidationIssue, ShortFormComponents } from '@legalcitation/shared';
 
 /**
- * Validate short form citations per Rule 4.
+ * Validate short form citations per B4 / Rule 4.
+ *
+ * B4 specifics:
+ *   - "Id." may only be used when the immediately preceding citation
+ *     contains only ONE authority.
+ *   - Always indicate a different page with "at [page]".
+ *   - "Supra" and "hereinafter" may NOT be used for: cases, statutes,
+ *     constitutions, legislative materials/debates (except hearings),
+ *     restatements, model codes, or regulations.
+ *   - "Supra" and "hereinafter" MAY be used for: legislative hearings,
+ *     court filings, books, pamphlets, reports, unpublished materials,
+ *     non-print resources, periodicals, services, treaties, regulations of
+ *     intergovernmental organizations, and internal cross-references.
  */
 export function validateShortForm(
   components: ShortFormComponents,

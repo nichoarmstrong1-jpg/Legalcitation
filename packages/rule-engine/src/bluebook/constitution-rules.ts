@@ -2,7 +2,16 @@ import { v4 as uuid } from 'uuid';
 import type { ValidationIssue, ConstitutionComponents } from '@legalcitation/shared';
 
 /**
- * Validate a constitutional citation against Bluebook Rule 11.
+ * Validate a constitutional citation against Bluebook Rule 11 / B11.
+ *
+ * B11 key points:
+ *   - Cite constitutions by abbreviated jurisdiction + "Const." + subdivisions.
+ *   - Currently in force: cite WITHOUT a date.
+ *   - Repealed: "(repealed [year])" or cite repealing provision.
+ *   - Amended: "(amended [year])" or cite amending provision.
+ *   - Do NOT use any short citation form other than "id."
+ *   - Use Roman numerals for article and amendment numbers.
+ *   - Preamble: "pmbl."
  */
 export function validateConstitution(components: ConstitutionComponents, rawText?: string): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
@@ -12,6 +21,9 @@ export function validateConstitution(components: ConstitutionComponents, rawText
   checkAmendmentFormat(components, rawText, issues);
   checkSectionFormat(components, rawText, issues);
   checkClauseFormat(components, rawText, issues);
+  checkShortFormRestriction(rawText, issues);
+  checkPreambleFormat(rawText, issues);
+  checkDateOnCurrentProvision(rawText, issues);
 
   return issues;
 }
@@ -138,6 +150,75 @@ function checkClauseFormat(components: ConstitutionComponents, rawText: string |
       message: '"Clause" should be abbreviated as "cl." in citations.',
       suggestion: 'Use "cl." (lowercase) — e.g., "U.S. Const. art. I, § 8, cl. 3".',
     });
+  }
+}
+
+function checkShortFormRestriction(rawText: string | undefined, issues: ValidationIssue[]): void {
+  if (!rawText) return;
+
+  // B11: Do not use "supra" or "hereinafter" for constitutions
+  if (/\bsupra\b/i.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'B11',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'Do not use "supra" for constitutional citations. Only "id." is permitted as a short form.',
+      suggestion: 'Use "id." or repeat the full citation.',
+    });
+  }
+
+  if (/\bhereinafter\b/i.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'B11',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'Do not use "hereinafter" for constitutional citations. Only "id." is permitted as a short form.',
+      suggestion: 'Use "id." or repeat the full citation.',
+    });
+  }
+}
+
+function checkPreambleFormat(rawText: string | undefined, issues: ValidationIssue[]): void {
+  if (!rawText) return;
+
+  // Check for unabbreviated "preamble"
+  if (/\bpreamble\b/i.test(rawText) && !/\bpmbl\.\b/.test(rawText)) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 11',
+      source: 'Bluebook',
+      severity: 'error',
+      message: '"Preamble" should be abbreviated as "pmbl." in citations.',
+      suggestion: 'Use "pmbl." — e.g., "U.S. Const. pmbl."',
+    });
+  }
+}
+
+function checkDateOnCurrentProvision(rawText: string | undefined, issues: ValidationIssue[]): void {
+  if (!rawText) return;
+
+  // If the citation includes a year parenthetical but no "repealed", "amended", or "of" year marker,
+  // it might be incorrectly dated. Currently-in-force provisions should NOT have a date.
+  // Exception: electronic database citations (Westlaw, LEXIS) and superseded provisions ("of YYYY")
+  const hasRepealedAmended = /\b(repealed|amended|superseded)\b/i.test(rawText);
+  const hasElectronicDb = /\b(Westlaw|LEXIS|LexisNexis|West,|Bloomberg)\b/i.test(rawText);
+  const hasOfYear = /\bConst\.\s+of\s+\d{4}\b/.test(rawText);
+
+  if (!hasRepealedAmended && !hasElectronicDb && !hasOfYear) {
+    // Check for a bare year parenthetical like "(2023)" that isn't part of a database citation
+    const bareYearMatch = rawText.match(/\((\d{4})\)\s*\.?\s*$/);
+    if (bareYearMatch) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 11',
+        source: 'Bluebook',
+        severity: 'warning',
+        message: 'Constitutional provisions currently in force should be cited without a date.',
+        suggestion: 'Remove the year unless the provision has been repealed or amended.',
+      });
+    }
   }
 }
 
