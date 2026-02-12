@@ -7,11 +7,9 @@ import { analyzeRouter } from './routes/analyze.js';
 import { buildRouter } from './routes/build.js';
 import { uploadRouter } from './routes/upload.js';
 import { authRouter } from './routes/auth.js';
-import { billingRouter, handleWebhook } from './routes/billing.js';
 import { referralRouter } from './routes/referral.js';
 import { feedbackRouter } from './routes/feedback.js';
 import { optionalAuth } from './middleware/auth.js';
-import { trackUsage } from './middleware/usage.js';
 import { isDatabaseConfigured } from './db/index.js';
 
 const app = express();
@@ -49,9 +47,6 @@ app.use(cors({
 // Cookie parser (for httpOnly JWT cookies)
 app.use(cookieParser());
 
-// Stripe webhook needs raw body — must be registered BEFORE json parsing
-app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), handleWebhook);
-
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 
@@ -80,12 +75,11 @@ app.use('/api/build', analysisLimiter);
 
 // Routes
 app.use('/api/auth', authRouter);
-app.use('/api/billing', billingRouter);
 app.use('/api/referral', referralRouter);
 app.use('/api/feedback', feedbackRouter);
-// Analysis routes: check auth (optional), then track usage (enforces 5-check wall)
-app.use('/api/analyze', optionalAuth, trackUsage, analyzeRouter);
-app.use('/api/build', optionalAuth, trackUsage, buildRouter);
+// Analysis routes
+app.use('/api/analyze', optionalAuth, analyzeRouter);
+app.use('/api/build', optionalAuth, buildRouter);
 app.use('/api/upload', uploadRouter);
 
 // Health check — includes service status for debugging
@@ -96,7 +90,6 @@ app.get('/api/health', (_req, res) => {
     services: {
       database: isDatabaseConfigured() ? 'configured' : 'not configured',
       anthropic: !!process.env.ANTHROPIC_API_KEY ? 'configured' : 'not configured',
-      stripe: !!process.env.STRIPE_SECRET_KEY ? 'configured' : 'not configured',
       google_oauth: !!process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not configured',
     },
   });
@@ -108,7 +101,6 @@ app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`  CORS origins: ${allowedOrigins.join(', ')}`);
   console.log(`  Database: ${isDatabaseConfigured() ? 'connected' : 'NOT configured (auth/billing disabled)'}`);
   console.log(`  Anthropic: ${process.env.ANTHROPIC_API_KEY ? 'configured' : 'NOT configured (verification disabled)'}`);
-  console.log(`  Stripe: ${process.env.STRIPE_SECRET_KEY ? 'configured' : 'not configured'}`);
 });
 
 export default app;

@@ -8,7 +8,6 @@ import { BulkCheck } from './components/BulkCheck.tsx';
 import { AnalysisSidebar } from './components/AnalysisSidebar.tsx';
 import { HistoryView } from './components/HistoryView.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
-import { PricingModal } from './components/PricingModal.tsx';
 import { OnboardingFlow } from './components/OnboardingFlow.tsx';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal.tsx';
 import { ToastProvider } from './context/ToastContext.tsx';
@@ -32,7 +31,6 @@ function AppContent() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | undefined>();
   const [showAuth, setShowAuth] = useState(false);
-  const [showPricing, setShowPricing] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(
     () => !localStorage.getItem('legalcitation-onboarded')
@@ -40,15 +38,6 @@ function AppContent() {
   const [authMessage, setAuthMessage] = useState<string | undefined>();
   const { history, saveToHistory, deleteEntry, clearHistory } = useHistory();
   const sidebarRef = useRef<HTMLDivElement>(null);
-
-  // Handle checkout success redirect
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('checkout') === 'success') {
-      refreshUser();
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, [refreshUser]);
 
   // Auto-scroll to sidebar on mobile when a result is selected
   useEffect(() => {
@@ -92,8 +81,7 @@ function AppContent() {
   const closeAllModals = useCallback(() => {
     if (showShortcuts) { setShowShortcuts(false); return; }
     if (showAuth) { setShowAuth(false); return; }
-    if (showPricing) { setShowPricing(false); return; }
-  }, [showShortcuts, showAuth, showPricing]);
+  }, [showShortcuts, showAuth]);
 
   const shortcutHandlers = useMemo(() => ({
     onToggleHistory: () => setMode(prev => prev === 'history' ? 'individual' : 'history'),
@@ -112,7 +100,6 @@ function AppContent() {
         formatStyle={formatStyle}
         onFormatChange={setFormatStyle}
         onHistoryToggle={() => setMode(prev => prev === 'history' ? 'individual' : 'history')}
-        onPricingOpen={() => setShowPricing(true)}
         onAuthOpen={() => openAuth()}
       />
 
@@ -192,17 +179,6 @@ function AppContent() {
         <AuthModal
           onClose={() => setShowAuth(false)}
           message={authMessage}
-        />
-      )}
-
-      {/* Pricing Modal */}
-      {showPricing && (
-        <PricingModal
-          onClose={() => setShowPricing(false)}
-          onSignupRequired={() => {
-            setShowPricing(false);
-            openAuth('Create an account to subscribe to a plan');
-          }}
         />
       )}
 

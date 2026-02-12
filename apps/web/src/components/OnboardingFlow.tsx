@@ -18,9 +18,9 @@ const steps = [
     icon: '\u2713',
   },
   {
-    title: '5 Free Checks',
-    subtitle: 'Full verification, no credit card required',
-    description: 'You get 5 free citation checks with full AI verification, formatting corrections, and detailed analysis. Every feature is available — no limits on quality.',
+    title: 'Unlimited Checks',
+    subtitle: 'Full verification, completely free',
+    description: 'Every citation check includes full AI verification, formatting corrections, and detailed analysis. No limits, no sign-up required.',
     icon: '\u2605',
   },
 ];

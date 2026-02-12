@@ -5,11 +5,10 @@ interface HeaderProps {
   formatStyle: 'italics' | 'underline';
   onFormatChange: (style: 'italics' | 'underline') => void;
   onHistoryToggle: () => void;
-  onPricingOpen: () => void;
   onAuthOpen: () => void;
 }
 
-export function Header({ formatStyle, onFormatChange, onHistoryToggle, onPricingOpen, onAuthOpen }: HeaderProps) {
+export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpen }: HeaderProps) {
   const { user, logout, isLoading } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -28,14 +27,6 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onPricing
     if (showMenu || showMobileMenu) document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showMenu, showMobileMenu]);
-
-  const planBadge = user && user.plan !== 'free' ? (
-    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-      user.plan === 'professional' ? 'bg-primary-100 text-primary-700' : 'bg-verified-50 text-verified-700'
-    }`}>
-      {user.plan === 'professional' ? 'PRO' : 'STU'}
-    </span>
-  ) : null;
 
   return (
     <header className="frosted border-b border-surface-200/60 sticky top-0 z-50">
@@ -88,14 +79,6 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onPricing
             </svg>
           </button>
 
-          {/* Pricing */}
-          <button
-            onClick={onPricingOpen}
-            className="text-sm text-surface-500 hover:text-primary-700 font-medium transition-colors"
-          >
-            Pricing
-          </button>
-
           {/* User / Auth */}
           {isLoading ? (
             <div className="w-9 h-9 rounded-xl bg-surface-100 animate-pulse" />
@@ -110,7 +93,6 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onPricing
                 <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 font-semibold text-sm flex items-center justify-center">
                   {(user.name || user.email)[0].toUpperCase()}
                 </div>
-                {planBadge}
               </button>
 
               {showMenu && (
@@ -119,13 +101,6 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onPricing
                     <p className="text-sm font-medium text-primary-900 truncate">{user.name || 'User'}</p>
                     <p className="text-xs text-surface-400 truncate">{user.email}</p>
                   </div>
-                  <button
-                    onClick={() => { setShowMenu(false); onPricingOpen(); }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-surface-600 hover:bg-surface-50 transition-colors flex items-center justify-between"
-                  >
-                    <span>Plan</span>
-                    <span className="text-xs font-medium text-primary-600 capitalize">{user.plan}</span>
-                  </button>
                   <button
                     onClick={() => { setShowMenu(false); logout(); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-error-600 hover:bg-error-50 transition-colors"
@@ -204,13 +179,6 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onPricing
                 </div>
               </div>
 
-              <button
-                onClick={() => { setShowMobileMenu(false); onPricingOpen(); }}
-                className="w-full text-left px-4 py-2.5 text-sm text-surface-600 hover:bg-surface-50 transition-colors"
-              >
-                Pricing
-              </button>
-
               {isLoading ? null : user ? (
                 <>
                   <div className="px-4 py-2.5 border-t border-surface-100 mt-1">
@@ -222,16 +190,8 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onPricing
                         <p className="text-sm font-medium text-primary-900 truncate">{user.name || 'User'}</p>
                         <p className="text-[10px] text-surface-400 truncate">{user.email}</p>
                       </div>
-                      {planBadge}
                     </div>
                   </div>
-                  <button
-                    onClick={() => { setShowMobileMenu(false); onPricingOpen(); }}
-                    className="w-full text-left px-4 py-2 text-sm text-surface-600 hover:bg-surface-50 transition-colors flex items-center justify-between"
-                  >
-                    <span>Plan</span>
-                    <span className="text-xs font-medium text-primary-600 capitalize">{user.plan}</span>
-                  </button>
                   <button
                     onClick={() => { setShowMobileMenu(false); logout(); }}
                     className="w-full text-left px-4 py-2 text-sm text-error-600 hover:bg-error-50 transition-colors"
