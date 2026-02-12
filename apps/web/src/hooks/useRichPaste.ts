@@ -10,6 +10,17 @@ import { useCallback } from 'react';
 function htmlToMarkedText(html: string): string {
   let text = html;
 
+  // Remove <style> and <script> blocks entirely (content + tags)
+  // This prevents CSS like "p.p1 {margin: ...}" from leaking into the text
+  text = text.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+  text = text.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+
+  // Remove HTML comments (some rich text sources include these)
+  text = text.replace(/<!--[\s\S]*?-->/g, '');
+
+  // Remove <head> block entirely (meta tags, title, linked stylesheets)
+  text = text.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '');
+
   // Handle <em> and <i> tags (italic)
   text = text.replace(/<(?:em|i)\b[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*');
 
@@ -19,6 +30,10 @@ function htmlToMarkedText(html: string): string {
   // Handle spans with font-style: italic or text-decoration: underline
   text = text.replace(/<span\b[^>]*style="[^"]*font-style:\s*italic[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '*$1*');
   text = text.replace(/<span\b[^>]*style="[^"]*text-decoration:\s*underline[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '*$1*');
+
+  // Convert paragraph and line break tags to newlines before stripping
+  text = text.replace(/<\/p>\s*<p[^>]*>/gi, '\n\n');
+  text = text.replace(/<br\s*\/?>/gi, '\n');
 
   // Strip all remaining HTML tags
   text = text.replace(/<[^>]+>/g, '');
@@ -39,6 +54,10 @@ function htmlToMarkedText(html: string): string {
   // Clean up duplicate markers from nested tags (e.g., **text** → *text*)
   text = text.replace(/\*{2,}([^*]+)\*{2,}/g, '*$1*');
 
+  // Clean up excessive whitespace but preserve intentional newlines
+  text = text.replace(/[ \t]+/g, ' ');
+  text = text.replace(/\n{3,}/g, '\n\n');
+
   return text.trim();
 }
 
@@ -57,13 +76,16 @@ export function useRichPaste(
 ) {
   return useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const html = e.clipboardData.getData('text/html');
+    const plainText = e.clipboardData.getData('text');
 
     if (html) {
       // Rich text paste — convert HTML formatting to markers
       e.preventDefault();
       const markedText = htmlToMarkedText(html);
-      onText(markedText);
-      afterPaste?.(markedText);
+      // If HTML conversion produced empty or garbage, fall back to plain text
+      const textToUse = markedText.trim() ? markedText : (plainText || '');
+      onText(textToUse);
+      afterPaste?.(textToUse);
     }
     // If no HTML, let the default paste happen (plain text)
     // The afterPaste callback won't fire here — let the component

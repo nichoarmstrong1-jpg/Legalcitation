@@ -6,22 +6,9 @@ export const uploadRouter = Router();
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-  fileFilter: (_req, file, cb) => {
-    const allowedTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
-      'text/csv',
-      'image/png',
-      'image/jpeg',
-    ];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`Unsupported file type: ${file.mimetype}`));
-    }
-  },
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  // Accept all file types — document-processor will handle extraction
+  // or gracefully fall back to plain text for unrecognized formats
 });
 
 /**

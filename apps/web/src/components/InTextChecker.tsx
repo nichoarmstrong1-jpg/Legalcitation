@@ -215,7 +215,8 @@ export function InTextChecker({ onResults, onSelectCitation, results }: InTextCh
                 const html = e.clipboardData.getData('text/html');
                 if (html) {
                   e.preventDefault();
-                  setInput(htmlToMarkedText(html));
+                  const marked = htmlToMarkedText(html);
+                  setInput(marked.trim() || e.clipboardData.getData('text') || '');
                 }
               }}
               placeholder={`Paste your legal text here. For example:\n\nThe Supreme Court held in Engel v. Vitale, 370 U.S. 421 (1962), that state-sponsored prayer in public schools violated the Establishment Clause. See also Abington School District v. Schempp, 374 U.S. 203 (1963). Id. at 210.`}

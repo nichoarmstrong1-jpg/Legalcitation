@@ -67,7 +67,9 @@ export function IndividualChecker({ onResult }: IndividualCheckerProps) {
     let textToUse: string;
     if (html) {
       e.preventDefault();
-      textToUse = htmlToMarkedText(html);
+      const marked = htmlToMarkedText(html);
+      // Fall back to plain text if HTML conversion produced empty result
+      textToUse = marked.trim() ? marked : (plainText || '');
       setInput(textToUse);
     } else {
       textToUse = plainText;

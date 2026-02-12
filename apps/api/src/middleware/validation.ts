@@ -11,8 +11,8 @@ function handleValidationErrors(req: Request, res: Response, next: NextFunction)
 }
 
 export const validateAnalyzeText = [
-  body('text').isString().trim().isLength({ min: 1, max: 50000 })
-    .withMessage('Text must be between 1 and 50,000 characters'),
+  body('text').isString().trim().isLength({ min: 1, max: 500000 })
+    .withMessage('Text must be between 1 and 500,000 characters'),
   body('context').optional().isIn(['textual_sentence', 'citation_sentence', 'citation_clause']),
   handleValidationErrors,
 ];
@@ -25,8 +25,8 @@ export const validateAnalyzeSingle = [
 ];
 
 export const validateBuild = [
-  body('input').isString().trim().isLength({ min: 1, max: 5000 })
-    .withMessage('Input must be between 1 and 5,000 characters'),
+  body('input').isString().trim().isLength({ min: 1, max: 50000 })
+    .withMessage('Input must be between 1 and 50,000 characters'),
   handleValidationErrors,
 ];
 

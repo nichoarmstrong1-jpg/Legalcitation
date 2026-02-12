@@ -48,9 +48,8 @@ export function FileUploader({ onTextExtracted, compact = false }: FileUploaderP
         >
           {isProcessing ? 'Processing...' : 'Upload File'}
         </button>
-        <span className="text-xs text-surface-400">PDF, DOCX, TXT, Image</span>
-        <input ref={inputRef} type="file" className="hidden" onChange={onFileSelect}
-          accept=".pdf,.docx,.txt,.csv,.png,.jpg,.jpeg" />
+        <span className="text-xs text-surface-400">PDF, DOCX, DOC, RTF, TXT, HTML, CSV, Images, and more</span>
+        <input ref={inputRef} type="file" className="hidden" onChange={onFileSelect} />
         {error && <span className="text-xs text-error-500">{error}</span>}
       </div>
     );
@@ -66,15 +65,14 @@ export function FileUploader({ onTextExtracted, compact = false }: FileUploaderP
       onDrop={onDrop}
       onClick={() => inputRef.current?.click()}
     >
-      <input ref={inputRef} type="file" className="hidden" onChange={onFileSelect}
-        accept=".pdf,.docx,.txt,.csv,.png,.jpg,.jpeg" />
+      <input ref={inputRef} type="file" className="hidden" onChange={onFileSelect} />
       <div className="w-12 h-12 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-3">
         <span className="text-2xl">&#128196;</span>
       </div>
       <p className="font-medium text-surface-700">
         {isProcessing ? 'Processing file...' : 'Drop a file here or click to upload'}
       </p>
-      <p className="text-sm text-surface-400 mt-1">PDF, DOCX, TXT, CSV, PNG, JPG (max 10MB)</p>
+      <p className="text-sm text-surface-400 mt-1">PDF, DOCX, DOC, RTF, TXT, HTML, CSV, Images, and more (max 50MB)</p>
       {error && <p className="text-sm text-error-500 mt-2">{error}</p>}
     </div>
   );

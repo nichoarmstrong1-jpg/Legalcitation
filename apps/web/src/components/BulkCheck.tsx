@@ -67,7 +67,8 @@ export function BulkCheck({ onResults, onSelectCitation, results }: BulkCheckPro
             const html = e.clipboardData.getData('text/html');
             if (html) {
               e.preventDefault();
-              setInput(htmlToMarkedText(html));
+              const marked = htmlToMarkedText(html);
+              setInput(marked.trim() || e.clipboardData.getData('text') || '');
             }
           }}
           placeholder={`Paste citations, one per line:\n\nBrown v. Board of Education, 347 U.S. 483 (1954).\nRoe v. Wade, 410 U.S. 113 (1973).\nMarbury v. Madison, 5 U.S. 137 (1803).`}

@@ -43,8 +43,18 @@ export function buildClipboardData(
  * Word, Google Docs, or other rich text editors.
  */
 export function htmlToMarkedText(html: string): string {
-  // Replace <em>, <i>, and italic-styled spans with *markers*
   let text = html;
+
+  // Remove <style> and <script> blocks entirely (content + tags)
+  // This prevents CSS like "p.p1 {margin: ...}" from leaking into the text
+  text = text.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+  text = text.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+
+  // Remove HTML comments
+  text = text.replace(/<!--[\s\S]*?-->/g, '');
+
+  // Remove <head> block entirely (meta tags, title, linked stylesheets)
+  text = text.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '');
 
   // Handle <em> and <i> tags (italic)
   text = text.replace(/<(?:em|i)\b[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*');
@@ -55,6 +65,10 @@ export function htmlToMarkedText(html: string): string {
   // Handle spans with font-style: italic or text-decoration: underline
   text = text.replace(/<span\b[^>]*style="[^"]*font-style:\s*italic[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '*$1*');
   text = text.replace(/<span\b[^>]*style="[^"]*text-decoration:\s*underline[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '*$1*');
+
+  // Convert paragraph and line break tags to newlines before stripping
+  text = text.replace(/<\/p>\s*<p[^>]*>/gi, '\n\n');
+  text = text.replace(/<br\s*\/?>/gi, '\n');
 
   // Strip all remaining HTML tags
   text = text.replace(/<[^>]+>/g, '');
@@ -74,6 +88,10 @@ export function htmlToMarkedText(html: string): string {
 
   // Clean up duplicate markers from nested tags (e.g., **text** → *text*)
   text = text.replace(/\*{2,}([^*]+)\*{2,}/g, '*$1*');
+
+  // Clean up excessive whitespace but preserve intentional newlines
+  text = text.replace(/[ \t]+/g, ' ');
+  text = text.replace(/\n{3,}/g, '\n\n');
 
   return text.trim();
 }

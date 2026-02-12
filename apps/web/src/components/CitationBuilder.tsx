@@ -154,7 +154,8 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
             const html = e.clipboardData.getData('text/html');
             if (html) {
               e.preventDefault();
-              setInput(htmlToMarkedText(html));
+              const marked = htmlToMarkedText(html);
+              setInput(marked.trim() || e.clipboardData.getData('text') || '');
             }
           }}
           placeholder="Enter a case name, topic, or partial citation..."
