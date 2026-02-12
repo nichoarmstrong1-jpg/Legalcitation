@@ -18,6 +18,10 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const isDev = process.env.NODE_ENV !== 'production';
 
+// Trust proxy — required behind Railway/Vercel reverse proxies for correct
+// client IP detection in rate limiting and secure cookies.
+app.set('trust proxy', 1);
+
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: isDev ? false : {

@@ -15,7 +15,8 @@ function initDb() {
   if (!db && process.env.DATABASE_URL) {
     const pool = new pg.Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl: process.env.DATABASE_URL?.includes('.railway.internal') ? false
+        : process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     });
     db = drizzle(pool, { schema });
   }
