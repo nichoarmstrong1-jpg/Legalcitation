@@ -57,10 +57,12 @@ export function trackUsage(req: Request, res: Response, next: NextFunction) {
   }
 
   // Increment after validation passes (will be called after successful response)
+  // Use a flag to prevent double-counting if res.json is called multiple times
+  let counted = false;
   const originalJson = res.json.bind(res);
   res.json = function (body: unknown) {
-    // Only count successful analysis responses
-    if (res.statusCode < 400) {
+    if (!counted && res.statusCode < 400) {
+      counted = true;
       usage!.count++;
       res.setHeader('X-Checks-Remaining', String(Math.max(0, FREE_CHECK_LIMIT - usage!.count)));
     }

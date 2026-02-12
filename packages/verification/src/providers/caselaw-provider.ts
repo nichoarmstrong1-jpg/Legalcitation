@@ -117,7 +117,9 @@ export async function verifyWithCaselaw(
     };
 
   } catch (error) {
-    trace.push(`Error querying case.law: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[caselaw-provider] verifyWithCaselaw error:', message, error);
+    trace.push('Harvard Caselaw Access Project search could not be completed at this time.');
     return { status: 'error', discrepancies: [], logicTrace: trace };
   }
 }

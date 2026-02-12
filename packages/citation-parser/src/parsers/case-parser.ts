@@ -3,9 +3,109 @@ import type { ParsedCitation, CaseComponents, CitationContext } from '@legalcita
 import { VALID_REPORTER_ABBREVIATIONS, ALL_REPORTERS } from '@legalcitation/shared';
 
 /**
+ * Reporter alias map — maps common lazy/incorrect reporter forms
+ * to their proper Bluebook abbreviations.
+ * Order matters: longer patterns first to prevent partial matches.
+ */
+const REPORTER_ALIASES: [RegExp, string][] = [
+  // Multi-word reporters (must come first)
+  [/\bF\.?\s*Supp\.?\s*3d\b\.?/gi, 'F. Supp. 3d'],
+  [/\bF\.?\s*Supp\.?\s*2d\b\.?/gi, 'F. Supp. 2d'],
+  [/\bF\.?\s*Supp\b\.?/gi, 'F. Supp.'],
+  [/\bF\.?\s*App'?x\b\.?/gi, "F. App'x"],
+  [/\bL\.?\s*Ed\.?\s*2d\b\.?/gi, 'L. Ed. 2d'],
+  [/\bL\.?\s*Ed\b\.?/gi, 'L. Ed.'],
+  [/\bS\.?\s*Ct\b\.?/gi, 'S. Ct.'],
+  [/\bS\.?\s*E\.?\s*2d\b\.?/gi, 'S.E.2d'],
+  [/\bS\.?\s*W\.?\s*3d\b\.?/gi, 'S.W.3d'],
+  [/\bS\.?\s*W\.?\s*2d\b\.?/gi, 'S.W.2d'],
+  [/\bN\.?\s*E\.?\s*3d\b\.?/gi, 'N.E.3d'],
+  [/\bN\.?\s*E\.?\s*2d\b\.?/gi, 'N.E.2d'],
+  [/\bN\.?\s*W\.?\s*2d\b\.?/gi, 'N.W.2d'],
+  [/\bN\.?\s*Y\.?\s*S\.?\s*2d\b\.?/gi, 'N.Y.S.2d'],
+  [/\bN\.?\s*Y\.?\s*S\b\.?/gi, 'N.Y.S.'],
+  [/\bFed\.?\s*Cl\b\.?/gi, 'Fed. Cl.'],
+  [/\bU\.?\s*S\.?\s*L\.?\s*W\b\.?/gi, 'U.S.L.W.'],
+  // Series reporters
+  [/\bF\.?\s*4th\b\.?/gi, 'F.4th'],
+  [/\bF\.?\s*3d\b\.?/gi, 'F.3d'],
+  [/\bF\.?\s*2d\b\.?/gi, 'F.2d'],
+  [/\bA\.?\s*3d\b\.?/gi, 'A.3d'],
+  [/\bA\.?\s*2d\b\.?/gi, 'A.2d'],
+  [/\bP\.?\s*3d\b\.?/gi, 'P.3d'],
+  [/\bP\.?\s*2d\b\.?/gi, 'P.2d'],
+  // Core reporters — "US" to "U.S." only when between numbers (volume US page)
+  [/(\d)\s+US\s+(\d)/g, '$1 U.S. $2'],
+  [/(\d)\s+U\.S\s+(\d)/g, '$1 U.S. $2'],
+  // Other reporters
+  [/\bF\.?\s*R\.?\s*D\b\.?/gi, 'F.R.D.'],
+  [/\bB\.?\s*R\b\.?/gi, 'B.R.'],
+  [/\bM\.?\s*J\b\.?/gi, 'M.J.'],
+  [/\bCal\.?\s*Rptr\.?\s*3d\b\.?/gi, 'Cal. Rptr. 3d'],
+  [/\bCal\.?\s*Rptr\.?\s*2d\b\.?/gi, 'Cal. Rptr. 2d'],
+  [/\bCal\.?\s*Rptr\b\.?/gi, 'Cal. Rptr.'],
+];
+
+/**
+ * Normalize a citation string to improve parsing success.
+ * Handles missing periods, incorrect reporter abbreviations,
+ * missing commas, missing parentheses, and similar user input issues.
+ */
+export function normalizeCitationInput(text: string): string {
+  let normalized = text.trim();
+
+  // Fix "v" without period: "Party v Party" → "Party v. Party"
+  // Match " v " that's not already " v. "
+  normalized = normalized.replace(/(\s+)v(\s+)(?!\.)/gi, '$1v.$2');
+
+  // Apply reporter aliases
+  for (const [pattern, replacement] of REPORTER_ALIASES) {
+    normalized = normalized.replace(pattern, replacement);
+  }
+
+  // Insert comma before volume number if missing
+  // "Party v. Party 347 U.S." → "Party v. Party, 347 U.S."
+  const reporterAbbrsSorted = Array.from(VALID_REPORTER_ABBREVIATIONS)
+    .sort((a, b) => b.length - a.length);
+
+  for (const abbr of reporterAbbrsSorted) {
+    const escapedAbbr = abbr.replace(/\./g, '\\.').replace(/'/g, "\\'");
+    // Match: word/letter followed by space then digits then reporter — without a comma
+    const commaPattern = new RegExp(
+      `([a-zA-Z.'"])\\s+(\\d{1,4}\\s+${escapedAbbr}\\s+\\d)`,
+    );
+    const commaMatch = normalized.match(commaPattern);
+    if (commaMatch && commaMatch.index !== undefined) {
+      // Check there's no comma before the volume already
+      const beforeMatch = normalized.slice(Math.max(0, commaMatch.index - 2), commaMatch.index + commaMatch[1].length);
+      if (!beforeMatch.includes(',')) {
+        normalized = normalized.replace(commaPattern, '$1, $2');
+        break;
+      }
+    }
+  }
+
+  // Wrap bare trailing year in parentheses
+  // "... 483 1954" → "... 483 (1954)" / "... 483 1954." → "... 483 (1954)."
+  normalized = normalized.replace(
+    /(\d{1,5})\s+(\d{4})(\.\s*)?$/,
+    (match, page, year, trailing) => {
+      const y = parseInt(year);
+      if (y >= 1700 && y <= 2030) {
+        return `${page} (${year})${trailing || ''}`;
+      }
+      return match;
+    }
+  );
+
+  return normalized;
+}
+
+/**
  * Parse a full case citation string into structured components.
  * Handles the standard Bluebook format:
  *   Party One v. Party Two, Vol Reporter Page, PinCite (Court Year) (parentheticals), history.
+ * Automatically normalizes input (fixing common typos, missing periods, etc.) if standard parse fails.
  */
 export function parseCaseCitation(
   rawText: string,
@@ -15,7 +115,16 @@ export function parseCaseCitation(
   const text = rawText.trim();
 
   // Try standard case pattern first
-  const result = parseStandardCase(text);
+  let result = parseStandardCase(text);
+
+  // If standard parse fails, try with normalization
+  if (!result) {
+    const normalized = normalizeCitationInput(text);
+    if (normalized !== text) {
+      result = parseStandardCase(normalized);
+    }
+  }
+
   if (!result) return null;
 
   return {
@@ -149,6 +258,7 @@ function parseStandardCase(text: string): CaseComponents | null {
 
 /**
  * Split a case name into party one and party two.
+ * Accepts both "v." (correct) and "v" (lazy) as separators.
  */
 function parseCaseNameParties(name: string): { partyOne: string; partyTwo: string } {
   // Handle "In re", "Ex parte" — no "v."
@@ -156,14 +266,14 @@ function parseCaseNameParties(name: string): { partyOne: string; partyTwo: strin
     return { partyOne: name, partyTwo: '' };
   }
 
-  // Standard adversarial: Party v. Party
-  const vIndex = name.search(/\s+v\.\s+/);
+  // Standard adversarial: Party v. Party or Party v Party
+  const vIndex = name.search(/\s+v\.?\s+/);
   if (vIndex === -1) {
     return { partyOne: name, partyTwo: '' };
   }
 
   const partyOne = name.slice(0, vIndex).trim();
-  const partyTwo = name.slice(vIndex).replace(/^\s+v\.\s+/, '').trim();
+  const partyTwo = name.slice(vIndex).replace(/^\s+v\.?\s+/, '').trim();
 
   return { partyOne, partyTwo };
 }

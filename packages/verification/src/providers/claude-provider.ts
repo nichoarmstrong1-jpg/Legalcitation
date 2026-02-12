@@ -29,6 +29,13 @@ function getClient(): Anthropic {
   return client;
 }
 
+/** Create an AbortController with a timeout (ms). */
+function withTimeout(ms: number): { signal: AbortSignal; clear: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return { signal: controller.signal, clear: () => clearTimeout(timer) };
+}
+
 /**
  * Verify a case citation using Claude API.
  * Returns law-student-facing analysis — no technical API details.
@@ -43,6 +50,8 @@ export async function verifyWithClaude(
   if (!apiKey) {
     return { status: 'pending', discrepancies: [], logicTrace: trace };
   }
+
+  const timeout = withTimeout(30000);
 
   try {
     const caseName = components.partyTwo
@@ -88,7 +97,9 @@ EXAMPLE (correct output for Brown v. Board of Education):
       max_tokens: 1024,
       temperature: 0,
       messages: [{ role: 'user', content: prompt }],
-    });
+    }, { signal: timeout.signal });
+
+    timeout.clear();
 
     const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
 
@@ -154,8 +165,13 @@ EXAMPLE (correct output for Brown v. Board of Education):
     }
 
   } catch (error) {
+    timeout.clear();
     const message = error instanceof Error ? error.message : 'Unknown error';
-    if (message.includes('401') || message.includes('auth')) {
+    console.error('[claude-provider] verifyWithClaude error:', message, error);
+
+    if (message.includes('aborted') || message.includes('AbortError')) {
+      trace.push('Verification timed out. Bluebook formatting rules still checked.');
+    } else if (message.includes('401') || message.includes('auth')) {
       trace.push('Verification service temporarily unavailable. Citation format checks still apply.');
     } else {
       trace.push('Could not complete external verification. Bluebook formatting rules still checked.');
@@ -180,6 +196,8 @@ export async function searchCasesWithClaude(
   if (!apiKey) {
     return null;
   }
+
+  const timeout = withTimeout(30000);
 
   try {
     trace.push(`Searching case law for "${freeText.slice(0, 80)}${freeText.length > 80 ? '...' : ''}"...`);
@@ -212,7 +230,9 @@ IMPORTANT:
 - If the query is broad (e.g., "free speech student case"), return diverse relevant cases
 - For each case, the citation must be complete and accurate`
       }],
-    });
+    }, { signal: timeout.signal });
+
+    timeout.clear();
 
     const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
 
@@ -257,8 +277,13 @@ IMPORTANT:
     };
 
   } catch (error) {
+    timeout.clear();
     const message = error instanceof Error ? error.message : 'Unknown error';
-    if (message.includes('401') || message.includes('auth')) {
+    console.error('[claude-provider] searchCasesWithClaude error:', message, error);
+
+    if (message.includes('aborted') || message.includes('AbortError')) {
+      trace.push('Case search timed out. Try a shorter or more specific query.');
+    } else if (message.includes('401') || message.includes('auth')) {
       trace.push('Case search service temporarily unavailable.');
     } else {
       trace.push('Could not search for cases. Try entering a more complete citation.');
@@ -283,6 +308,8 @@ export async function buildCitationWithClaude(
   if (!apiKey) {
     return null;
   }
+
+  const timeout = withTimeout(30000);
 
   try {
     trace.push(`Building Bluebook citation for "${freeText.slice(0, 80)}${freeText.length > 80 ? '...' : ''}"...`);
@@ -311,7 +338,9 @@ Respond with a JSON object:
 Use proper Bluebook formatting: T6 abbreviations for party names in citation sentences, proper reporter abbreviations (T1), court designations (T7/T10), etc.
 If you cannot determine some information, use [placeholder] brackets.`
       }],
-    });
+    }, { signal: timeout.signal });
+
+    timeout.clear();
 
     const responseText = response.content[0].type === 'text' ? response.content[0].text : '';
 
@@ -346,8 +375,13 @@ If you cannot determine some information, use [placeholder] brackets.`
     };
 
   } catch (error) {
+    timeout.clear();
     const message = error instanceof Error ? error.message : 'Unknown error';
-    if (message.includes('401') || message.includes('auth')) {
+    console.error('[claude-provider] buildCitationWithClaude error:', message, error);
+
+    if (message.includes('aborted') || message.includes('AbortError')) {
+      trace.push('Citation lookup timed out. Try a shorter input.');
+    } else if (message.includes('401') || message.includes('auth')) {
       trace.push('Citation lookup service temporarily unavailable.');
     } else {
       trace.push('Could not build citation automatically. Try entering a more complete citation.');

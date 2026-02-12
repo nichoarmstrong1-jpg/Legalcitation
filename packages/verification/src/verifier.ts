@@ -33,17 +33,17 @@ export async function verifyCaseCitation(
   const courtlistener = clResult.status === 'fulfilled' ? clResult.value : null;
   const caselaw = caselawResult.status === 'fulfilled' ? caselawResult.value : null;
 
-  // Add non-technical trace entries from free APIs
+  // Add non-technical trace entries from free APIs (filter raw HTTP details only)
   if (courtlistener) {
     for (const entry of courtlistener.logicTrace) {
-      if (!entry.includes('API') && !entry.includes('http') && !entry.includes('403')) {
+      if (!entry.includes('http://') && !entry.includes('https://') && !entry.match(/\b\d{3}\b.*error/i)) {
         allTrace.push(entry);
       }
     }
   }
   if (caselaw) {
     for (const entry of caselaw.logicTrace) {
-      if (!entry.includes('API') && !entry.includes('http') && !entry.includes('403')) {
+      if (!entry.includes('http://') && !entry.includes('https://') && !entry.match(/\b\d{3}\b.*error/i)) {
         allTrace.push(entry);
       }
     }
@@ -147,9 +147,27 @@ export async function verifyCaseCitation(
     };
   }
 
+  // If ALL providers errored (not just returned not_found), use 'pending' instead of 'error'
+  // so the UI shows a neutral state rather than a red X
+  const allErrored = claudeResult.status === 'error'
+    && (clResult.status === 'rejected' || courtlistener?.status === 'error')
+    && (caselawResult.status === 'rejected' || caselaw?.status === 'error');
+
+  if (allErrored) {
+    allTrace.push('External verification services are currently unavailable. Bluebook formatting rules still checked.');
+    return {
+      status: 'pending',
+      discrepancies: [],
+      referenceExamples: [],
+      verifiedCitation: claudeResult.verifiedCitation,
+      logicTrace: allTrace,
+      provider: 'format-only',
+    };
+  }
+
   allTrace.push('Could not fully verify this citation. Check with Westlaw or Lexis.');
   return {
-    status: claudeResult.status === 'error' ? 'error' : 'not_found',
+    status: claudeResult.status === 'error' ? 'not_found' : 'not_found',
     discrepancies: claudeResult.discrepancies,
     referenceExamples: [],
     verifiedCitation: claudeResult.verifiedCitation,

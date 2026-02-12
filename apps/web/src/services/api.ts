@@ -26,6 +26,40 @@ export interface AnalyzeResponse {
   citationCount: number;
 }
 
+/** Suggestion response from Tier 4 fallback (case name detected, AI lookup) */
+export interface SuggestionResponse {
+  suggestion: true;
+  suggestedCitation: string;
+  suggestedComponents: Record<string, string>;
+  originalInput: string;
+  logicTrace: string[];
+  message: string;
+}
+
+/** Guidance response from Tier 5 (could not parse) */
+export interface GuidanceResponse {
+  suggestion: false;
+  originalInput: string;
+  message: string;
+  examples: string[];
+  logicTrace: string[];
+}
+
+/** Union type for /analyze/single responses */
+export type SingleAnalysisResult = AnalyzedCitation | SuggestionResponse | GuidanceResponse;
+
+export function isSuggestionResponse(result: SingleAnalysisResult): result is SuggestionResponse {
+  return 'suggestion' in result && result.suggestion === true;
+}
+
+export function isGuidanceResponse(result: SingleAnalysisResult): result is GuidanceResponse {
+  return 'suggestion' in result && result.suggestion === false;
+}
+
+export function isAnalyzedCitation(result: SingleAnalysisResult): result is AnalyzedCitation {
+  return 'score' in result;
+}
+
 export async function analyzeText(text: string, context = 'citation_sentence'): Promise<AnalyzeResponse> {
   const res = await fetch(`${API_BASE}/analyze`, {
     method: 'POST',
@@ -36,7 +70,7 @@ export async function analyzeText(text: string, context = 'citation_sentence'): 
   return res.json();
 }
 
-export async function analyzeSingle(citation: string, context = 'citation_sentence'): Promise<AnalyzedCitation> {
+export async function analyzeSingle(citation: string, context = 'citation_sentence'): Promise<SingleAnalysisResult> {
   const res = await fetch(`${API_BASE}/analyze/single`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

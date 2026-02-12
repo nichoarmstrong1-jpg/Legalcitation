@@ -123,7 +123,9 @@ export async function verifyWithCourtListener(
     };
 
   } catch (error) {
-    trace.push(`Error querying CourtListener: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[courtlistener-provider] verifyWithCourtListener error:', message, error);
+    trace.push('CourtListener search could not be completed at this time.');
     return {
       status: 'error',
       discrepancies: [],

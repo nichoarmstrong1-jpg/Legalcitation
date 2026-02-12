@@ -13,6 +13,7 @@ interface AnalysisSidebarProps {
 
 export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps) {
   const { copied, copyRichText } = useClipboard();
+  const [correctedCopied, setCorrectedCopied] = useState(false);
   const [selectedRule, setSelectedRule] = useState<string | null>(null);
   const [showAllSteps, setShowAllSteps] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
@@ -58,12 +59,50 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
     } catch { /* non-critical */ }
   }, [feedbackRating, feedbackComment, citation]);
 
+  /** Build a "corrected" citation by applying all discrepancy fixes */
+  const buildCorrectedCitation = useCallback((): string => {
+    if (citation.verifiedCitation) return citation.verifiedCitation;
+    // Fallback: use the raw text if no verified citation
+    return citation.parsed?.rawText || '';
+  }, [citation]);
+
+  /** Copy corrected citation with rich formatting */
+  const handleCopyCorrected = useCallback(async () => {
+    const corrected = buildCorrectedCitation();
+    if (!corrected) return;
+
+    // Convert *italics* to HTML for rich text clipboard
+    const htmlContent = corrected.replace(/\*([^*]+)\*/g, (_match, content) => {
+      return formatStyle === 'italics' ? `<em>${content}</em>` : `<u>${content}</u>`;
+    });
+
+    const plainText = corrected.replace(/\*([^*]+)\*/g, '$1');
+
+    try {
+      // Try to copy as both rich text and plain text
+      const blob = new Blob([`<html><body>${htmlContent}</body></html>`], { type: 'text/html' });
+      const textBlob = new Blob([plainText], { type: 'text/plain' });
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': blob,
+          'text/plain': textBlob,
+        }),
+      ]);
+    } catch {
+      // Fallback to plain text copy
+      await navigator.clipboard.writeText(plainText);
+    }
+
+    setCorrectedCopied(true);
+    setTimeout(() => setCorrectedCopied(false), 2000);
+  }, [buildCorrectedCitation, formatStyle]);
+
   const statusConfig = {
     verified: { label: 'Case Verified', color: 'bg-verified-100 text-verified-700 border-verified-200', iconBg: 'bg-verified-500' },
     partial_match: { label: 'Partially Verified', color: 'bg-warning-100 text-warning-700 border-warning-400', iconBg: 'bg-warning-500' },
     not_found: { label: 'Not Found in Records', color: 'bg-error-100 text-error-700 border-error-400', iconBg: 'bg-error-500' },
     pending: { label: 'Format Check Only', color: 'bg-surface-100 text-surface-600 border-surface-300', iconBg: 'bg-surface-400' },
-    error: { label: 'Verification Unavailable', color: 'bg-error-100 text-error-700 border-error-400', iconBg: 'bg-error-500' },
+    error: { label: 'Verification Unavailable', color: 'bg-surface-100 text-surface-600 border-surface-300', iconBg: 'bg-surface-400' },
   };
 
   const status = statusConfig[citation.verificationStatus as keyof typeof statusConfig] || statusConfig.pending;
@@ -85,17 +124,13 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
     });
   };
 
-  // Filter out technical trace entries — only show law-student-facing steps
+  // Filter out raw HTTP/technical details, but keep meaningful service references
   const cleanTrace = citation.logicTrace.filter(step =>
-    !step.includes('API') &&
-    !step.includes('api') &&
-    !step.includes('http') &&
-    !step.includes('403') &&
+    !step.includes('http://') &&
+    !step.includes('https://') &&
+    !step.match(/\b(403|401|500)\b.*error/i) &&
     !step.includes('ANTHROPIC') &&
-    !step.includes('CourtListener') &&
-    !step.includes('Skipping') &&
     !step.includes('provider') &&
-    !step.includes('timeout') &&
     !step.includes('config')
   );
 
@@ -191,27 +226,54 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
         </div>
       )}
 
-      {/* Recommended Citation with Copy */}
+      {/* Recommended Citation with Copy Corrected Button */}
       {citation.verifiedCitation && (
         <div className="card border border-verified-200 bg-gradient-to-br from-verified-50 to-white shadow-glow-green">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-verified-700 uppercase tracking-wider">Correct Citation</span>
-            <button
-              onClick={() => copyRichText(citation.verifiedCitation!, formatStyle)}
-              className={`px-4 py-1.5 text-xs rounded-xl font-medium transition-all duration-200 ${
-                copied
-                  ? 'bg-verified-500 text-white shadow-glow-green'
-                  : 'bg-verified-100 text-verified-700 hover:bg-verified-200'
-              }`}
-            >
-              {copied ? '\u2713 Copied!' : 'Copy'}
-            </button>
           </div>
           <div className="font-serif text-sm leading-relaxed p-4 bg-white rounded-xl border border-verified-100">
             {renderFormattedCitation(citation.verifiedCitation)}
           </div>
+
+          {/* Prominent Copy Corrected Button */}
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={handleCopyCorrected}
+              className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${
+                correctedCopied
+                  ? 'bg-verified-500 text-white shadow-glow-green'
+                  : 'bg-verified-600 text-white hover:bg-verified-700 shadow-md hover:shadow-lg'
+              }`}
+            >
+              {correctedCopied ? (
+                <>
+                  <span>{'\u2713'}</span>
+                  Copied with Formatting!
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                  </svg>
+                  Copy Corrected Citation
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => copyRichText(citation.verifiedCitation!, formatStyle)}
+              className={`px-4 py-2.5 text-xs rounded-xl font-medium transition-all duration-200 ${
+                copied
+                  ? 'bg-verified-500 text-white shadow-glow-green'
+                  : 'bg-verified-100 text-verified-700 hover:bg-verified-200'
+              }`}
+              title="Copy as plain text"
+            >
+              {copied ? '\u2713' : 'Plain'}
+            </button>
+          </div>
           <div className="text-[10px] text-surface-400 mt-3">
-            Formatting: {formatStyle === 'italics' ? 'Italics' : 'Underline'} | Pastes with formatting into Word & Google Docs
+            {formatStyle === 'italics' ? 'Italic' : 'Underline'} formatting | Pastes into Word & Google Docs with formatting
           </div>
         </div>
       )}

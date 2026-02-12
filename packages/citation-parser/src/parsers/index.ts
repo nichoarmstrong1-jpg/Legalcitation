@@ -1,4 +1,4 @@
-export { parseCaseCitation, parseShortCaseCitation } from './case-parser.js';
+export { parseCaseCitation, parseShortCaseCitation, normalizeCitationInput } from './case-parser.js';
 export { parseStatuteCitation } from './statute-parser.js';
 export { parseConstitutionCitation } from './constitution-parser.js';
 export { parseRegulationCitation } from './regulation-parser.js';
