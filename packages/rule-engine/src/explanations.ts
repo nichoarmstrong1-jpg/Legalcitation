@@ -4248,25 +4248,6 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
       'Writing "§ §" with a space between consecutive section symbols.',
     ],
   },
-  'R. 10.9': {
-    title: 'Short Forms for Cases',
-    explanation: 'After a full case citation has been given, short forms may be used in the same general discussion. Three acceptable forms: (1) "Id." (for the immediately preceding single authority), (2) one party name + volume + reporter + "at" + page, (3) one party name + "at" + page (when the case is clear from context).\n\n"At" must always precede the pinpoint page number in case short forms.',
-    examples: [
-      'Id. at 563.',
-      'Brown, 347 U.S. at 495.',
-      'Brown, at 495. (only when clear from context)',
-    ],
-    tips: [
-      'Short form case citations must include "at" before the pinpoint page.',
-      'The party name may be shortened to one recognizable party.',
-      'Only use short forms after the full citation has appeared in the same general discussion.',
-    ],
-    commonMistakes: [
-      'Omitting "at" before the pinpoint page in a case short form.',
-      'Using a short form without having given the full citation first.',
-      'Using Id. when the preceding citation has multiple authorities.',
-    ],
-  },
   'R. 12.3.1(d)': {
     title: 'Publisher Information for Unofficial Codes',
     explanation: 'Unofficial code citations (U.S.C.A., U.S.C.S., and annotated state codes) must include the publisher name in the parenthetical. Even when no year is given, the publisher must still appear.',
@@ -4295,7 +4276,7 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
       'Placing "Supp." after the year: "(2020 Supp.)" instead of "(Supp. 2020)".',
     ],
   },
-  'R. 14.5': {
+  'R. 14.5.1': {
     title: 'Treasury Regulations and IRS Materials',
     explanation: 'Treasury Regulations are cited as "Treas. Reg. § [section] ([year])". Revenue Rulings use "Rev. Rul." and Revenue Procedures use "Rev. Proc." The Internal Revenue Code may be cited as "I.R.C. § [section]" or "26 U.S.C. § [section]".',
     examples: [
