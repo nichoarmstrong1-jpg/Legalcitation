@@ -95,7 +95,11 @@ export default function App() {
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <NavigationTabs mode={mode} onModeChange={setMode} />
+        <NavigationTabs mode={mode} onModeChange={(newMode) => {
+          setMode(newMode);
+          setSelectedCitation(null);
+          setAllResults([]);
+        }} />
 
         <div className="mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Main Content */}

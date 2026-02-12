@@ -80,8 +80,13 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
         }),
       ]);
     } catch {
-      // Fallback to plain text copy
-      await navigator.clipboard.writeText(plainText);
+      try {
+        // Fallback to plain text copy
+        await navigator.clipboard.writeText(plainText);
+      } catch {
+        // Clipboard API completely unavailable (e.g. non-HTTPS or denied permission)
+        return;
+      }
     }
 
     setCorrectedCopied(true);
@@ -120,9 +125,8 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
     !step.includes('http://') &&
     !step.includes('https://') &&
     !step.match(/\b(403|401|500)\b.*error/i) &&
-    !step.includes('ANTHROPIC') &&
-    !step.includes('provider') &&
-    !step.includes('config')
+    !step.includes('ANTHROPIC_API_KEY') &&
+    !step.includes('API_KEY')
   );
 
   const displayedSteps = showAllSteps ? cleanTrace : cleanTrace.slice(0, 6);

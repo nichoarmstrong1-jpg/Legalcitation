@@ -51,19 +51,22 @@ app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), hand
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 
-// Global rate limit: 100 requests per 15 minutes per IP
-app.use('/api/', rateLimit({
+// Global rate limit: 200 requests per 15 minutes per IP
+// Excludes /api/analyze and /api/build which have their own stricter limits
+const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path.startsWith('/api/analyze') || req.path.startsWith('/api/build'),
   message: { error: 'Too many requests. Please try again later.' },
-}));
+});
+app.use('/api/', globalLimiter);
 
 // Stricter limit for analysis endpoints (Claude API costs)
 const analysisLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: 15,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Analysis rate limit reached. Please wait a moment.' },

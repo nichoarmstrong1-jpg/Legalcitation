@@ -64,9 +64,13 @@ export async function analyzeText(text: string, context = 'citation_sentence'): 
   const res = await fetch(`${API_BASE}/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ text, context }),
   });
-  if (!res.ok) throw new Error(`Analysis failed: ${res.statusText}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message || body?.error || `Analysis failed: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -74,9 +78,13 @@ export async function analyzeSingle(citation: string, context = 'citation_senten
   const res = await fetch(`${API_BASE}/analyze/single`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ citation, context }),
   });
-  if (!res.ok) throw new Error(`Analysis failed: ${res.statusText}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message || body?.error || `Analysis failed: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -98,9 +106,13 @@ export async function searchCases(query: string): Promise<CaseSearchResponse> {
   const res = await fetch(`${API_BASE}/build/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ query }),
   });
-  if (!res.ok) throw new Error(`Search failed: ${res.statusText}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message || body?.error || `Search failed: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -108,9 +120,13 @@ export async function buildCitation(input: string): Promise<AnalyzedCitation> {
   const res = await fetch(`${API_BASE}/build`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ input }),
   });
-  if (!res.ok) throw new Error(`Build failed: ${res.statusText}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message || body?.error || `Build failed: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -120,9 +136,13 @@ export async function uploadFile(file: File): Promise<{ extractedText: string; f
 
   const res = await fetch(`${API_BASE}/upload`, {
     method: 'POST',
+    credentials: 'include',
     body: formData,
   });
-  if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message || body?.error || `Upload failed: ${res.status}`);
+  }
   return res.json();
 }
 

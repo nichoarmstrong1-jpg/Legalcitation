@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { searchCases, buildCitation, type AnalyzedCitation, type CaseSearchResult } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
 import { useClipboard } from '../hooks/useClipboard.ts';
+import { htmlToMarkedText } from '../hooks/useRichPaste.ts';
 
 interface CitationBuilderProps {
   onResult: (result: AnalyzedCitation, input: string) => void;
@@ -149,6 +150,13 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
         <textarea
           value={input}
           onChange={e => setInput(e.target.value)}
+          onPaste={e => {
+            const html = e.clipboardData.getData('text/html');
+            if (html) {
+              e.preventDefault();
+              setInput(htmlToMarkedText(html));
+            }
+          }}
           placeholder="Enter a case name, topic, or partial citation..."
           className="input-field h-24 resize-none"
           onKeyDown={e => {

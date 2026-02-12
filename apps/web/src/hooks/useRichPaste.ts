@@ -1,39 +1,4 @@
-import type { FormatStyle } from '../types/citation.js';
-
-/**
- * Convert markdown-style *italic* markers to HTML tags
- */
-export function markdownToHtml(text: string, format: FormatStyle): string {
-  const tag = format === 'italics' ? 'i' : 'u';
-  return text.replace(/\*([^*]+)\*/g, `<${tag}>$1</${tag}>`);
-}
-
-/**
- * Strip markdown markers from text
- */
-export function markdownToPlain(text: string): string {
-  return text.replace(/\*([^*]+)\*/g, '$1');
-}
-
-/**
- * Wrap a case name in markdown-style italics markers
- */
-export function formatCaseName(name: string): string {
-  return `*${name}*`;
-}
-
-/**
- * Build rich clipboard data for copy/paste into Word, Google Docs, etc.
- */
-export function buildClipboardData(
-  citation: string,
-  format: FormatStyle
-): { html: string; plain: string } {
-  return {
-    html: markdownToHtml(citation, format),
-    plain: markdownToPlain(citation),
-  };
-}
+import { useCallback } from 'react';
 
 /**
  * Convert pasted HTML with italic/underline formatting into plain text
@@ -42,8 +7,7 @@ export function buildClipboardData(
  * This preserves italic/underline information when users paste from
  * Word, Google Docs, or other rich text editors.
  */
-export function htmlToMarkedText(html: string): string {
-  // Replace <em>, <i>, and italic-styled spans with *markers*
+function htmlToMarkedText(html: string): string {
   let text = html;
 
   // Handle <em> and <i> tags (italic)
@@ -77,3 +41,34 @@ export function htmlToMarkedText(html: string): string {
 
   return text.trim();
 }
+
+/**
+ * Hook that provides a paste event handler which preserves
+ * italic/underline formatting from rich text sources (Word, Google Docs, etc.)
+ * by converting them to *asterisk* markers the citation parser understands.
+ *
+ * Usage:
+ *   const handlePaste = useRichPaste(setText);
+ *   <textarea onPaste={handlePaste} />
+ */
+export function useRichPaste(
+  onText: (text: string) => void,
+  afterPaste?: (text: string) => void
+) {
+  return useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const html = e.clipboardData.getData('text/html');
+
+    if (html) {
+      // Rich text paste — convert HTML formatting to markers
+      e.preventDefault();
+      const markedText = htmlToMarkedText(html);
+      onText(markedText);
+      afterPaste?.(markedText);
+    }
+    // If no HTML, let the default paste happen (plain text)
+    // The afterPaste callback won't fire here — let the component
+    // handle it in its existing onPaste handler
+  }, [onText, afterPaste]);
+}
+
+export { htmlToMarkedText };

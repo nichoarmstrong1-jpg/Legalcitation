@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { analyzeText, type AnalyzedCitation } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
 import { ScoreCounter } from './ui/ScoreCounter.tsx';
+import { htmlToMarkedText } from '../hooks/useRichPaste.ts';
 
 interface BulkCheckProps {
   onResults: (results: AnalyzedCitation[], input: string) => void;
@@ -29,7 +30,7 @@ export function BulkCheck({ onResults, onSelectCitation, results }: BulkCheckPro
     }
   };
 
-  const handleFileText = (text: string) => {
+  const handleFileText = (text: string, _fileName: string) => {
     setInput(text);
   };
 
@@ -62,6 +63,13 @@ export function BulkCheck({ onResults, onSelectCitation, results }: BulkCheckPro
         <textarea
           value={input}
           onChange={e => setInput(e.target.value)}
+          onPaste={e => {
+            const html = e.clipboardData.getData('text/html');
+            if (html) {
+              e.preventDefault();
+              setInput(htmlToMarkedText(html));
+            }
+          }}
           placeholder={`Paste citations, one per line:\n\nBrown v. Board of Education, 347 U.S. 483 (1954).\nRoe v. Wade, 410 U.S. 113 (1973).\nMarbury v. Madison, 5 U.S. 137 (1803).`}
           className="input-field h-40 resize-y mt-4 font-mono"
         />

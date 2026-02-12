@@ -1,7 +1,9 @@
 import type { CaseComponents, VerificationStatus, CitationDiscrepancy } from '@legalcitation/shared';
 
-const CASELAW_BASE = 'https://api.case.law/v1';
-const CASELAW_BASE_ALT = 'https://static.case.law/api/v1';
+const CASELAW_URLS = [
+  'https://api.case.law/v1',
+  'https://static.case.law/api/v1',
+];
 
 export interface CaselawResult {
   status: VerificationStatus;
@@ -12,27 +14,15 @@ export interface CaselawResult {
 }
 
 /**
- * Verify a case citation using the Harvard Caselaw Access Project API.
- * Free API with rate limits; no key needed for basic metadata.
+ * Attempt a fetch against a given base URL. Returns the Response or null on failure.
  */
-export async function verifyWithCaselaw(
-  components: CaseComponents
-): Promise<CaselawResult> {
-  const trace: string[] = [];
-  const discrepancies: CitationDiscrepancy[] = [];
-
+async function tryFetch(baseUrl: string, caseName: string, year: string | undefined): Promise<Response | null> {
   try {
-    trace.push('Searching case.law (Harvard Caselaw Access Project)...');
-
-    const searchUrl = new URL(`${CASELAW_BASE}/cases/`);
-    const caseName = components.partyTwo
-      ? `${components.partyOne} v. ${components.partyTwo}`
-      : components.partyOne;
-
+    const searchUrl = new URL(`${baseUrl}/cases/`);
     searchUrl.searchParams.set('search', caseName);
-    if (components.year) {
-      searchUrl.searchParams.set('decision_date_min', `${components.year}-01-01`);
-      searchUrl.searchParams.set('decision_date_max', `${components.year}-12-31`);
+    if (year) {
+      searchUrl.searchParams.set('decision_date_min', `${year}-01-01`);
+      searchUrl.searchParams.set('decision_date_max', `${year}-12-31`);
     }
 
     const controller = new AbortController();
@@ -43,14 +33,44 @@ export async function verifyWithCaselaw(
     });
     clearTimeout(timeout);
 
-    if (!response.ok) {
-      trace.push(`case.law API returned ${response.status}`);
-      return { status: 'error', discrepancies: [], logicTrace: trace };
-    }
+    if (!response.ok) return null;
 
     const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      trace.push('case.law API returned non-JSON response (API may have changed).');
+    if (!contentType.includes('application/json')) return null;
+
+    return response;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Verify a case citation using the Harvard Caselaw Access Project API.
+ * Free API with rate limits; no key needed for basic metadata.
+ * Tries the primary URL first, then falls back to the alternate URL.
+ */
+export async function verifyWithCaselaw(
+  components: CaseComponents
+): Promise<CaselawResult> {
+  const trace: string[] = [];
+  const discrepancies: CitationDiscrepancy[] = [];
+
+  try {
+    trace.push('Searching case.law (Harvard Caselaw Access Project)...');
+
+    const caseName = components.partyTwo
+      ? `${components.partyOne} v. ${components.partyTwo}`
+      : components.partyOne;
+
+    // Try each URL until one succeeds
+    let response: Response | null = null;
+    for (const baseUrl of CASELAW_URLS) {
+      response = await tryFetch(baseUrl, caseName, components.year);
+      if (response) break;
+    }
+
+    if (!response) {
+      trace.push('case.law API is currently unavailable.');
       return { status: 'error', discrepancies: [], logicTrace: trace };
     }
 

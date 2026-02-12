@@ -9,6 +9,7 @@ import {
   isGuidanceResponse,
   isAnalyzedCitation,
 } from '../services/api.ts';
+import { htmlToMarkedText } from '../hooks/useRichPaste.ts';
 
 interface IndividualCheckerProps {
   onResult: (result: AnalyzedCitation, input: string) => void;
@@ -57,9 +58,22 @@ export function IndividualChecker({ onResult }: IndividualCheckerProps) {
   }, [input, onResult]);
 
   // Paste-and-Go: auto-analyze after paste with debounce
+  // Preserves italic/underline formatting from Word, Google Docs, etc.
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const pastedText = e.clipboardData.getData('text');
-    if (!pastedText.trim()) return;
+    const html = e.clipboardData.getData('text/html');
+    const plainText = e.clipboardData.getData('text');
+
+    // If the clipboard has HTML content, convert italic/underline to *markers*
+    let textToUse: string;
+    if (html) {
+      e.preventDefault();
+      textToUse = htmlToMarkedText(html);
+      setInput(textToUse);
+    } else {
+      textToUse = plainText;
+    }
+
+    if (!textToUse.trim()) return;
 
     // Show paste indicator
     setPasteIndicator(true);
@@ -70,8 +84,8 @@ export function IndividualChecker({ onResult }: IndividualCheckerProps) {
     // Auto-analyze after 500ms debounce
     pasteTimerRef.current = setTimeout(() => {
       setPasteIndicator(false);
-      // Use the pasted text directly (textarea value may not have updated yet)
-      const currentVal = textareaRef.current?.value || '';
+      // For rich text paste we already set input; for plain text read from textarea
+      const currentVal = html ? textToUse : (textareaRef.current?.value || '');
       if (currentVal.trim()) {
         handleAnalyze(currentVal.trim());
       }

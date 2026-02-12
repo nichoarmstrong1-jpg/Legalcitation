@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { analyzeText, type AnalyzedCitation } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
+import { htmlToMarkedText } from '../hooks/useRichPaste.ts';
 
 interface InTextCheckerProps {
   onResults: (results: AnalyzedCitation[], input: string) => void;
@@ -54,6 +55,8 @@ export function InTextChecker({ onResults, onSelectCitation, results }: InTextCh
   const renderAnnotatedText = () => {
     if (results.length === 0 || !input) return null;
 
+    // Use trimmed text for slicing — positions from the API are relative to trimmed input
+    const trimmedInput = input.trim();
     const segments: Array<{ text: string; citationIdx?: number }> = [];
     let lastEnd = 0;
 
@@ -68,15 +71,15 @@ export function InTextChecker({ onResults, onSelectCitation, results }: InTextCh
       if (!pos) continue;
 
       if (pos.start > lastEnd) {
-        segments.push({ text: input.slice(lastEnd, pos.start) });
+        segments.push({ text: trimmedInput.slice(lastEnd, pos.start) });
       }
 
-      segments.push({ text: input.slice(pos.start, pos.end), citationIdx: idx });
+      segments.push({ text: trimmedInput.slice(pos.start, pos.end), citationIdx: idx });
       lastEnd = pos.end;
     }
 
-    if (lastEnd < input.length) {
-      segments.push({ text: input.slice(lastEnd) });
+    if (lastEnd < trimmedInput.length) {
+      segments.push({ text: trimmedInput.slice(lastEnd) });
     }
 
     return (
@@ -208,6 +211,13 @@ export function InTextChecker({ onResults, onSelectCitation, results }: InTextCh
             <textarea
               value={input}
               onChange={e => setInput(e.target.value)}
+              onPaste={e => {
+                const html = e.clipboardData.getData('text/html');
+                if (html) {
+                  e.preventDefault();
+                  setInput(htmlToMarkedText(html));
+                }
+              }}
               placeholder={`Paste your legal text here. For example:\n\nThe Supreme Court held in Engel v. Vitale, 370 U.S. 421 (1962), that state-sponsored prayer in public schools violated the Establishment Clause. See also Abington School District v. Schempp, 374 U.S. 203 (1963). Id. at 210.`}
               className="input-field h-48 resize-y mt-4 font-serif"
             />
