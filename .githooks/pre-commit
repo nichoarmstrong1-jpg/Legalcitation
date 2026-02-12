@@ -1,0 +1,8 @@
+#!/bin/sh
+export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/local/node/bin:$PATH"
+echo "Running typecheck before commit..."
+npm run typecheck
+if [ $? -ne 0 ]; then
+  echo "Typecheck failed. Fix errors before committing."
+  exit 1
+fi
