@@ -3,7 +3,9 @@ dist
 .git
 .env*
 *.md
-apps/web
+apps/web/src
+apps/web/public
+apps/web/dist
 coverage
 .DS_Store
 .vercel

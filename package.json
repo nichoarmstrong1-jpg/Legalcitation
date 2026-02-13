@@ -11,11 +11,13 @@
     "dev:web": "npm run dev -w apps/web",
     "dev:api": "npm run dev -w apps/api",
     "build": "npm run build -w packages/shared && npm run build -w packages/citation-parser && npm run build -w packages/rule-engine && npm run build -w packages/verification && npm run build -w apps/api && npm run build -w apps/web",
+    "build:api": "npm run build -w packages/shared && npm run build -w packages/citation-parser && npm run build -w packages/rule-engine && npm run build -w packages/verification && npm run build -w apps/api",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
     "typecheck": "tsc -b packages/shared packages/citation-parser packages/rule-engine packages/verification apps/api apps/web",
     "precommit": "npm run typecheck",
+    "start": "node apps/api/dist/server.js",
     "prepare": "git rev-parse --is-inside-work-tree > /dev/null 2>&1 && git config core.hooksPath .githooks || true"
   },
   "devDependencies": {
