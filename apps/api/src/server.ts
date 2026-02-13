@@ -97,7 +97,7 @@ app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`LegalCitation API running on 0.0.0.0:${PORT}`);
   console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`  CORS origins: ${allowedOrigins.join(', ')}`);
-  console.log(`  Database: ${isDatabaseConfigured() ? 'connected' : 'NOT configured (auth/billing disabled)'}`);
+  console.log(`  Database: ${isDatabaseConfigured() ? 'connected' : 'NOT configured (auth disabled)'}`);
   console.log(`  Anthropic: ${process.env.ANTHROPIC_API_KEY ? 'configured' : 'NOT configured (verification disabled)'}`);
 });
 
