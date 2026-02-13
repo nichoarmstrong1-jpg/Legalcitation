@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Clock, Menu, X, Scale } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 
 interface HeaderProps {
@@ -32,8 +33,8 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpe
     <header className="frosted border-b border-surface-200/60 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5 md:gap-3">
-          <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-primary-800 flex items-center justify-center text-white text-base md:text-lg shadow-soft">
-            &#9878;
+          <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-primary-800 flex items-center justify-center text-white shadow-soft">
+            <Scale className="w-4 h-4 md:w-5 md:h-5" />
           </div>
           <div>
             <h1 className="text-base md:text-lg font-semibold text-primary-900 tracking-tight">LegalCitation</h1>
@@ -74,9 +75,7 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpe
             title="Citation History"
             aria-label="Citation history"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <Clock className="w-5 h-5" />
           </button>
 
           {/* User / Auth */}
@@ -128,9 +127,7 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpe
             title="Citation History"
             aria-label="Citation history"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <Clock className="w-5 h-5" />
           </button>
 
           <button
@@ -140,13 +137,9 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpe
             aria-expanded={showMobileMenu}
           >
             {showMobileMenu ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-5 h-5" />
             ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              <Menu className="w-5 h-5" />
             )}
           </button>
 

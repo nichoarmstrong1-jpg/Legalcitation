@@ -1,3 +1,4 @@
+import { X, Lightbulb, AlertTriangle, ListOrdered } from 'lucide-react';
 import { RULE_EXPLANATIONS } from '@legalcitation/rule-engine';
 
 interface RuleExplanationModalProps {
@@ -23,8 +24,8 @@ export function RuleExplanationModal({ ruleKey, onClose, onNavigate }: RuleExpla
             <span className="text-xs font-mono text-primary-600 bg-primary-50 px-2.5 py-1 rounded-lg font-semibold">{ruleKey}</span>
             <h3 id="rule-modal-title" className="text-lg font-semibold mt-2 text-primary-900">{rule?.title || ruleKey}</h3>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-surface-400 hover:text-surface-600 hover:bg-surface-100 rounded-xl transition-all text-xl" aria-label="Close">
-            &times;
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-surface-400 hover:text-surface-600 hover:bg-surface-100 rounded-xl transition-all" aria-label="Close">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -41,6 +42,51 @@ export function RuleExplanationModal({ ruleKey, onClose, onNavigate }: RuleExpla
                       <div key={i} className="text-sm font-mono bg-surface-50 px-4 py-2 rounded-xl text-surface-700">{ex}</div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {rule.tips && rule.tips.length > 0 && (
+                <div className="mt-5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Lightbulb className="w-3.5 h-3.5 text-primary-500" />
+                    <div className="text-xs font-semibold text-primary-600 uppercase tracking-wider">Expert Tips</div>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {rule.tips.map((tip, i) => (
+                      <li key={i} className="text-sm text-primary-700 bg-primary-50 px-4 py-2.5 rounded-xl leading-relaxed">{tip}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {rule.commonMistakes && rule.commonMistakes.length > 0 && (
+                <div className="mt-5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <AlertTriangle className="w-3.5 h-3.5 text-warning-500" />
+                    <div className="text-xs font-semibold text-warning-600 uppercase tracking-wider">Common Mistakes</div>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {rule.commonMistakes.map((mistake, i) => (
+                      <li key={i} className="text-sm text-warning-700 bg-warning-50 px-4 py-2.5 rounded-xl leading-relaxed">{mistake}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {rule.decisionSteps && rule.decisionSteps.length > 0 && (
+                <div className="mt-5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <ListOrdered className="w-3.5 h-3.5 text-surface-500" />
+                    <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider">How to Apply This Rule</div>
+                  </div>
+                  <ol className="space-y-1.5">
+                    {rule.decisionSteps.map((step, i) => (
+                      <li key={i} className="text-sm text-surface-700 bg-surface-50 px-4 py-2.5 rounded-xl leading-relaxed flex gap-2.5">
+                        <span className="text-primary-500 font-bold shrink-0">{i + 1}.</span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
                 </div>
               )}
 

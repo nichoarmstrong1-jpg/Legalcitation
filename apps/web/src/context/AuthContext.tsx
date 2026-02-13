@@ -4,8 +4,6 @@ export interface User {
   id: string;
   email: string;
   name: string | null;
-  plan: 'free' | 'student' | 'professional';
-  referralCode: string;
   formatPreference?: string;
 }
 
@@ -13,8 +11,8 @@ interface AuthState {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name?: string, referralCode?: string) => Promise<void>;
-  loginWithGoogle: (idToken: string, referralCode?: string) => Promise<void>;
+  signup: (email: string, password: string, name?: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -73,12 +71,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   }, []);
 
-  const signup = useCallback(async (email: string, password: string, name?: string, referralCode?: string) => {
+  const signup = useCallback(async (email: string, password: string, name?: string) => {
     const res = await fetch(`${API_BASE}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ email, password, name, referralCode }),
+      body: JSON.stringify({ email, password, name }),
     });
     if (!res.ok) {
       const data = await res.json();
@@ -88,12 +86,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   }, []);
 
-  const loginWithGoogle = useCallback(async (idToken: string, referralCode?: string) => {
+  const loginWithGoogle = useCallback(async (idToken: string) => {
     const res = await fetch(`${API_BASE}/auth/google`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ idToken, referralCode }),
+      body: JSON.stringify({ idToken }),
     });
     if (!res.ok) {
       const data = await res.json();

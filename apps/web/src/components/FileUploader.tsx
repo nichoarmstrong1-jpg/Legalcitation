@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { FileText } from 'lucide-react';
 import { uploadFile } from '../services/api.ts';
 
 interface FileUploaderProps {
@@ -67,7 +68,7 @@ export function FileUploader({ onTextExtracted, compact = false }: FileUploaderP
     >
       <input ref={inputRef} type="file" className="hidden" onChange={onFileSelect} />
       <div className="w-12 h-12 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-3">
-        <span className="text-2xl">&#128196;</span>
+        <FileText className="w-6 h-6 text-surface-400" />
       </div>
       <p className="font-medium text-surface-700">
         {isProcessing ? 'Processing file...' : 'Drop a file here or click to upload'}

@@ -75,10 +75,16 @@ export interface ArticleComponents {
 }
 
 export interface ShortFormComponents {
-  type: 'id' | 'supra' | 'short_case' | 'short_statute';
+  type: 'id' | 'supra' | 'hereinafter' | 'short_case' | 'short_statute';
   pinCite?: string;
   antecedentId?: string;
   partyName?: string;
+  /** Whether the short-form term (Id., supra, etc.) is italicized in the source text. */
+  italicized?: boolean;
+  /** Number of authorities in the immediately preceding citation (for Id. validation). */
+  precedingCitationCount?: number;
+  /** Whether a hereinafter designation was established in the first citation to the source. */
+  hereinafterEstablished?: boolean;
 }
 
 export type CitationComponents =

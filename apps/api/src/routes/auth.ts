@@ -33,25 +33,15 @@ const REFRESH_COOKIE_OPTIONS = {
   path: '/api/auth',
 };
 
-function generateReferralCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
-}
-
 /**
  * POST /api/auth/signup — Email + password registration
  */
 authRouter.post('/signup', async (req: Request, res: Response) => {
   try {
-    const { email, password, name, referralCode: refCode } = req.body as {
+    const { email, password, name } = req.body as {
       email: string;
       password: string;
       name?: string;
-      referralCode?: string;
     };
 
     if (!email || !password) {
@@ -74,16 +64,6 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    const referralCodeGen = generateReferralCode();
-
-    // Check referral code if provided
-    let referredBy: string | null = null;
-    if (refCode) {
-      const referrer = await db.select().from(schema.users).where(eq(schema.users.referralCode, refCode)).limit(1);
-      if (referrer.length > 0) {
-        referredBy = referrer[0].id;
-      }
-    }
 
     const [user] = await db.insert(schema.users).values({
       email: email.toLowerCase(),
@@ -91,19 +71,9 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
       passwordHash,
       oauthProvider: 'email',
       emailVerified: false,
-      referralCode: referralCodeGen,
-      referredBy,
     }).returning();
 
-    // Create referral record if applicable
-    if (referredBy) {
-      await db.insert(schema.referrals).values({
-        referrerId: referredBy,
-        referredUserId: user.id,
-      });
-    }
-
-    const payload: TokenPayload = { userId: user.id, email: user.email, plan: user.plan };
+    const payload: TokenPayload = { userId: user.id, email: user.email };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
@@ -120,7 +90,7 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
     res.cookie(REFRESH_COOKIE, refreshToken, REFRESH_COOKIE_OPTIONS);
 
     res.status(201).json({
-      user: { id: user.id, email: user.email, name: user.name, plan: user.plan, referralCode: user.referralCode },
+      user: { id: user.id, email: user.email, name: user.name },
     });
   } catch (error) {
     console.error('Signup error:', error);
@@ -154,7 +124,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
-    const payload: TokenPayload = { userId: user.id, email: user.email, plan: user.plan };
+    const payload: TokenPayload = { userId: user.id, email: user.email };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
@@ -170,7 +140,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     res.cookie(REFRESH_COOKIE, refreshToken, REFRESH_COOKIE_OPTIONS);
 
     res.json({
-      user: { id: user.id, email: user.email, name: user.name, plan: user.plan, referralCode: user.referralCode },
+      user: { id: user.id, email: user.email, name: user.name },
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -183,7 +153,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
  */
 authRouter.post('/google', async (req: Request, res: Response) => {
   try {
-    const { idToken, referralCode: refCode } = req.body as { idToken: string; referralCode?: string };
+    const { idToken } = req.body as { idToken: string };
 
     if (!idToken) {
       res.status(400).json({ error: 'Google ID token is required' });
@@ -212,31 +182,16 @@ authRouter.post('/google', async (req: Request, res: Response) => {
 
     if (!user) {
       // Create new user
-      let referredBy: string | null = null;
-      if (refCode) {
-        const referrer = await db.select().from(schema.users).where(eq(schema.users.referralCode, refCode)).limit(1);
-        if (referrer.length > 0) referredBy = referrer[0].id;
-      }
-
       [user] = await db.insert(schema.users).values({
         email: googlePayload.email.toLowerCase(),
         name: googlePayload.name || null,
         oauthProvider: 'google',
         oauthId: googlePayload.sub,
         emailVerified: true,
-        referralCode: generateReferralCode(),
-        referredBy,
       }).returning();
-
-      if (referredBy) {
-        await db.insert(schema.referrals).values({
-          referrerId: referredBy,
-          referredUserId: user.id,
-        });
-      }
     }
 
-    const payload: TokenPayload = { userId: user.id, email: user.email, plan: user.plan };
+    const payload: TokenPayload = { userId: user.id, email: user.email };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
@@ -252,7 +207,7 @@ authRouter.post('/google', async (req: Request, res: Response) => {
     res.cookie(REFRESH_COOKIE, refreshToken, REFRESH_COOKIE_OPTIONS);
 
     res.json({
-      user: { id: user.id, email: user.email, name: user.name, plan: user.plan, referralCode: user.referralCode },
+      user: { id: user.id, email: user.email, name: user.name },
     });
   } catch (error) {
     console.error('Google auth error:', error);
@@ -283,7 +238,7 @@ authRouter.get('/me', requireAuth, async (req: Request, res: Response) => {
     }
 
     res.json({
-      user: { id: user.id, email: user.email, name: user.name, plan: user.plan, referralCode: user.referralCode, formatPreference: user.formatPreference },
+      user: { id: user.id, email: user.email, name: user.name, formatPreference: user.formatPreference },
     });
   } catch (error) {
     console.error('Me error:', error);
@@ -321,7 +276,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
       return;
     }
 
-    const payload: TokenPayload = { userId: user.id, email: user.email, plan: user.plan };
+    const payload: TokenPayload = { userId: user.id, email: user.email };
     const newAccessToken = generateAccessToken(payload);
 
     res.cookie(COOKIE_NAME, newAccessToken, COOKIE_OPTIONS);

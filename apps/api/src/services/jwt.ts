@@ -9,7 +9,6 @@ const JWT_SECRET = () => {
 export interface TokenPayload {
   userId: string;
   email: string;
-  plan: string;
 }
 
 export function generateAccessToken(payload: TokenPayload): string {

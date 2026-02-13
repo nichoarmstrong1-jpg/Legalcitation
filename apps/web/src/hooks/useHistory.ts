@@ -6,7 +6,7 @@ const MAX_HISTORY = 50;
 
 export interface HistoryEntry {
   id: string;
-  mode: 'in_text' | 'individual' | 'builder' | 'bulk';
+  mode: 'in_text' | 'builder' | 'bulk';
   input: string;
   results: AnalyzedCitation[];
   timestamp: string;

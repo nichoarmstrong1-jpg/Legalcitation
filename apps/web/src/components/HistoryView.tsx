@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ClipboardList, X } from 'lucide-react';
 import type { HistoryEntry } from '../hooks/useHistory.ts';
 import { useToast } from '../context/ToastContext.tsx';
 import { ConfirmDialog } from './ui/ConfirmDialog.tsx';
@@ -13,7 +14,6 @@ interface HistoryViewProps {
 
 const modeLabels: Record<string, string> = {
   in_text: 'In-Text',
-  individual: 'Individual',
   builder: 'Builder',
   bulk: 'Bulk',
 };
@@ -78,7 +78,7 @@ export function HistoryView({ history, onRestore, onDelete, onClear, selectedEnt
         {filtered.length === 0 ? (
           <div className="text-center text-surface-400 py-12">
             <div className="w-14 h-14 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">&#128203;</span>
+              <ClipboardList className="w-6 h-6 text-surface-400" />
             </div>
             {history.length === 0 ? (
               <>
@@ -141,10 +141,10 @@ export function HistoryView({ history, onRestore, onDelete, onClear, selectedEnt
                     </div>
                     <button
                       onClick={e => { e.stopPropagation(); handleDelete(entry.id); }}
-                      className="shrink-0 w-8 h-8 flex items-center justify-center text-surface-300 hover:text-error-500 rounded-xl hover:bg-error-50 transition-all text-sm"
+                      className="shrink-0 w-8 h-8 flex items-center justify-center text-surface-300 hover:text-error-500 rounded-xl hover:bg-error-50 transition-all"
                       aria-label="Delete entry"
                     >
-                      &times;
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
                 </button>

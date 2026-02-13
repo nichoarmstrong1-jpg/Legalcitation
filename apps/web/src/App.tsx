@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Scale } from 'lucide-react';
 import { Header } from './components/Header.tsx';
 import { NavigationTabs } from './components/NavigationTabs.tsx';
 import { InTextChecker } from './components/InTextChecker.tsx';
-import { IndividualChecker } from './components/IndividualChecker.tsx';
 import { CitationBuilder } from './components/CitationBuilder.tsx';
 import { BulkCheck } from './components/BulkCheck.tsx';
 import { AnalysisSidebar } from './components/AnalysisSidebar.tsx';
@@ -18,13 +18,13 @@ import { useAuth } from './context/AuthContext.tsx';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.ts';
 import type { AnalyzedCitation } from './services/api.ts';
 
-type Mode = 'in_text' | 'individual' | 'builder' | 'bulk' | 'history';
+type Mode = 'in_text' | 'builder' | 'bulk' | 'history';
 type FormatStyle = 'italics' | 'underline';
-const MODES: Mode[] = ['in_text', 'individual', 'builder', 'bulk', 'history'];
+const MODES: Mode[] = ['in_text', 'builder', 'bulk', 'history'];
 
 function AppContent() {
   useAuth();
-  const [mode, setMode] = useState<Mode>('individual');
+  const [mode, setMode] = useState<Mode>('builder');
   const [formatStyle, setFormatStyle] = useState<FormatStyle>('italics');
   const [selectedCitation, setSelectedCitation] = useState<AnalyzedCitation | null>(null);
   const [allResults, setAllResults] = useState<AnalyzedCitation[]>([]);
@@ -84,7 +84,7 @@ function AppContent() {
   }, [showShortcuts, showAuth]);
 
   const shortcutHandlers = useMemo(() => ({
-    onToggleHistory: () => setMode(prev => prev === 'history' ? 'individual' : 'history'),
+    onToggleHistory: () => setMode(prev => prev === 'history' ? 'builder' : 'history'),
     onSwitchMode: (index: number) => {
       if (index >= 0 && index < MODES.length) setMode(MODES[index]);
     },
@@ -99,7 +99,7 @@ function AppContent() {
       <Header
         formatStyle={formatStyle}
         onFormatChange={setFormatStyle}
-        onHistoryToggle={() => setMode(prev => prev === 'history' ? 'individual' : 'history')}
+        onHistoryToggle={() => setMode(prev => prev === 'history' ? 'builder' : 'history')}
         onAuthOpen={() => openAuth()}
       />
 
@@ -122,9 +122,6 @@ function AppContent() {
                 onSelectCitation={setSelectedCitation}
                 results={allResults}
               />
-            )}
-            {mode === 'individual' && (
-              <IndividualChecker onResult={handleSingleResult} />
             )}
             {mode === 'builder' && (
               <CitationBuilder onResult={handleSingleResult} formatStyle={formatStyle} />
@@ -159,7 +156,7 @@ function AppContent() {
             ) : (
               <div className="card text-center text-surface-400 py-16">
                 <div className="w-14 h-14 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">&#9878;</span>
+                  <Scale className="w-6 h-6 text-surface-400" />
                 </div>
                 <p className="font-medium text-surface-600">No citation selected</p>
                 <p className="text-sm mt-1 text-surface-400">Enter a citation to see analysis results</p>

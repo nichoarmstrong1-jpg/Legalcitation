@@ -1,3 +1,4 @@
+import { CheckCircle, XCircle, Info, X } from 'lucide-react';
 import { useToast } from '../../context/ToastContext.tsx';
 
 const typeStyles = {
@@ -7,9 +8,9 @@ const typeStyles = {
 };
 
 const typeIcons = {
-  success: '\u2713',
-  error: '\u2716',
-  info: '\u2139',
+  success: CheckCircle,
+  error: XCircle,
+  info: Info,
 };
 
 export function ToastContainer() {
@@ -28,14 +29,14 @@ export function ToastContainer() {
           key={toast.id}
           className={`flex items-center gap-3 px-4 py-3 rounded-xl border-l-4 shadow-elevated animate-slide-up ${typeStyles[toast.type]}`}
         >
-          <span className="text-sm font-bold shrink-0">{typeIcons[toast.type]}</span>
+          {(() => { const Icon = typeIcons[toast.type]; return <Icon className="w-4 h-4 shrink-0" />; })()}
           <span className="text-sm font-medium flex-1">{toast.message}</span>
           <button
             onClick={() => dismissToast(toast.id)}
             className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-black/5 text-current opacity-50 hover:opacity-100 transition-opacity"
             aria-label="Dismiss"
           >
-            &times;
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       ))}

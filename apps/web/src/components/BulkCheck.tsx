@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Check, AlertTriangle, XCircle, Circle } from 'lucide-react';
 import { analyzeText, type AnalyzedCitation } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
 import { ScoreCounter } from './ui/ScoreCounter.tsx';
@@ -36,10 +37,10 @@ export function BulkCheck({ onResults, onSelectCitation, results }: BulkCheckPro
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'verified': return <span className="text-verified-500">&#10003;</span>;
-      case 'partial_match': return <span className="text-warning-500">&#9888;</span>;
-      case 'not_found': return <span className="text-error-500">&#10007;</span>;
-      default: return <span className="text-surface-400">&#8226;</span>;
+      case 'verified': return <Check className="w-4 h-4 text-verified-500" />;
+      case 'partial_match': return <AlertTriangle className="w-4 h-4 text-warning-500" />;
+      case 'not_found': return <XCircle className="w-4 h-4 text-error-500" />;
+      default: return <Circle className="w-4 h-4 text-surface-400" />;
     }
   };
 

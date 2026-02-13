@@ -79,16 +79,33 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
   'R. 1.2': {
     title: 'Introductory Signals (Detailed)',
     explanation:
-      'Signals indicate support, comparison, contradiction, or background.\n\n' +
-      'Supportive: [no signal], e.g., accord, see, see also, cf.\n' +
-      'Comparative: compare...with, contrast...with\n' +
-      'Contradictory: contra, but see, but cf.\n' +
-      'Background: see generally\n\n' +
-      'Certain signals require explanatory parentheticals: see also, cf., but cf., see generally, compare, and contrast.\n\n' +
-      '"Compare" and "contrast" must each be used with "with." Omit "but" from "but see" and "but cf." when following another negative signal.',
+      'Signals indicate the relationship between a cited authority and the proposition in the text. They are grouped into four categories (R. 1.2):\n\n' +
+      'Supportive signals (strongest to weakest): [no signal] (authority directly states the proposition), e.g. (one example among many), accord (other authorities also state the same proposition), see (authority clearly supports but does not directly state), see also (additional authority supporting the proposition), cf. (supports by analogy).\n\n' +
+      'Comparative signals: compare...with, contrast...with (juxtaposing authorities that reach different conclusions).\n\n' +
+      'Contradictory signals: contra (authority directly contradicts the proposition), but see (authority clearly supports a contrary position), but cf. (supports a contrary position by analogy).\n\n' +
+      'Background signal: see generally (provides helpful background material without directly supporting/contradicting).\n\n' +
+      'Certain signals REQUIRE explanatory parentheticals: see also, cf., but cf., see generally, compare, and contrast. Using these signals without a parenthetical is an error.\n\n' +
+      '"Compare" and "contrast" must each be used with "with." Omit "but" from "but see" and "but cf." when following another negative signal (R. 1.2(c)).',
     examples: [
       'Cf. Palmer v. Ticcione, 433 F. Supp. 653 (E.D.N.Y. 1977) (upholding mandatory retirement).',
       'Compare McDonald v. City of Chicago, 561 U.S. 742, 791 (2010) (plurality opinion) (incorporating the Second Amendment through the Due Process Clause), with Timbs v. Indiana, 586 U.S. 146, 150 (2019) (incorporating the Excessive Fines Clause).',
+    ],
+    tips: [
+      'Use NO signal when the cited authority directly states the proposition — this is the strongest form of support and signals that the reader can find the exact proposition in the cited source.',
+      '"See" is the most commonly used signal. It means the cited authority clearly supports the proposition but does not directly state it. If you can find the exact words in the source, use no signal instead.',
+      'Signals that require parentheticals (see also, cf., but cf., see generally, compare/with) will confuse readers without them. The parenthetical explains WHY the authority is relevant (R. 1.2).',
+      'When combining "e.g.," with another signal, place "e.g.," after the signal and a comma: "See, e.g.," or "But see, e.g.," — note the comma placement carefully.',
+    ],
+    commonMistakes: [
+      'Using "see" when no signal is appropriate — if the source directly states the proposition, no signal is needed.',
+      'Omitting required explanatory parentheticals after "see also," "cf.," "see generally," or "compare...with" signals.',
+      'Capitalizing signals in citation clauses — signals are only capitalized at the start of a citation sentence, not within a citation clause.',
+    ],
+    decisionSteps: [
+      '1. Ask: Does the cited authority directly state the proposition in the text? If yes, use NO signal.',
+      '2. If the authority clearly supports but does not directly state the proposition, use "see." If it provides additional support beyond authorities already cited, use "see also" (with parenthetical).',
+      '3. If the authority supports by analogy rather than directly, use "cf." (with parenthetical explaining the analogy).',
+      '4. If the authority contradicts the proposition, use "contra" (directly contradicts) or "but see" (clearly supports a contrary proposition). If the authority provides useful background, use "see generally" (with parenthetical).',
     ],
   },
   'R. 1.2(b)': {
@@ -334,7 +351,7 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
   },
   'R. 3.2': {
     title: 'Pincites and Page Ranges',
-    explanation: 'When citing specific pages within a source, provide a pincite after the first page number, separated by a comma. For page ranges with three or more digits, drop repetitious digits except the final two (e.g., 102–06, not 102–106). Use "at" for pincites in short form citations. Footnotes are cited as "n.4" (no space between "n." and the number).',
+    explanation: 'When citing specific pages within a source, provide a pincite (pinpoint citation) after the first page number, separated by a comma and a space. For page ranges with three or more digits, drop repetitious digits except the final two (e.g., 102–06, not 102–106). Use "at" for pincites in short form citations. Footnotes are cited as "n.4" (no space between "n." and the number). Pincites are essential for directing the reader to the specific material supporting your proposition — omitting them is considered poor practice and may be penalized in academic and professional settings.',
     examples: ['Baker v. Carr, 369 U.S. 186, 195 (1962).', '199 n.4', '102–06'],
     tips: [
       'The first page of a source MUST be repeated as a pinpoint when you are citing that specific page: "363, 363" not just "363".',
@@ -347,6 +364,12 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
       'Forgetting to repeat the first page as a pinpoint.',
       'Using a hyphen instead of an en dash for ranges.',
       'Writing "n. 4" with a space instead of "n.4".',
+    ],
+    decisionSteps: [
+      '1. Identify the specific page(s) you are citing. If citing the first page of the source, you must still repeat it: "363, 363".',
+      '2. For a page range: use an en dash (–) and apply the digit-dropping rule — drop repetitious digits but always retain at least the last two digits: "102–06" (not "102–6" or "102–106").',
+      '3. For non-consecutive pages: use commas and retain ALL digits: "414, 418, 425".',
+      '4. For footnotes: use "n." with no space before the number ("n.4"). For multiple consecutive footnotes use "nn." ("nn.5–6"). For a page plus footnote, use "&": "147 & n.5".',
     ],
   },
   'R. 3.2(a)': {
@@ -471,13 +494,30 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
     explanation:
       '"Supra" and "hereinafter" may be used for: legislative hearings, court filings, books, pamphlets, reports, unpublished materials, nonprint resources, periodicals, services, treaties, regulations/directives of intergovernmental organizations, and internal cross-references.\n\n' +
       '"Supra" and "hereinafter" should NOT be used for: cases, statutes, constitutions, legislative materials/debates (other than hearings), restatements, model codes, or regulations (except in extraordinary circumstances like extremely long names).\n\n' +
-      '(a) "Supra": Use the last name of the author, a comma, "supra," and the footnote number where the full citation appears. Add volume/paragraph/section/page/timestamp for specific material.\n\n' +
-      '(b) "Hereinafter": For cumbersome authorities, establish a shortened form in brackets after the first citation (before any explanatory parenthetical). Use the shortened form in subsequent citations with "supra."',
+      '(a) "Supra": Use the last name of the author, a comma, "supra," and the footnote number where the full citation appears. Add volume/paragraph/section/page/timestamp for specific material. In practitioners\' documents (no footnotes), the format is: Author, supra, at [page].\n\n' +
+      '(b) "Hereinafter": For cumbersome authorities, establish a shortened form in brackets after the first citation (before any explanatory parenthetical). Use the shortened form in subsequent citations with "supra." The hereinafter designation MUST be established in the very first citation to the source — it cannot be added retroactively.',
     examples: [
       'Reich, supra note 16, at 6.',
       'James & Hazard, supra note 8, § 7.21.',
       'Keeton et al., supra note 31, § 2, at 4.',
       '[hereinafter Hearings] — then: Hearings, supra note 37, at 33.',
+    ],
+    tips: [
+      'The easiest way to remember the supra prohibition list: supra CANNOT be used for any "primary law" source (cases, statutes, constitutions, regulations). It CAN be used for "secondary" and "soft law" sources (books, articles, reports, hearings).',
+      '"Hereinafter" must be established in the FIRST citation to a source. If you forget to include it in the first citation, you must provide a new full citation with the hereinafter designation before using it.',
+      'In law review footnotes, supra MUST reference the footnote number of the full citation: "supra note 16." In practitioners\' documents (no footnotes), use "supra" with a comma and pincite: "Author, supra, at 6."',
+      'For sources with multiple authors: two authors use both last names ("James & Hazard, supra"); three or more use first author + "et al." ("Keeton et al., supra").',
+    ],
+    commonMistakes: [
+      'Using supra for cases — this is NEVER correct. Use "Id." or a short-form case citation (R. 10.9) instead.',
+      'Using supra for statutes or constitutions — use "Id." or repeat the statutory/constitutional citation in short form.',
+      'Omitting the footnote number in law review supra citations: writing "Author, supra, at 6" instead of "Author, supra note 16, at 6."',
+    ],
+    decisionSteps: [
+      '1. Identify the source type: Is it a case, statute, constitution, regulation, restatement, or model code? If YES, do NOT use supra — use Id. or the source-specific short form.',
+      '2. If the source is a book, article, hearing, report, treaty, or other eligible secondary source: check whether you are in a law review or practitioner document.',
+      '3. For law review format: use "Author, supra note [X], at [page]." For practitioner format: use "Author, supra, at [page]."',
+      '4. If the source name is very long or cumbersome, consider establishing a [hereinafter ShortName] designation in the first citation, then cite as "ShortName, supra note [X], at [page]."',
     ],
     references: ['R. 4.1', 'R. 3.5'],
   },
@@ -562,25 +602,68 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
       'So. 2d (space before 2+ letter abbreviation)',
       'City of Arlington v. FCC, 569 U.S. 290 (2013). But: 6 F.C.C. 378 (1938).',
     ],
+    tips: [
+      'The core spacing principle: ask whether each element is a "single capital" (one letter + period). Adjacent single capitals close up; a single capital next to a longer abbreviation gets a space. Ordinals (2d, 3d) count as single capitals for this purpose.',
+      'Widely recognized acronyms (NAACP, FBI, EPA) drop periods in case names and text, but ALWAYS retain periods in reporter names, code names, and court names. "FCC" in a case name but "F.C.C." as a reporter abbreviation.',
+      'Use only single spaces throughout citations. Double spaces are always incorrect in Bluebook format (R. 6.1).',
+      'Never place a space before a comma or period in a citation. Always place a space after a comma unless followed by a number in a thousands separator (e.g., "1,000").',
+    ],
+    commonMistakes: [
+      'Adding spaces between adjacent single capitals: "S. D. N. Y." instead of "S.D.N.Y."',
+      'Closing up single capitals with longer abbreviations: "D.Mass." instead of "D. Mass."',
+      'Using double spaces anywhere in a citation.',
+    ],
+    decisionSteps: [
+      '1. Identify each element of the abbreviation: is it a single capital letter followed by a period, or a multi-letter abbreviation?',
+      '2. If two adjacent elements are BOTH single capitals (or ordinals like 2d, 3d), close them up with NO space: "S.D.N.Y.", "F.3d".',
+      '3. If one element is a single capital and the adjacent element is a multi-letter abbreviation, insert a SPACE between them: "D. Mass.", "F. Supp.", "So. 2d".',
+      '4. For periodical names, set off institutional entity abbreviations with a space even when adjacent to other single capitals: "B.C. L. Rev." (B.C. is an institution, L. Rev. is a separate element).',
+    ],
     references: ['T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16'],
   },
   'R. 6.1(a)': {
     title: 'Abbreviation Spacing',
-    explanation: 'Adjacent single capital letters have no space between them (e.g., S.D.N.Y.). A space separates a single capital from a longer abbreviation (e.g., D. Mass., S.D. Cal.). For reporter series, single capitals attach to ordinals without a space (F.2d, F.3d). In periodical names, close up all adjacent single capitals except when one refers to an institutional entity (B.C. L. Rev., N.Y.U. L. Rev.). Insert a space adjacent to abbreviations with two or more letters (So. 2d, F. Supp. 2d).',
+    explanation: 'Adjacent single capital letters have no space between them (e.g., S.D.N.Y.). A space separates a single capital from a longer abbreviation (e.g., D. Mass., S.D. Cal.). For reporter series, single capitals attach to ordinals without a space (F.2d, F.3d). In periodical names, close up all adjacent single capitals except when one refers to an institutional entity (B.C. L. Rev., N.Y.U. L. Rev.). Insert a space adjacent to abbreviations with two or more letters (So. 2d, F. Supp. 2d). The section symbol (§) and paragraph symbol (¶) must always have a space between the symbol and the number that follows (R. 6.2(c)).',
     examples: ['S.D.N.Y. (not S. D. N. Y.)', 'D. Mass. (not D.Mass.)', 'F.2d (not F. 2d)', 'B.C. L. Rev.', 'So. 2d'],
+    tips: [
+      'Think of ordinals (2d, 3d, 4th) as honorary single capitals: they close up just like single capitals do. "F.3d" and "S.E.2d" follow the same logic as "S.D." or "N.Y."',
+      'The institutional entity exception for periodicals is subtle: "B.C. L. Rev." has a space before "L." because "B.C." refers to Boston College (an institution), not just two single capitals. Compare "N.E.2d" (no institutional meaning, no space).',
+      'The section symbol (§) always requires a space before the number: "§ 1983" not "§1983". For multiple sections, use "§§" (closed up) followed by a space: "§§ 1981–1983" (R. 6.2(c)).',
+    ],
+    commonMistakes: [
+      'Spacing between adjacent single capitals: writing "S. D. N. Y." instead of "S.D.N.Y."',
+      'Closing up a single capital with a longer abbreviation: writing "D.Mass." instead of "D. Mass."',
+      'Adding a space between a single capital and an ordinal: writing "F. 3d" instead of "F.3d".',
+    ],
   },
   'R. 6.2': {
     title: 'Numerals and Symbols',
     explanation:
       '(a) Numerals: Spell out zero to ninety-nine in text/footnotes; use numerals for larger numbers. Exceptions: (i) numbers beginning a sentence must be spelled out; (ii) round numbers may be spelled out; (iii) mixed series uses all numerals; (iv) decimals use numerals; (v) repeated percentages/dollar amounts use numerals; (vi) section/subdivision numbers use numerals; (vii) use commas for 4+ digit numbers (1,234,567) but not in page numbers, statutes, volume numbers, docket numbers, etc.\n\n' +
       '(b) Ordinals: In text, use "2nd" and "3rd" when numerals are required. In citations, always use "2d" and "3d" (not "2nd"/"3rd"). Never use superscripts.\n\n' +
-      '(c) Section (§) and paragraph (¶) symbols: Spell out in text of law review pieces (except for U.S. Code and federal regulations). Use symbols in citations. Insert a space between the symbol and the numeral.\n\n' +
+      '(c) Section (§) and paragraph (¶) symbols: Spell out in text of law review pieces (except for U.S. Code and federal regulations). Use symbols in citations. Insert a space between the symbol and the numeral. For multiple sections/paragraphs, double the symbol (§§, ¶¶) with no space between the repeated symbols, followed by a space before the number.\n\n' +
       '(d) Dollar ($) and percent (%) symbols: Use symbols with numerals; spell out with spelled-out numbers. No space between symbol and numeral. Never begin a sentence with a symbol.',
     examples: [
       '103d Cong. (not 103rd Cong.)',
       '2d ed. (not 2nd ed.)',
       '1,234,567',
       '§ 7 (space between symbol and number)',
+    ],
+    tips: [
+      'The ordinal distinction (2d/3d vs. 2nd/3rd) is one of the most commonly tested Bluebook rules. In ALL citations, use "2d" and "3d". In text, use "2nd" and "3rd" only when R. 6.2(a) requires numerals.',
+      'Section/paragraph symbol spacing is critical: always "§ 1983" (with space), never "§1983". For multiple sections, "§§ 1981–1983" (doubled symbol, space before number). Never put a space between the two § symbols.',
+      'The comma rule for large numbers has important exceptions: do NOT use commas in page numbers, statute section numbers, volume numbers, or docket numbers, even if they exceed 1,000.',
+      'Never begin a sentence with a numeral, symbol, or abbreviation. Rewrite the sentence or spell out the number.',
+    ],
+    commonMistakes: [
+      'Using "2nd" or "3rd" in citations instead of "2d" or "3d" (e.g., writing "2nd Cir." instead of "2d Cir.").',
+      'Omitting the space between § or ¶ and the number: "§1983" instead of "§ 1983".',
+      'Placing a space between consecutive section symbols: "§ §" instead of "§§".',
+    ],
+    decisionSteps: [
+      '1. Determine context: Is the number in a citation or in running text? Citations always use "2d"/"3d"; text uses "2nd"/"3rd" (when numerals are required).',
+      '2. For section/paragraph symbols: Are you in a citation or in text? In citations, always use the symbol (§, ¶). In law review text, spell out "section" and "paragraph" (except for U.S. Code and C.F.R. references).',
+      '3. Check spacing: § and ¶ must always have a space before the number. §§ and ¶¶ must be closed up (no space between symbols) but followed by a space before the number.',
     ],
     references: ['R. 3.3', 'R. 12.10', 'R. 14.6'],
   },
@@ -679,10 +762,27 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
       'R. 10.2 governs how to format case names in both textual sentences and citation sentences. The key difference is the extent of abbreviation.\n\n' +
       '• In textual sentences: apply R. 10.2.1 only — abbreviate only the 8 words listed in R. 10.2.1(c) and widely known acronyms.\n' +
       '• In citation sentences: apply both R. 10.2.1 and R. 10.2.2 — additionally abbreviate all T6 words and T10 geographic terms.\n\n' +
-      'Case names are italicized in law review text and footnotes (R. 2). In court documents, follow B2 typeface conventions.',
+      'Case names are italicized in law review text and footnotes (R. 2). In court documents (Bluepages), both full and short case names are italicized (B2). Case names must always include "v." (italicized) between the parties. Procedural phrases like "In re," "Ex parte," and "ex rel." are always italicized.',
     examples: [
       'Text: In Southern Pacific Co. v. Jensen, 244 U.S. 205 (1917), ...',
       'Citation: See, e.g., S. Pac. Co. v. Jensen, 244 U.S. 205, 225–26 (1917).',
+    ],
+    tips: [
+      'The single most important distinction: in text, abbreviate ONLY 8 specific words (&, Ass\'n, Bros., Co., Corp., Inc., Ltd., No.) plus widely known acronyms. In citation sentences, abbreviate ALL T6 and T10 words.',
+      'Case names must always be italicized (including "v." and procedural phrases). Forgetting to italicize the case name is one of the most visible formatting errors.',
+      'When a case appears in both text and a citation sentence, the same case will have DIFFERENT abbreviation levels. "Southern Pacific Co. v. Jensen" in text becomes "S. Pac. Co. v. Jensen" in a citation sentence.',
+    ],
+    commonMistakes: [
+      'Abbreviating T6 words in textual sentences — only 8 words and widely known acronyms are abbreviated in text.',
+      'Forgetting to italicize the entire case name including "v." and procedural phrases like "In re" and "ex rel."',
+      'Using "vs." or "versus" instead of "v." in case citations.',
+      'Including "et al." or additional parties beyond the first on each side.',
+    ],
+    decisionSteps: [
+      '1. Determine whether the case name appears in a textual sentence or a citation sentence. This determines the abbreviation level.',
+      '2. Apply R. 10.2.1 rules to ALL case names: use only the first party on each side, omit "The," omit given names of individuals, omit descriptive terms after named parties, abbreviate procedural phrases.',
+      '3. If in a citation sentence, ALSO apply R. 10.2.2: abbreviate all T6 words and T10 geographic terms.',
+      '4. Italicize the entire case name, including "v." and any procedural phrases. Ensure proper typeface conventions per R. 2 (law review) or B2 (practitioners).',
     ],
     references: ['R. 10.2.1', 'R. 10.2.2', 'R. 2', 'B2', 'T6', 'T10'],
   },
@@ -873,7 +973,16 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
   },
   'R. 10.2.2': {
     title: 'Abbreviations in Citations',
-    explanation: 'In citation sentences (not textual sentences), abbreviate all words in Table T6 and geographic units per Table T10. Never abbreviate "United States" when it is the named party.',
+    explanation: 'In citation sentences and clauses (not textual sentences), abbreviate all words listed in Table T6 and all geographic units listed per Table T10. This is in addition to the general abbreviation rules in R. 10.2.1. Never abbreviate "United States" when it is the entire name of a party. States are abbreviated per T10 only when they are part of a longer party name (e.g., "New York" becomes "N.Y." in "N.Y. Dep\'t of Health"), not when a state is the sole party name.',
+    tips: [
+      'Table T6 contains hundreds of abbreviations. The most common ones to know: "Department" = "Dep\'t", "Association" = "Ass\'n", "University" = "Univ.", "National" = "Nat\'l", "International" = "Int\'l", "Government" = "Gov\'t", "Commission" = "Comm\'n".',
+      '"United States" is NEVER abbreviated as a party name. However, "United States" IS abbreviated to "U.S." when used as an adjective modifying another word (e.g., "U.S. Department of Justice").',
+    ],
+    commonMistakes: [
+      'Abbreviating "United States" to "U.S." when it is the named party.',
+      'Failing to abbreviate T6 words in citation sentences.',
+      'Abbreviating state names when the state is the sole party (e.g., writing "Cal." instead of "California" when California is a party).',
+    ],
   },
   'R. 10.2.2 / T6': {
     title: 'Table T6 Abbreviations',
@@ -1188,7 +1297,8 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
       'Use only one party\'s name if unambiguous; avoid using government units, officials, or common litigants as the short name. ' +
       'For electronic database cases, include the unique database identifier in the short form. ' +
       'For slip opinions, use "[Party], slip op. at [page]." ' +
-      'When citing the entire decision (not a pinpoint), include the case name, volume, reporter, and first page — but no date parenthetical.',
+      'When citing the entire decision (not a pinpoint), include the case name, volume, reporter, and first page — but no date parenthetical.\n\n' +
+      'Short form case citations must include enough information for the reader to unambiguously identify the case and locate the specific material cited. The short form must always include "at" before the pincite page number.',
     examples: [
       'Youngstown Sheet & Tube Co. v. Sawyer, 343 U.S. at 585.',
       'Youngstown, 343 U.S. at 585.',
@@ -1196,6 +1306,24 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
       'Id. at 585.',
       'Clark, 1991 WL 55402, at *3. (electronic database short form)',
       'Sam, slip op. at 12. (slip opinion short form)',
+    ],
+    tips: [
+      'The "five footnote rule": a short form may only be used if the full citation appeared in the same footnote or one of the five immediately preceding footnotes. If the full citation is further back, you must provide a new full citation.',
+      'When choosing a party name for the short form, pick the most distinctive name. Avoid "United States," "State," "Commissioner," "Secretary," or other names that could refer to multiple cases in your document.',
+      'Short form case citations always use "at" before the page number: "Youngstown, 343 U.S. at 585." This "at" is NOT italicized.',
+      'Do NOT include the date parenthetical in a short form case citation, even when citing the entire decision without a pincite.',
+    ],
+    commonMistakes: [
+      'Using a short form when the full citation is more than five footnotes back — a new full citation is required.',
+      'Using a government unit or common litigant (e.g., "United States" or "State") as the short-form party name when it could refer to multiple cases.',
+      'Omitting "at" before the pincite page number in the short form.',
+      'Including a date parenthetical in a short form citation.',
+    ],
+    decisionSteps: [
+      '1. Check whether the full citation appeared in the same footnote or one of the five preceding footnotes. If not, provide a full citation instead.',
+      '2. If the immediately preceding citation (same footnote or preceding footnote with one authority) is to the same source, use "Id." (with "at [page]" if citing a different page).',
+      '3. Otherwise, choose a short form: one party name + volume + reporter + "at" + page. Pick the most distinctive party name that unambiguously identifies the case.',
+      '4. For electronic database cases, include the database identifier: "Clark, 1991 WL 55402, at *3." For slip opinions: "Sam, slip op. at 12."',
     ],
     references: ['R. 10.9(a)', 'R. 10.9(b)', 'R. 10.9(c)', 'R. 4.1'],
   },
@@ -1346,10 +1474,10 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
   'R. 11': {
     title: 'Constitutions (Detailed)',
     explanation:
-      'Cite constitutions by abbreviated jurisdiction name (per Table T10), "Const.," and abbreviated subdivisions (per Table T16).\n\n' +
+      'Cite constitutions by abbreviated jurisdiction name (per Table T10), "Const.," and abbreviated subdivisions (per Table T16). The U.S. Constitution is always cited as "U.S. Const." followed by the relevant subdivision.\n\n' +
       'Currently in force: no date. Repealed: "(repealed [year])" or cite the repealing provision with "repealed by." Amended: "(amended [year])" or cite the amending provision with "amended by." Superseded: cite by year of adoption.\n\n' +
       'For electronic databases: add a parenthetical with publisher name, database name, and currentness.\n\n' +
-      'Multiple references: use "id." for second citation instead of repeating the constitution name. No short form other than "id." is permitted.\n\n' +
+      'Multiple references: use "id." for second citation instead of repeating the constitution name. No short form other than "id." is permitted — you cannot use supra, hereinafter, or any other abbreviated form for constitutions.\n\n' +
       'For foreign constitutions, see R. 20.4. For tribal constitutions, see R. 22.2.1.',
     examples: [
       'U.S. Const. art. I, § 9, cl. 2.',
@@ -1358,6 +1486,23 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
       'U.S. Const. amend. XVIII (repealed 1933).',
       'U.S. Const. amend. XVIII, repealed by, U.S. Const. amend. XXI.',
       'Wash. Const. art. I, § 2 (West, Westlaw through Nov. 2024 amendments).',
+    ],
+    tips: [
+      'Constitutional citations are among the simplest in the Bluebook: jurisdiction abbreviation + "Const." + subdivision. No date is needed for provisions currently in force.',
+      'Use Roman numerals for article and amendment numbers: "art. I" (not "art. 1"), "amend. XIV" (not "amend. 14"). Use § for section numbers and "cl." for clauses.',
+      'The ONLY short form permitted for constitutions is "Id." You cannot use supra, hereinafter, or any other short form (R. 4.2).',
+      'For state constitutions, use the T10 abbreviation for the state: "Cal. Const. art. I, § 1" (not "California Const.").',
+    ],
+    commonMistakes: [
+      'Including a date for constitutional provisions currently in force — no date is needed.',
+      'Using Arabic numerals instead of Roman numerals for articles and amendments: writing "amend. 14" instead of "amend. XIV."',
+      'Using supra or hereinafter for constitutional citations — only "Id." is permitted as a short form.',
+    ],
+    decisionSteps: [
+      '1. Identify the jurisdiction: use T10 abbreviation (e.g., "U.S.", "Cal.", "N.Y.") followed by "Const."',
+      '2. Identify the subdivision: article ("art."), amendment ("amend."), section ("§"), clause ("cl."), preamble ("pmbl."). Use Roman numerals for articles and amendments.',
+      '3. Determine the status: if currently in force, include NO date. If repealed, add "(repealed [year])." If amended, add "(amended [year])."',
+      '4. For subsequent references: use "Id." only. No other short form is permitted for constitutions.',
     ],
     references: ['R. 20.4', 'R. 22.2.1', 'T10', 'T16'],
   },
@@ -1655,18 +1800,38 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
   'R. 12': {
     title: 'Statutes (Detailed)',
     explanation:
-      'Cite statutes to the current official code (U.S.C.) when possible. Include:\n' +
+      'Cite statutes to the current official code (U.S.C.) when possible. The basic format for a federal statute citation is: [title number] [code abbreviation] § [section number] ([year]). Include:\n' +
       '1. Title number (before the code name for federal codes)\n' +
       '2. Code abbreviation (from Table T1)\n' +
       '3. Section symbol (§) and section number\n' +
-      '4. Year of the code edition (optional for official U.S.C.)\n\n' +
-      'For statutes with popular names: include the name and original section before the code citation.\n' +
+      '4. Year of the code edition (optional for official U.S.C. but required for unofficial codes like U.S.C.A. and U.S.C.S.)\n\n' +
+      'For statutes with popular names: include the name and original section before the code citation. Omit "The" as the first word of the statute name.\n' +
       'For session laws: include Pub. L. No., section, volume Stat., and page.\n' +
-      'For amended/repealed statutes: note per R. 12.7.',
+      'For amended/repealed statutes: note per R. 12.7.\n' +
+      'For state statutes: follow T1.3 for the proper code abbreviation and format for each state.\n\n' +
+      'Hierarchy of sources (R. 12.1): official code > unofficial code > session laws > electronic database > looseleaf/internet.',
     examples: [
       '42 U.S.C. § 1983.',
       'National Environmental Policy Act of 1969 § 102, 42 U.S.C. § 4332.',
       'National Environmental Policy Act of 1969, Pub. L. No. 91-190, § 102, 83 Stat. 852, 853.',
+    ],
+    tips: [
+      'Always prefer the official U.S.C. citation over unofficial codes (U.S.C.A., U.S.C.S.). Use unofficial codes only when the official U.S.C. is not yet current enough to include the statute.',
+      'The title number comes BEFORE the code name for federal codes: "42 U.S.C. § 1983" (title 42, section 1983). For state codes organized by subject, the subject name replaces the title number: "Cal. Veh. Code § 11506."',
+      'Use § for a single section and §§ for multiple sections. Always provide the inclusive range; never use "et seq." (R. 3.3(b)).',
+      'Short forms for statutes: use "Id." for the immediately preceding authority, or repeat a shortened version of the code citation. "Supra" is NEVER used for statutes (R. 4.2).',
+    ],
+    commonMistakes: [
+      'Placing the title number after the code name: writing "U.S.C. § 42-1983" instead of "42 U.S.C. § 1983."',
+      'Using "et seq." instead of providing the full section range.',
+      'Using "supra" to cite a statute — supra cannot be used for statutes. Use "Id." or a short-form code citation.',
+      'Omitting the publisher parenthetical for unofficial codes (must include "(West 2020)" or "(LexisNexis 2020)").',
+    ],
+    decisionSteps: [
+      '1. Determine if the statute is currently in force. If yes, cite to the current official code (U.S.C. for federal). If repealed or amended, note per R. 12.7.',
+      '2. Format the citation: [title] [code abbreviation] § [section] ([year if required]). For federal official code, the year is optional. For unofficial codes and state codes, the year is required.',
+      '3. If the statute has a popular name, include it before the code citation: "Clean Air Act § 109, 42 U.S.C. § 7409." Include the original section number if different from the code section.',
+      '4. For session laws (when code citation is unavailable or inappropriate): use "Pub. L. No. [number], § [section], [volume] Stat. [page], [pincite] ([year])."',
     ],
   },
   'R. 12.1': {

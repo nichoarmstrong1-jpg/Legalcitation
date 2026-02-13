@@ -1,18 +1,18 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, type ComponentType } from 'react';
+import { FileText, Hammer, ListChecks, Clock } from 'lucide-react';
 
-type Mode = 'in_text' | 'individual' | 'builder' | 'bulk' | 'history';
+type Mode = 'in_text' | 'builder' | 'bulk' | 'history';
 
 interface NavigationTabsProps {
   mode: Mode;
   onModeChange: (mode: Mode) => void;
 }
 
-const TABS: { id: Mode; label: string; icon: string; description: string }[] = [
-  { id: 'in_text', label: 'In-Text', icon: '\u00B6', description: 'Check in context' },
-  { id: 'individual', label: 'Individual', icon: '\u2713', description: 'Single citation' },
-  { id: 'builder', label: 'Builder', icon: '\u2692', description: 'Generate citation' },
-  { id: 'bulk', label: 'Bulk Check', icon: '\u2630', description: 'Check multiple' },
-  { id: 'history', label: 'History', icon: '\u23F1', description: 'Past checks' },
+const TABS: { id: Mode; label: string; icon: ComponentType<{ className?: string }>; description: string }[] = [
+  { id: 'in_text', label: 'In-Text', icon: FileText, description: 'Check in context' },
+  { id: 'builder', label: 'Builder', icon: Hammer, description: 'Generate citation' },
+  { id: 'bulk', label: 'Bulk Check', icon: ListChecks, description: 'Check multiple' },
+  { id: 'history', label: 'History', icon: Clock, description: 'Past checks' },
 ];
 
 export function NavigationTabs({ mode, onModeChange }: NavigationTabsProps) {
@@ -57,7 +57,7 @@ export function NavigationTabs({ mode, onModeChange }: NavigationTabsProps) {
             }`}
           >
             <div className="flex items-center justify-center gap-1 sm:gap-2">
-              <span className={`text-base ${isActive ? 'text-primary-600' : 'text-surface-300'}`}>{tab.icon}</span>
+              {(() => { const Icon = tab.icon; return <Icon className={`w-4 h-4 ${isActive ? 'text-primary-600' : 'text-surface-300'}`} />; })()}
               <span className="hidden sm:inline">{tab.label}</span>
             </div>
             <div className={`text-[11px] font-normal mt-0.5 hidden sm:block ${isActive ? 'text-surface-500' : 'text-surface-300'}`}>

@@ -1,27 +1,28 @@
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
+import { Scale, Search, Infinity } from 'lucide-react';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
 }
 
-const steps = [
+const steps: { title: string; subtitle: string; description: string; icon: ComponentType<{ className?: string }> }[] = [
   {
     title: 'Welcome to LegalCitation',
     subtitle: 'Your AI-powered Bluebook citation checker',
     description: 'Verify, format, and build perfect legal citations in seconds. Powered by AI verification against real case law databases.',
-    icon: '\u2696',
+    icon: Scale,
   },
   {
     title: 'Try It Out',
     subtitle: 'Paste any citation to see it in action',
-    description: 'Try a classic: Brown v. Board of Education, 347 U.S. 483 (1954). We\'ll check the formatting, verify it against case law databases, and show you exactly what\'s right (or wrong).',
-    icon: '\u2713',
+    description: 'Search for any case and we\'ll build a properly formatted Bluebook citation for you. Upload a brief or paste your legal text to check all citations at once.',
+    icon: Search,
   },
   {
     title: 'Unlimited Checks',
     subtitle: 'Full verification, completely free',
     description: 'Every citation check includes full AI verification, formatting corrections, and detailed analysis. No limits, no sign-up required.',
-    icon: '\u2605',
+    icon: Infinity,
   },
 ];
 
@@ -60,8 +61,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         </div>
 
         {/* Icon */}
-        <div className="w-16 h-16 rounded-2xl bg-primary-800 flex items-center justify-center text-white text-3xl mx-auto mb-5 shadow-soft animate-fade-in">
-          {current.icon}
+        <div className="w-16 h-16 rounded-2xl bg-primary-800 flex items-center justify-center text-white mx-auto mb-5 shadow-soft animate-fade-in">
+          {(() => { const Icon = current.icon; return <Icon className="w-8 h-8" />; })()}
         </div>
 
         {/* Content */}

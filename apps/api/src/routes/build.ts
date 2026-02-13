@@ -5,6 +5,7 @@ import { buildCitationWithClaude, searchCasesWithClaude } from '@legalcitation/v
 import type { AnalyzedCitation, CaseComponents, ValidationIssue } from '@legalcitation/shared';
 import { validateSearch, validateBuild } from '../middleware/validation.js';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
+import { logCitationCheck } from '../services/citation-logger.js';
 
 export const buildRouter = Router();
 
@@ -25,6 +26,13 @@ buildRouter.post('/search', validateSearch, async (req: Request, res: Response) 
     const searchResult = await searchCasesWithClaude(query);
 
     if (searchResult && searchResult.results.length > 0) {
+      logCitationCheck({
+        userId: (req as any).user?.userId,
+        mode: 'builder_search',
+        inputText: query,
+        results: searchResult.results,
+        citationCount: searchResult.results.length,
+      });
       res.json({
         results: searchResult.results,
         logicTrace: searchResult.logicTrace,
@@ -33,6 +41,13 @@ buildRouter.post('/search', validateSearch, async (req: Request, res: Response) 
     }
 
     // Claude returned no results or is unavailable
+    logCitationCheck({
+      userId: (req as any).user?.userId,
+      mode: 'builder_search',
+      inputText: query,
+      results: [],
+      citationCount: 0,
+    });
     res.json({
       results: [],
       logicTrace: [
@@ -105,6 +120,14 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
         }
       }
 
+      logCitationCheck({
+        userId: (req as any).user?.userId,
+        mode: 'builder',
+        inputText: input,
+        results: analyzed,
+        citationCount: 1,
+        averageScore: analyzed.score,
+      });
       res.json(analyzed);
       return;
     }
@@ -126,7 +149,7 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
         builtScore = calculateScore(builtIssues);
       }
 
-      res.json({
+      const builtResult = {
         parsed: builtParsed.length > 0 ? builtParsed[0] : null,
         issues: builtIssues,
         verificationStatus: 'verified',
@@ -135,7 +158,16 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
         verifiedCitation: claudeResult.citation,
         logicTrace,
         score: builtScore,
+      };
+      logCitationCheck({
+        userId: (req as any).user?.userId,
+        mode: 'builder',
+        inputText: input,
+        results: builtResult,
+        citationCount: 1,
+        averageScore: builtScore,
       });
+      res.json(builtResult);
       return;
     }
 

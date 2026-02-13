@@ -7,7 +7,6 @@ import { analyzeRouter } from './routes/analyze.js';
 import { buildRouter } from './routes/build.js';
 import { uploadRouter } from './routes/upload.js';
 import { authRouter } from './routes/auth.js';
-import { referralRouter } from './routes/referral.js';
 import { feedbackRouter } from './routes/feedback.js';
 import { optionalAuth } from './middleware/auth.js';
 import { isDatabaseConfigured } from './db/index.js';
@@ -65,7 +64,7 @@ app.use('/api/', globalLimiter);
 // Stricter limit for analysis endpoints (Claude API costs)
 const analysisLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 15,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Analysis rate limit reached. Please wait a moment.' },
@@ -75,7 +74,6 @@ app.use('/api/build', analysisLimiter);
 
 // Routes
 app.use('/api/auth', authRouter);
-app.use('/api/referral', referralRouter);
 app.use('/api/feedback', feedbackRouter);
 // Analysis routes
 app.use('/api/analyze', optionalAuth, analyzeRouter);
@@ -89,8 +87,8 @@ app.get('/api/health', (_req, res) => {
     timestamp: new Date().toISOString(),
     services: {
       database: isDatabaseConfigured() ? 'configured' : 'not configured',
-      anthropic: !!process.env.ANTHROPIC_API_KEY ? 'configured' : 'not configured',
-      google_oauth: !!process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not configured',
+      anthropic: process.env.ANTHROPIC_API_KEY ? 'configured' : 'not configured',
+      google_oauth: process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not configured',
     },
   });
 });

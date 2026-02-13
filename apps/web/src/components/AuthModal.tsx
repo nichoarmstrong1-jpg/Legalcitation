@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { X, Scale } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 
 interface AuthModalProps {
@@ -13,7 +14,6 @@ export function AuthModal({ onClose, initialTab = 'signup', message }: AuthModal
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +26,7 @@ export function AuthModal({ onClose, initialTab = 'signup', message }: AuthModal
       if (tab === 'login') {
         await login(email, password);
       } else {
-        await signup(email, password, name || undefined, referralCode || undefined);
+        await signup(email, password, name || undefined);
       }
       onClose();
     } catch (err) {
@@ -41,12 +41,12 @@ export function AuthModal({ onClose, initialTab = 'signup', message }: AuthModal
       <div className="bg-white rounded-3xl shadow-modal max-w-sm w-full p-5 sm:p-8 animate-scale-in" onClick={e => e.stopPropagation()}>
         {/* Close */}
         <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-xl text-surface-400 hover:text-surface-600 hover:bg-surface-100 transition-colors" aria-label="Close">
-          &#10005;
+          <X className="w-4 h-4" />
         </button>
 
         {/* Icon */}
-        <div className="w-12 h-12 rounded-2xl bg-primary-800 flex items-center justify-center text-white text-xl mx-auto mb-4 shadow-soft">
-          &#9878;
+        <div className="w-12 h-12 rounded-2xl bg-primary-800 flex items-center justify-center text-white mx-auto mb-4 shadow-soft">
+          <Scale className="w-6 h-6" />
         </div>
 
         <h2 id="auth-modal-title" className="text-xl font-semibold text-primary-900 text-center">
@@ -105,16 +105,6 @@ export function AuthModal({ onClose, initialTab = 'signup', message }: AuthModal
             minLength={8}
             className="input-field"
           />
-          {tab === 'signup' && (
-            <input
-              type="text"
-              placeholder="Referral code (optional)"
-              value={referralCode}
-              onChange={e => setReferralCode(e.target.value)}
-              className="input-field"
-            />
-          )}
-
           {error && (
             <p className="text-sm text-error-600 bg-error-50 rounded-xl px-4 py-2">{error}</p>
           )}
