@@ -18,55 +18,36 @@ export async function runMigrations(): Promise<void> {
   });
 
   try {
-    const db = drizzle(pool);
-
-    // Check if this is an existing DB that was set up via drizzle-kit push
-    // (tables exist but no migration history). If so, seed the migration
-    // journal so the initial migration is skipped.
-    const journalCheck = await pool.query(
+    // Check if this is an existing DB set up via drizzle-kit push (tables exist
+    // but no Drizzle migration tracking table). If so, skip migrations to avoid
+    // CREATE TYPE/TABLE conflicts with the existing schema.
+    const tableCheck = await pool.query(
+      `SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'users'
+      ) AS has_tables`
+    );
+    const migrationCheck = await pool.query(
       `SELECT EXISTS (
         SELECT FROM information_schema.tables
         WHERE table_schema = 'public' AND table_name = '__drizzle_migrations'
-      ) AS has_journal`
+      ) AS has_migrations`
     );
-    const hasJournal = journalCheck.rows[0]?.has_journal;
 
-    if (!hasJournal) {
-      // Check if the schema already exists (tables were created via push)
-      const tableCheck = await pool.query(
-        `SELECT EXISTS (
-          SELECT FROM information_schema.tables
-          WHERE table_schema = 'public' AND table_name = 'users'
-        ) AS has_tables`
-      );
-      const hasTables = tableCheck.rows[0]?.has_tables;
+    const hasTables = tableCheck.rows[0]?.has_tables;
+    const hasMigrations = migrationCheck.rows[0]?.has_migrations;
 
-      if (hasTables) {
-        console.log('Existing database detected (created via drizzle-kit push). Seeding migration journal...');
-        // Create the migration tracking table and mark initial migration as applied
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
-            id SERIAL PRIMARY KEY,
-            hash TEXT NOT NULL,
-            created_at BIGINT
-          )
-        `);
-        // Insert the initial migration hash so it's skipped
-        // Hash is the folder name from drizzle/meta/_journal.json
-        const { readFileSync } = await import('fs');
-        const journal = JSON.parse(readFileSync('./drizzle/meta/_journal.json', 'utf-8'));
-        for (const entry of journal.entries) {
-          await pool.query(
-            `INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES ($1, $2)
-             ON CONFLICT DO NOTHING`,
-            [entry.tag, entry.when]
-          );
-        }
-        console.log('Migration journal seeded. Existing schema preserved.');
-      }
+    if (hasTables && !hasMigrations) {
+      console.log('Existing database detected (set up via drizzle-kit push). Skipping initial migration.');
+      return;
     }
 
-    console.log('Running database migrations...');
+    const db = drizzle(pool);
+    if (!hasTables) {
+      console.log('Fresh database — running all migrations...');
+    } else {
+      console.log('Checking for pending migrations...');
+    }
     await migrate(db, { migrationsFolder: './drizzle' });
     console.log('Migrations complete.');
   } finally {
