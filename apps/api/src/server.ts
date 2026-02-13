@@ -10,6 +10,7 @@ import { authRouter } from './routes/auth.js';
 import { feedbackRouter } from './routes/feedback.js';
 import { optionalAuth } from './middleware/auth.js';
 import { isDatabaseConfigured } from './db/index.js';
+import { runMigrations } from './db/migrate.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -93,12 +94,20 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`LegalCitation API running on 0.0.0.0:${PORT}`);
-  console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`  CORS origins: ${allowedOrigins.join(', ')}`);
-  console.log(`  Database: ${isDatabaseConfigured() ? 'connected' : 'NOT configured (auth disabled)'}`);
-  console.log(`  Anthropic: ${process.env.ANTHROPIC_API_KEY ? 'configured' : 'NOT configured (verification disabled)'}`);
-});
+// Run database migrations (if DATABASE_URL is set), then start the server
+runMigrations()
+  .then(() => {
+    app.listen(Number(PORT), '0.0.0.0', () => {
+      console.log(`LegalCitation API running on 0.0.0.0:${PORT}`);
+      console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`  CORS origins: ${allowedOrigins.join(', ')}`);
+      console.log(`  Database: ${isDatabaseConfigured() ? 'connected' : 'NOT configured (auth disabled)'}`);
+      console.log(`  Anthropic: ${process.env.ANTHROPIC_API_KEY ? 'configured' : 'NOT configured (verification disabled)'}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Failed to run migrations:', err);
+    process.exit(1);
+  });
 
 export default app;
