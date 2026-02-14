@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
-import { Copy, ShieldCheck, ChevronRight, ThumbsUp, ThumbsDown, Check, AlertTriangle } from 'lucide-react';
+import { Copy, ShieldCheck, ThumbsUp, ThumbsDown, Check, AlertTriangle, Info } from 'lucide-react';
 import type { AnalyzedCitation } from '../services/api.ts';
 import { submitFeedback } from '../services/api.ts';
+import { ShortFormDisplay } from './ShortFormDisplay.tsx';
+import { CitationBreakdown } from './CitationBreakdown.tsx';
 import { useToast } from '../context/ToastContext.tsx';
 
 interface AnalysisSidebarProps {
@@ -152,8 +154,26 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
           <div className="text-[10px] text-surface-400 mt-2 text-center">
             {formatStyle === 'italics' ? 'Italic' : 'Underline'} formatting &middot; Pastes into Word & Google Docs
           </div>
+
+          {/* Article pinpoint page warning */}
+          {citation.parsed?.type === 'article' && citation.parsed.components?.pinCite && (
+            <div className="mt-3 flex items-start gap-2 px-3 py-2 bg-warning-50 border border-warning-200 rounded-lg">
+              <Info className="w-3.5 h-3.5 text-warning-600 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-warning-700 leading-relaxed">
+                Pinpoint pages were extracted from the source. Verify these are the pages you intend to cite.
+              </p>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Short Form Citations */}
+      {citation.shortForms && citation.shortForms.length > 0 && (
+        <ShortFormDisplay shortForms={citation.shortForms} formatStyle={formatStyle} />
+      )}
+
+      {/* Citation Component Breakdown */}
+      <CitationBreakdown citation={citation} formatStyle={formatStyle} />
 
       {/* Verification Badge */}
       <div className="flex items-center gap-2 px-1">
@@ -164,40 +184,75 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
       </div>
 
       {/* Verification Steps (collapsible) */}
-      {cleanTrace.length > 0 && (
-        <div className="card">
-          <details>
-            <summary className="text-xs font-semibold text-surface-500 cursor-pointer hover:text-surface-700 transition-colors flex items-center gap-2">
-              <ChevronRight className="w-3.5 h-3.5 shrink-0" />
-              Bluebook rules consulted ({cleanTrace.length} steps)
-            </summary>
-            <div className="mt-3 space-y-2 ml-1">
-              {cleanTrace.map((step, i) => (
-                <div key={i} className="flex items-start gap-2.5 text-xs animate-fade-in" style={{ animationDelay: `${i * 50}ms` }}>
-                  <div className="mt-0.5 shrink-0">
-                    {step.includes('verified') || step.includes('Verified') || step.includes('accurate') || step.includes('correct') || step.includes('confirmed') ? (
-                      <Check className="w-3.5 h-3.5 text-verified-500" />
-                    ) : step.includes('issue') || step.includes('could not') || step.includes('discrepan') || step.includes('correction') ? (
-                      <AlertTriangle className="w-3.5 h-3.5 text-warning-500" />
-                    ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-surface-300" />
-                    )}
+      {cleanTrace.length > 0 && (() => {
+        const isRuleStep = (step: string) =>
+          /[RBT]\.\s*[\d]/.test(step) ||
+          /verified|accurate|correct|confirmed|abbreviat|format|court|reporter|case name|year|page|pinpoint|italic|underlin|spacing|signal/i.test(step);
+
+        const ruleSteps = cleanTrace.filter(isRuleStep);
+        const processSteps = cleanTrace.filter(step => !isRuleStep(step));
+
+        return (
+          <>
+            {ruleSteps.length > 0 && (
+              <div className="card">
+                <details open>
+                  <summary className="text-xs font-semibold text-surface-500 cursor-pointer hover:text-surface-700 transition-colors">
+                    Bluebook rules consulted ({ruleSteps.length} steps)
+                  </summary>
+                  <div className="flex items-center gap-3 mt-2 mb-3 text-[10px] text-surface-400">
+                    <span className="flex items-center gap-1"><Check className="w-3 h-3 text-verified-500" /> Verified</span>
+                    <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-warning-500" /> Needs attention</span>
+                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-surface-300 inline-block" /> Informational</span>
                   </div>
-                  <span className={`leading-relaxed ${
-                    step.includes('verified') || step.includes('Verified') || step.includes('accurate') || step.includes('confirmed')
-                      ? 'text-verified-700 font-medium'
-                      : step.includes('issue') || step.includes('could not') || step.includes('correction')
-                      ? 'text-warning-700'
-                      : 'text-surface-600'
-                  }`}>
-                    {step}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </details>
-        </div>
-      )}
+                  <div className="space-y-2 ml-1">
+                    {ruleSteps.map((step, i) => (
+                      <div key={i} className="flex items-start gap-2.5 text-xs animate-fade-in" style={{ animationDelay: `${i * 50}ms` }}>
+                        <div className="mt-1 shrink-0">
+                          {step.includes('verified') || step.includes('Verified') || step.includes('accurate') || step.includes('correct') || step.includes('confirmed') ? (
+                            <Check className="w-3.5 h-3.5 text-verified-500" />
+                          ) : step.includes('issue') || step.includes('could not') || step.includes('discrepan') || step.includes('correction') ? (
+                            <AlertTriangle className="w-3.5 h-3.5 text-warning-500" />
+                          ) : (
+                            <span className="w-1.5 h-1.5 rounded-full bg-surface-300 inline-block mt-0.5" />
+                          )}
+                        </div>
+                        <span className={`leading-relaxed ${
+                          step.includes('verified') || step.includes('Verified') || step.includes('accurate') || step.includes('confirmed')
+                            ? 'text-verified-700 font-medium'
+                            : step.includes('issue') || step.includes('could not') || step.includes('correction')
+                            ? 'text-warning-700'
+                            : 'text-surface-600'
+                        }`}>
+                          {step}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              </div>
+            )}
+
+            {processSteps.length > 0 && (
+              <div className="card">
+                <details>
+                  <summary className="text-xs font-medium text-surface-400 cursor-pointer hover:text-surface-600 transition-colors">
+                    Process details ({processSteps.length} steps)
+                  </summary>
+                  <div className="mt-3 space-y-1.5 ml-1">
+                    {processSteps.map((step, i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs text-surface-500">
+                        <span className="w-1.5 h-1.5 rounded-full bg-surface-200 inline-block mt-1.5 shrink-0" />
+                        <span className="leading-relaxed">{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {/* Feedback */}
       <div className="card">

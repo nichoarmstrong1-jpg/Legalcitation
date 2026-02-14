@@ -46,8 +46,8 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
       // Don't intercept shortcuts when typing in inputs
       if (isInput) return;
 
-      // Cmd+1-4 — Switch modes
-      if (meta && e.key >= '1' && e.key <= '4') {
+      // Cmd+1-3 — Switch modes
+      if (meta && e.key >= '1' && e.key <= '3') {
         e.preventDefault();
         handlers.onSwitchMode?.(parseInt(e.key, 10) - 1);
         return;
@@ -67,9 +67,9 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
 }
 
 export const SHORTCUTS = [
-  { keys: ['Cmd', 'Enter'], description: 'Submit / Analyze' },
+  { keys: ['Enter'], description: 'Search / Analyze' },
   { keys: ['Cmd', 'K'], description: 'Focus citation input' },
-  { keys: ['Cmd', '1-4'], description: 'Switch modes' },
+  { keys: ['Cmd', '1-3'], description: 'Switch modes' },
   { keys: ['Cmd', 'H'], description: 'Toggle history' },
   { keys: ['Esc'], description: 'Close modal' },
   { keys: ['?'], description: 'Show shortcuts' },

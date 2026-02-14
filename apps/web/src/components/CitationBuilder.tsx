@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { BookOpen, ChevronRight } from 'lucide-react';
 import { searchCases, buildCitation, type AnalyzedCitation, type CaseSearchResult } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
+import { CitationGeneratingView } from './CitationGeneratingView.tsx';
+import { CaseLibrary } from './CaseLibrary.tsx';
+import { SourceViewer } from './SourceViewer.tsx';
 import { htmlToMarkedText } from '../hooks/useRichPaste.ts';
 
 interface CitationBuilderProps {
@@ -18,6 +21,7 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
   const [searchTrace, setSearchTrace] = useState<string[]>([]);
   const [selectedResult, setSelectedResult] = useState<CaseSearchResult | null>(null);
   const [builtCitation, setBuiltCitation] = useState<AnalyzedCitation | null>(null);
+  const [viewingDocId, setViewingDocId] = useState<string | null>(null);
 
   const handleSearch = async (overrideQuery?: string) => {
     const query = overrideQuery || input.trim();
@@ -52,6 +56,8 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
       const data = await buildCitation(result.citation.replace(/\*/g, ''));
       setBuiltCitation(data);
       onResult(data, result.citation);
+      // Scroll to top so user sees the generated citation in the sidebar
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Build failed');
     } finally {
@@ -61,9 +67,6 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
 
   const handleFileText = (text: string, _fileName: string) => {
     setInput(text);
-    if (text.trim()) {
-      handleSearch(text.trim());
-    }
   };
 
   const handleClear = () => {
@@ -94,7 +97,7 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
       <div className="card">
         <h2 className="text-lg font-semibold text-primary-900 mb-1">Citation Builder</h2>
         <p className="text-sm text-surface-400 mb-5">
-          Search for a case and we'll build a properly formatted Bluebook citation for you.
+          Enter a case name, topic, or partial citation below and we'll find the matching case and generate a properly formatted Bluebook citation for you.
         </p>
 
         {/* Research Database Upload — Primary CTA */}
@@ -129,19 +132,19 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
           <ul className="text-xs text-primary-600 space-y-1.5">
             <li className="flex items-start gap-2">
               <ChevronRight className="w-3 h-3 text-primary-400 mt-0.5 shrink-0" />
-              Enter a case name: <span className="font-medium">"Roe v. Wade"</span>
+              Case name: <span className="font-medium">"Roe v. Wade"</span> or <span className="font-medium">"Miranda v. Arizona 1966"</span>
             </li>
             <li className="flex items-start gap-2">
               <ChevronRight className="w-3 h-3 text-primary-400 mt-0.5 shrink-0" />
-              Add a year to narrow results: <span className="font-medium">"Miranda v. Arizona 1966"</span>
+              Statute: <span className="font-medium">"42 USC 1983"</span> or <span className="font-medium">"Cal. Penal Code 187"</span>
             </li>
             <li className="flex items-start gap-2">
               <ChevronRight className="w-3 h-3 text-primary-400 mt-0.5 shrink-0" />
-              Search by topic: <span className="font-medium">"student free speech first amendment"</span>
+              Constitution: <span className="font-medium">"14th amendment equal protection"</span>
             </li>
             <li className="flex items-start gap-2">
               <ChevronRight className="w-3 h-3 text-primary-400 mt-0.5 shrink-0" />
-              Paste a rough citation: <span className="font-medium">"brown board of education 347 US 483"</span>
+              Regulation: <span className="font-medium">"40 CFR 60"</span> or <span className="font-medium">"IRC 501(c)(3)"</span>
             </li>
           </ul>
         </div>
@@ -160,7 +163,7 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
           placeholder="Enter a case name, topic, or partial citation..."
           className="input-field h-24 resize-none"
           onKeyDown={e => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+            if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               handleSearch();
             }
@@ -168,7 +171,7 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
         />
 
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0 mt-4">
-          <span className="text-xs text-surface-400 text-center sm:text-left">Press Cmd+Enter to search</span>
+          <span className="text-xs text-surface-400 text-center sm:text-left">Press Enter to search</span>
           <div className="flex gap-2">
             {(searchResults.length > 0 || builtCitation) && (
               <button onClick={handleClear} className="btn-secondary text-sm">
@@ -185,7 +188,7 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Searching...
                 </span>
-              ) : 'Search Cases'}
+              ) : 'Search'}
             </button>
           </div>
         </div>
@@ -202,19 +205,17 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-primary-900">
-              {searchResults.length} Case{searchResults.length !== 1 ? 's' : ''} Found
+              {searchResults.length} Result{searchResults.length !== 1 ? 's' : ''} Found
             </h3>
-            <span className="text-xs text-surface-400">Select the correct case</span>
+            <span className="text-xs text-surface-400">Select the correct source</span>
           </div>
 
           <div className="space-y-2">
             {searchResults.map((result, i) => {
               const isSelected = selectedResult === result;
               return (
-                <button
+                <div
                   key={i}
-                  onClick={() => handleSelectResult(result)}
-                  disabled={building}
                   className={`w-full text-left p-5 rounded-2xl border-2 transition-all duration-200 ${
                     isSelected
                       ? 'border-primary-500 bg-primary-50 shadow-glow-blue'
@@ -246,7 +247,21 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
                       )}
                     </div>
                   </div>
-                </button>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={() => handleSelectResult(result)}
+                      disabled={building}
+                      className="btn-primary text-xs px-4 py-2 disabled:opacity-50"
+                    >
+                      {building && isSelected ? (
+                        <span className="flex items-center gap-2">
+                          <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Building...
+                        </span>
+                      ) : 'Create Citation'}
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -267,15 +282,25 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
         </div>
       )}
 
-      {/* Building indicator */}
-      {building && (
-        <div className="card text-center py-8">
-          <div className="w-8 h-8 border-3 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-sm text-surface-600 font-medium">Verifying and formatting citation...</p>
-          <p className="text-xs text-surface-400 mt-1">Checking against Bluebook rules</p>
-        </div>
-      )}
+      {/* Building indicator — animated Bluebook rules view */}
+      {building && <CitationGeneratingView />}
 
+      {/* Case Library */}
+      <CaseLibrary
+        onBuildCitation={(text) => {
+          setInput(text);
+          handleSearch(text);
+        }}
+        onViewSource={(docId) => setViewingDocId(docId)}
+      />
+
+      {/* Source Viewer Modal */}
+      {viewingDocId && (
+        <SourceViewer
+          documentId={viewingDocId}
+          onClose={() => setViewingDocId(null)}
+        />
+      )}
     </div>
   );
 }

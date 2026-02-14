@@ -28,8 +28,17 @@ function htmlToMarkedText(html: string): string {
   text = text.replace(/<u\b[^>]*>([\s\S]*?)<\/u>/gi, '*$1*');
 
   // Handle spans with font-style: italic or text-decoration: underline
+  // Covers inline styles where font-style may not be the first property
   text = text.replace(/<span\b[^>]*style="[^"]*font-style:\s*italic[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '*$1*');
   text = text.replace(/<span\b[^>]*style="[^"]*text-decoration:\s*underline[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '*$1*');
+
+  // Word-specific: handle mso-bidi-font-style:italic and MsoItalic class
+  text = text.replace(/<span\b[^>]*style="[^"]*mso-bidi-font-style:\s*italic[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '*$1*');
+  text = text.replace(/<span\b[^>]*class="[^"]*MsoItalic[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '*$1*');
+
+  // Word-specific: handle <i> nested inside <span> or other containers (already handled above)
+  // Handle Word's text-decoration in style attribute more broadly
+  text = text.replace(/<span\b[^>]*style="[^"]*text-decoration:\s*[^"]*underline[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '*$1*');
 
   // Convert paragraph and line break tags to newlines before stripping
   text = text.replace(/<\/p>\s*<p[^>]*>/gi, '\n\n');

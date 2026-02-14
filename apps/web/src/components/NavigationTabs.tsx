@@ -1,7 +1,7 @@
 import { useRef, useCallback, type ComponentType } from 'react';
-import { FileText, Hammer, ListChecks, Clock } from 'lucide-react';
+import { FileText, Hammer, Clock } from 'lucide-react';
 
-type Mode = 'in_text' | 'builder' | 'bulk' | 'history';
+type Mode = 'checker' | 'builder' | 'history';
 
 interface NavigationTabsProps {
   mode: Mode;
@@ -9,10 +9,9 @@ interface NavigationTabsProps {
 }
 
 const TABS: { id: Mode; label: string; icon: ComponentType<{ className?: string }>; description: string }[] = [
-  { id: 'in_text', label: 'In-Text', icon: FileText, description: 'Check in context' },
-  { id: 'builder', label: 'Builder', icon: Hammer, description: 'Generate citation' },
-  { id: 'bulk', label: 'Bulk Check', icon: ListChecks, description: 'Check multiple' },
-  { id: 'history', label: 'History', icon: Clock, description: 'Past checks' },
+  { id: 'checker', label: 'Citation Checker', icon: FileText, description: 'Check citations in text or documents' },
+  { id: 'builder', label: 'Citation Builder', icon: Hammer, description: 'Search & build citations' },
+  { id: 'history', label: 'History', icon: Clock, description: 'Review your past checks' },
 ];
 
 export function NavigationTabs({ mode, onModeChange }: NavigationTabsProps) {
@@ -52,15 +51,15 @@ export function NavigationTabs({ mode, onModeChange }: NavigationTabsProps) {
             tabIndex={isActive ? 0 : -1}
             className={`flex-1 px-1.5 sm:px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 ${
               isActive
-                ? 'bg-white shadow-card text-primary-900'
-                : 'text-surface-400 hover:text-surface-600 hover:bg-white/50'
+                ? 'bg-white shadow-card text-primary-900 border-b-2 border-primary-500'
+                : 'text-surface-500 hover:text-surface-700 hover:bg-white/50 bg-surface-50/80'
             }`}
           >
             <div className="flex items-center justify-center gap-1 sm:gap-2">
-              {(() => { const Icon = tab.icon; return <Icon className={`w-4 h-4 ${isActive ? 'text-primary-600' : 'text-surface-300'}`} />; })()}
+              {(() => { const Icon = tab.icon; return <Icon className={`w-4 h-4 ${isActive ? 'text-primary-600' : 'text-surface-400'}`} />; })()}
               <span className="hidden sm:inline">{tab.label}</span>
             </div>
-            <div className={`text-[11px] font-normal mt-0.5 hidden sm:block ${isActive ? 'text-surface-500' : 'text-surface-300'}`}>
+            <div className={`text-[11px] font-normal mt-0.5 hidden sm:block ${isActive ? 'text-surface-500' : 'text-surface-400'}`}>
               {tab.description}
             </div>
           </button>

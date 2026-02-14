@@ -4,6 +4,19 @@
  * Supports PDF, DOCX, TXT, and images (via placeholder for OCR).
  */
 
+export interface PageMapping {
+  pageNumber: number;
+  startOffset: number;
+  endOffset: number;
+  text: string;
+}
+
+export interface ExtractedDocument {
+  text: string;
+  pageMapping?: PageMapping[];
+  pageCount?: number;
+}
+
 export async function extractTextFromFile(
   buffer: Buffer,
   mimeType: string,
@@ -113,23 +126,75 @@ async function extractFromDocx(buffer: Buffer): Promise<string> {
  * common citation patterns and wrap them in markers.
  */
 async function extractFromPdf(buffer: Buffer): Promise<string> {
+  const result = await extractFromPdfWithPages(buffer);
+  return result.text;
+}
+
+/**
+ * Extract text from PDF with page-by-page mapping.
+ * Returns the full text along with page boundaries for pinpoint citation support.
+ */
+export async function extractFromPdfWithPages(buffer: Buffer): Promise<ExtractedDocument> {
   try {
     const pdfParse = (await import('pdf-parse')).default;
-    const data = await pdfParse(buffer);
 
-    // pdf-parse loses italic/underline info. Apply heuristic:
-    // Detect case name patterns (Party v. Party) that should be italicized
-    // and wrap them with asterisk markers for downstream processing.
-    let text = data.text;
+    const pageTexts: string[] = [];
 
-    // Match "Party v. Party," patterns and wrap in italics markers
-    // This catches the common legal citation case name pattern
-    text = text.replace(
+    // Use pdf-parse's pagerender to extract text page by page
+    const options = {
+      pagerender: (pageData: any) => {
+        return pageData.getTextContent().then((textContent: any) => {
+          let lastY: number | null = null;
+          let pageText = '';
+          for (const item of textContent.items) {
+            if (lastY !== null && Math.abs(item.transform[5] - lastY) > 2) {
+              pageText += '\n';
+            }
+            pageText += item.str;
+            lastY = item.transform[5];
+          }
+          pageTexts.push(pageText);
+          return pageText;
+        });
+      },
+    };
+
+    const data = await (pdfParse as any)(buffer, options);
+
+    // Build page mapping with character offsets
+    const pageMapping: PageMapping[] = [];
+    let offset = 0;
+
+    for (let i = 0; i < pageTexts.length; i++) {
+      let pageText = pageTexts[i];
+
+      // Apply case name heuristic to each page
+      pageText = pageText.replace(
+        /(?<!\*)([A-Z][a-zA-Z'.]+(?:\s+(?:of|the|ex rel\.|in re)\s+)?(?:\s+[A-Z][a-zA-Z'.]+)*\s+v\.\s+[A-Z][a-zA-Z'.]+(?:\s+(?:of|the)\s+)?(?:\s+[A-Z][a-zA-Z'.]+)*)(?=,\s*\d)/g,
+        '*$1*'
+      );
+
+      pageMapping.push({
+        pageNumber: i + 1,
+        startOffset: offset,
+        endOffset: offset + pageText.length,
+        text: pageText,
+      });
+      offset += pageText.length + 1; // +1 for page separator newline
+    }
+
+    // Combine all pages with the case name heuristic applied
+    let fullText = data.text;
+    fullText = fullText.replace(
       /(?<!\*)([A-Z][a-zA-Z'.]+(?:\s+(?:of|the|ex rel\.|in re)\s+)?(?:\s+[A-Z][a-zA-Z'.]+)*\s+v\.\s+[A-Z][a-zA-Z'.]+(?:\s+(?:of|the)\s+)?(?:\s+[A-Z][a-zA-Z'.]+)*)(?=,\s*\d)/g,
       '*$1*'
     );
 
-    return text;
+    return {
+      text: fullText,
+      pageMapping,
+      pageCount: pageTexts.length,
+    };
   } catch (error) {
     throw new Error(`PDF parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }

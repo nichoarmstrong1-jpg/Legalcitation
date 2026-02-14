@@ -8,6 +8,7 @@ import { buildRouter } from './routes/build.js';
 import { uploadRouter } from './routes/upload.js';
 import { authRouter } from './routes/auth.js';
 import { feedbackRouter } from './routes/feedback.js';
+import { caseDocumentsRouter } from './routes/case-documents.js';
 import { optionalAuth } from './middleware/auth.js';
 import { isDatabaseConfigured } from './db/index.js';
 import { runMigrations } from './db/migrate.js';
@@ -80,6 +81,7 @@ app.use('/api/feedback', feedbackRouter);
 app.use('/api/analyze', optionalAuth, analyzeRouter);
 app.use('/api/build', optionalAuth, buildRouter);
 app.use('/api/upload', uploadRouter);
+app.use('/api/case-documents', caseDocumentsRouter);
 
 // Health check — includes service status for debugging
 app.get('/api/health', (_req, res) => {

@@ -2,25 +2,25 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Scale } from 'lucide-react';
 import { Header } from './components/Header.tsx';
 import { NavigationTabs } from './components/NavigationTabs.tsx';
-import { InTextChecker } from './components/InTextChecker.tsx';
+import { CitationChecker } from './components/CitationChecker.tsx';
 import { CitationBuilder } from './components/CitationBuilder.tsx';
-import { BulkCheck } from './components/BulkCheck.tsx';
 import { AnalysisSidebar } from './components/AnalysisSidebar.tsx';
 import { HistoryView } from './components/HistoryView.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
 import { OnboardingFlow } from './components/OnboardingFlow.tsx';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal.tsx';
+import { TipsPage } from './components/TipsPage.tsx';
 import { ToastProvider } from './context/ToastContext.tsx';
 import { ToastContainer } from './components/ui/Toast.tsx';
-import { SkeletonCard } from './components/ui/SkeletonCard.tsx';
+import { AnalysisProgressBar } from './components/ui/AnalysisProgressBar.tsx';
 import { useHistory, type HistoryEntry } from './hooks/useHistory.ts';
 import { useAuth } from './context/AuthContext.tsx';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.ts';
 import type { AnalyzedCitation } from './services/api.ts';
 
-type Mode = 'in_text' | 'builder' | 'bulk' | 'history';
+type Mode = 'checker' | 'builder' | 'history';
 type FormatStyle = 'italics' | 'underline';
-const MODES: Mode[] = ['in_text', 'builder', 'bulk', 'history'];
+const MODES: Mode[] = ['checker', 'builder', 'history'];
 
 function AppContent() {
   useAuth();
@@ -32,6 +32,7 @@ function AppContent() {
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | undefined>();
   const [showAuth, setShowAuth] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showTips, setShowTips] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(
     () => !localStorage.getItem('legalcitation-onboarded')
   );
@@ -79,9 +80,10 @@ function AppContent() {
   }, []);
 
   const closeAllModals = useCallback(() => {
+    if (showTips) { setShowTips(false); return; }
     if (showShortcuts) { setShowShortcuts(false); return; }
     if (showAuth) { setShowAuth(false); return; }
-  }, [showShortcuts, showAuth]);
+  }, [showTips, showShortcuts, showAuth]);
 
   const shortcutHandlers = useMemo(() => ({
     onToggleHistory: () => setMode(prev => prev === 'history' ? 'builder' : 'history'),
@@ -101,6 +103,7 @@ function AppContent() {
         onFormatChange={setFormatStyle}
         onHistoryToggle={() => setMode(prev => prev === 'history' ? 'builder' : 'history')}
         onAuthOpen={() => openAuth()}
+        onTipsOpen={() => setShowTips(true)}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -116,8 +119,8 @@ function AppContent() {
         <div className="mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2">
-            {mode === 'in_text' && (
-              <InTextChecker
+            {mode === 'checker' && (
+              <CitationChecker
                 onResults={handleResults}
                 onSelectCitation={setSelectedCitation}
                 results={allResults}
@@ -125,13 +128,6 @@ function AppContent() {
             )}
             {mode === 'builder' && (
               <CitationBuilder onResult={handleSingleResult} formatStyle={formatStyle} />
-            )}
-            {mode === 'bulk' && (
-              <BulkCheck
-                onResults={handleResults}
-                onSelectCitation={setSelectedCitation}
-                results={allResults}
-              />
             )}
             {mode === 'history' && (
               <HistoryView
@@ -152,7 +148,9 @@ function AppContent() {
                 formatStyle={formatStyle}
               />
             ) : isAnalyzing ? (
-              <SkeletonCard />
+              <div className="card">
+                <AnalysisProgressBar />
+              </div>
             ) : (
               <div className="card text-center text-surface-400 py-16">
                 <div className="w-14 h-14 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
@@ -182,6 +180,11 @@ function AppContent() {
       {/* Keyboard Shortcuts Modal */}
       {showShortcuts && (
         <KeyboardShortcutsModal onClose={() => setShowShortcuts(false)} />
+      )}
+
+      {/* Tips / Quick Reference Modal */}
+      {showTips && (
+        <TipsPage onClose={() => setShowTips(false)} />
       )}
 
       <ToastContainer />

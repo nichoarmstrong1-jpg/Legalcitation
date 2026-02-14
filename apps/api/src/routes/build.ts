@@ -156,6 +156,7 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
         discrepancies: [],
         referenceExamples: [],
         verifiedCitation: claudeResult.citation,
+        shortForms: claudeResult.shortForms || [],
         logicTrace,
         score: builtScore,
       };

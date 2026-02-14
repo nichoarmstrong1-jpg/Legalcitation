@@ -3,6 +3,7 @@ import { Check, AlertTriangle, XCircle, Circle } from 'lucide-react';
 import { analyzeText, type AnalyzedCitation } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
 import { ScoreCounter } from './ui/ScoreCounter.tsx';
+import { AnalysisProgressBar } from './ui/AnalysisProgressBar.tsx';
 import { htmlToMarkedText } from '../hooks/useRichPaste.ts';
 
 interface BulkCheckProps {
@@ -56,7 +57,7 @@ export function BulkCheck({ onResults, onSelectCitation, results }: BulkCheckPro
       <div className="card">
         <h2 className="text-lg font-semibold text-primary-900 mb-1">Bulk Check</h2>
         <p className="text-sm text-surface-400 mb-5">
-          Paste multiple citations (one per line) or upload a CSV/TXT file.
+          Paste a list of individual citations (one per line) to validate each against the Bluebook. You can also upload a CSV or TXT file for batch processing.
         </p>
 
         <FileUploader onTextExtracted={handleFileText} />
@@ -84,15 +85,14 @@ export function BulkCheck({ onResults, onSelectCitation, results }: BulkCheckPro
           >
             {loading ? (
               <span className="flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Processing...
               </span>
             ) : 'Check All'}
           </button>
         </div>
+
+        {loading && <AnalysisProgressBar />}
 
         {error && (
           <div className="mt-4 p-4 bg-error-50 border border-error-100 rounded-2xl text-sm text-error-700">

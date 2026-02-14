@@ -50,6 +50,20 @@ export const feedback = pgTable('feedback', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+// Uploaded case documents
+export const caseDocuments = pgTable('case_documents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  fileName: text('file_name').notNull(),
+  caseName: text('case_name'),
+  citation: text('citation'),
+  extractedText: text('extracted_text').notNull(),
+  pageMapping: jsonb('page_mapping'),
+  fileSize: integer('file_size').notNull(),
+  pageCount: integer('page_count'),
+  uploadedAt: timestamp('uploaded_at').notNull().defaultNow(),
+});
+
 // JWT refresh token sessions
 export const sessions = pgTable('sessions', {
   id: uuid('id').primaryKey().defaultRandom(),

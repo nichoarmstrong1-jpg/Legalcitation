@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Clock, Menu, X, Scale } from 'lucide-react';
+import { Clock, Menu, X, Scale, Lightbulb } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 
 interface HeaderProps {
@@ -7,9 +7,10 @@ interface HeaderProps {
   onFormatChange: (style: 'italics' | 'underline') => void;
   onHistoryToggle: () => void;
   onAuthOpen: () => void;
+  onTipsOpen: () => void;
 }
 
-export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpen }: HeaderProps) {
+export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpen, onTipsOpen }: HeaderProps) {
   const { user, logout, isLoading } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -68,6 +69,16 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpe
             </button>
           </div>
 
+          {/* Tips Button */}
+          <button
+            onClick={onTipsOpen}
+            className="w-9 h-9 flex items-center justify-center text-surface-400 hover:text-primary-700 hover:bg-surface-100 rounded-xl transition-all duration-200"
+            title="Bluebook Quick Reference"
+            aria-label="Bluebook tips"
+          >
+            <Lightbulb className="w-5 h-5" />
+          </button>
+
           {/* History Button */}
           <button
             onClick={onHistoryToggle}
@@ -121,6 +132,15 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpe
 
         {/* Mobile controls */}
         <div className="flex md:hidden items-center gap-1.5" ref={mobileMenuRef}>
+          <button
+            onClick={onTipsOpen}
+            className="w-9 h-9 flex items-center justify-center text-surface-400 hover:text-primary-700 hover:bg-surface-100 rounded-xl transition-all duration-200"
+            title="Bluebook Quick Reference"
+            aria-label="Bluebook tips"
+          >
+            <Lightbulb className="w-5 h-5" />
+          </button>
+
           <button
             onClick={onHistoryToggle}
             className="w-9 h-9 flex items-center justify-center text-surface-400 hover:text-primary-700 hover:bg-surface-100 rounded-xl transition-all duration-200"

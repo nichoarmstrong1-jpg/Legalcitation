@@ -335,6 +335,7 @@ export async function buildCitationWithClaude(
   citation: string;
   components: Partial<CaseComponents>;
   logicTrace: string[];
+  shortForms: string[];
 } | null> {
   const trace: string[] = [];
 
@@ -431,6 +432,7 @@ If you cannot determine some information, use [placeholder] brackets.`
       components: Partial<CaseComponents>;
       reasoning: string[];
       confidence: number;
+      short_forms?: string[];
     };
 
     if (result.reasoning) {
@@ -447,6 +449,7 @@ If you cannot determine some information, use [placeholder] brackets.`
       citation: result.citation,
       components: result.components,
       logicTrace: trace,
+      shortForms: result.short_forms || [],
     };
 
   } catch (error) {
