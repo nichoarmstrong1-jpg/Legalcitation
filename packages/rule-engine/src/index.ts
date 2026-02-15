@@ -5,6 +5,7 @@ import type {
   StatuteComponents,
   ConstitutionComponents,
   RegulationComponents,
+  ArticleComponents,
   ValidationIssue,
   CitationContext,
 } from '@legalcitation/shared';
@@ -44,6 +45,8 @@ import { validateCapitalization } from './bluebook/capitalization-rules.js';
 import { validateLegislativeMaterial } from './bluebook/legislative-rules.js';
 import { validatePinpoints } from './bluebook/pinpoint-rules.js';
 import { validateProceduralRules } from './bluebook/procedural-rule-rules.js';
+import { validateSubsequentHistory } from './bluebook/subsequent-history-rules.js';
+import { validateArticle } from './bluebook/article-rules.js';
 
 export { RULE_EXPLANATIONS } from './explanations.js';
 export type { RuleExplanation } from './explanations.js';
@@ -105,6 +108,7 @@ export function runBluebookRules(citation: ParsedCitation): ValidationIssue[] {
       issues.push(...validateReporter(components));
       issues.push(...validateCourtDesignation(components));
       issues.push(...validateDate(components, citation.rawText));
+      issues.push(...validateSubsequentHistory(components, citation.rawText));
       break;
     }
     case 'id':
@@ -127,6 +131,11 @@ export function runBluebookRules(citation: ParsedCitation): ValidationIssue[] {
     case 'regulation': {
       const components = citation.components as RegulationComponents;
       issues.push(...validateRegulation(components, citation.rawText));
+      break;
+    }
+    case 'article': {
+      const components = citation.components as ArticleComponents;
+      issues.push(...validateArticle(components, citation.rawText));
       break;
     }
   }

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Clock, Menu, X, Scale, Lightbulb } from 'lucide-react';
+import { Clock, Menu, X, Scale, Lightbulb, HelpCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 
 interface HeaderProps {
@@ -8,9 +8,10 @@ interface HeaderProps {
   onHistoryToggle: () => void;
   onAuthOpen: () => void;
   onTipsOpen: () => void;
+  onTourStart?: () => void;
 }
 
-export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpen, onTipsOpen }: HeaderProps) {
+export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpen, onTipsOpen, onTourStart }: HeaderProps) {
   const { user, logout, isLoading } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -46,7 +47,7 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpe
         {/* Desktop controls */}
         <div className="hidden md:flex items-center gap-3">
           {/* Format Toggle */}
-          <div className="flex items-center bg-surface-100 rounded-xl p-1">
+          <div className="flex items-center bg-surface-100 rounded-xl p-1" data-tour="format-toggle">
             <button
               onClick={() => onFormatChange('italics')}
               className={`px-3.5 py-1.5 text-sm rounded-lg transition-all duration-200 ${
@@ -69,24 +70,41 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpe
             </button>
           </div>
 
+          {/* Tour Button */}
+          {onTourStart && (
+            <button
+              onClick={onTourStart}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-surface-400 hover:text-primary-700 hover:bg-surface-100 rounded-xl transition-all duration-200"
+              title="Take a Tour"
+              aria-label="Take a tour"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span className="hidden lg:inline">Tour</span>
+            </button>
+          )}
+
           {/* Tips Button */}
           <button
             onClick={onTipsOpen}
-            className="w-9 h-9 flex items-center justify-center text-surface-400 hover:text-primary-700 hover:bg-surface-100 rounded-xl transition-all duration-200"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-surface-400 hover:text-primary-700 hover:bg-surface-100 rounded-xl transition-all duration-200"
             title="Bluebook Quick Reference"
             aria-label="Bluebook tips"
+            data-tour="tips-btn"
           >
-            <Lightbulb className="w-5 h-5" />
+            <Lightbulb className="w-4 h-4" />
+            <span className="hidden lg:inline">Tips</span>
           </button>
 
           {/* History Button */}
           <button
             onClick={onHistoryToggle}
-            className="w-9 h-9 flex items-center justify-center text-surface-400 hover:text-primary-700 hover:bg-surface-100 rounded-xl transition-all duration-200"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-surface-400 hover:text-primary-700 hover:bg-surface-100 rounded-xl transition-all duration-200"
             title="Citation History"
             aria-label="Citation history"
+            data-tour="history-btn"
           >
-            <Clock className="w-5 h-5" />
+            <Clock className="w-4 h-4" />
+            <span className="hidden lg:inline">History</span>
           </button>
 
           {/* User / Auth */}

@@ -39,15 +39,38 @@ function parseArticle(text: string): ArticleComponents | null {
   if (!match) return null;
 
   const authorsStr = match[1].trim();
-  const title = match[2].trim();
+  let title = match[2].trim();
   const volume = match[3];
   const journal = match[4].trim();
   const firstPage = match[5];
   const pinCite = match[6]?.trim();
   const year = match[7] || '';
 
-  // Parse multiple authors (separated by " & " or ", ")
-  const authors = authorsStr.split(/\s*&\s*|,\s*(?=[A-Z])/).map(a => a.trim()).filter(Boolean);
+  // Detect student-written piece designators (Note, Comment, Recent Development)
+  let studentDesignator: string | undefined;
+  const studentMatch = title.match(/^(Note|Comment|Recent Development|Book Review|Essay|Symposium),?\s+/);
+  if (studentMatch) {
+    studentDesignator = studentMatch[1];
+    title = title.slice(studentMatch[0].length);
+  }
+
+  // Parse multiple authors
+  // Two authors: "John Smith & Jane Doe"
+  // Three+: "John Smith, Jane Doe & Bob Jones" or "John Smith et al."
+  let authors: string[];
+  if (authorsStr.includes(' et al.')) {
+    authors = [authorsStr.replace(/\s+et al\.?$/, '').trim()];
+  } else if (authorsStr.includes(' & ')) {
+    // Split on final " & " only
+    const ampIndex = authorsStr.lastIndexOf(' & ');
+    const before = authorsStr.slice(0, ampIndex);
+    const after = authorsStr.slice(ampIndex + 3);
+    // Before may contain comma-separated authors
+    const beforeAuthors = before.split(/,\s*/).map(a => a.trim()).filter(Boolean);
+    authors = [...beforeAuthors, after.trim()];
+  } else {
+    authors = [authorsStr];
+  }
 
   return {
     authors,
@@ -57,6 +80,7 @@ function parseArticle(text: string): ArticleComponents | null {
     firstPage,
     pinCite,
     year,
+    studentDesignator,
   };
 }
 

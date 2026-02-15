@@ -1,6 +1,14 @@
 import { v4 as uuid } from 'uuid';
 import type { ValidationIssue, CaseComponents } from '@legalcitation/shared';
-import { VALID_REPORTER_ABBREVIATIONS, REPORTER_MAP, SCOTUS_REPORTERS } from '@legalcitation/shared';
+import { VALID_REPORTER_ABBREVIATIONS, REPORTER_MAP, SCOTUS_REPORTERS, ALL_REPORTERS } from '@legalcitation/shared';
+
+/**
+ * T1 preferred reporters by jurisdiction.
+ * SCOTUS: U.S. preferred, then S. Ct., then L. Ed.
+ */
+const PREFERRED_REPORTERS: Record<string, string[]> = {
+  'Supreme Court': ['U.S.', 'S. Ct.', 'L. Ed. 2d', 'L. Ed.', 'U.S.L.W.'],
+};
 
 /**
  * Validate reporter citation per Rules 10.3 and 10.4.
@@ -48,6 +56,53 @@ export function validateReporter(components: CaseComponents): ValidationIssue[] 
       message: `Page "${components.firstPage}" is not a valid page number.`,
       suggestion: 'First page should be a positive integer.',
     });
+  }
+
+  // Reporter era validation: check that year falls within reporter series range
+  const reporterEntry = ALL_REPORTERS.find(r => r.abbreviation === components.reporter);
+  if (reporterEntry && components.year) {
+    const year = parseInt(components.year, 10);
+    if (!isNaN(year)) {
+      if (reporterEntry.startYear && year < reporterEntry.startYear) {
+        issues.push({
+          id: uuid(),
+          rule: 'R. 10.3 / T1',
+          source: 'Bluebook',
+          severity: 'warning',
+          message: `${components.reporter} did not begin publication until ${reporterEntry.startYear}, but the year cited is ${year}.`,
+          suggestion: `Check the reporter series — a case from ${year} would use an earlier series.`,
+        });
+      }
+      if (reporterEntry.endYear && year > reporterEntry.endYear) {
+        issues.push({
+          id: uuid(),
+          rule: 'R. 10.3 / T1',
+          source: 'Bluebook',
+          severity: 'warning',
+          message: `${components.reporter} ended publication around ${reporterEntry.endYear}, but the year cited is ${year}.`,
+          suggestion: `Check the reporter series — a case from ${year} would use a later series.`,
+        });
+      }
+    }
+  }
+
+  // T1 preferred reporter: suggest U.S. over S. Ct. for SCOTUS
+  if (reporterEntry?.court) {
+    const preferredList = PREFERRED_REPORTERS[reporterEntry.court];
+    if (preferredList && preferredList.length > 0) {
+      const preferredReporter = preferredList[0];
+      const currentIndex = preferredList.indexOf(components.reporter);
+      if (currentIndex > 0) {
+        issues.push({
+          id: uuid(),
+          rule: 'R. 10.3.1 / T1',
+          source: 'Bluebook',
+          severity: 'suggestion',
+          message: `T1 prefers citing to ${preferredReporter} over ${components.reporter} for ${reporterEntry.court} decisions.`,
+          suggestion: `Use ${preferredReporter} as the preferred reporter per T1.`,
+        });
+      }
+    }
   }
 
   return issues;

@@ -87,6 +87,33 @@ export const FEDERAL_CODES: Record<string, string> = {
 };
 
 /**
+ * Popular statute names → code references.
+ * When detected, suggest the proper code citation.
+ */
+export const POPULAR_STATUTE_NAMES: Record<string, { title: string; code: string; sections: string }> = {
+  'Affordable Care Act': { title: '42', code: 'U.S.C.', sections: '§ 18001 et seq.' },
+  'Civil Rights Act of 1964': { title: '42', code: 'U.S.C.', sections: '§ 2000e et seq.' },
+  'Americans with Disabilities Act': { title: '42', code: 'U.S.C.', sections: '§ 12101 et seq.' },
+  'Clean Air Act': { title: '42', code: 'U.S.C.', sections: '§ 7401 et seq.' },
+  'Clean Water Act': { title: '33', code: 'U.S.C.', sections: '§ 1251 et seq.' },
+  'Sherman Act': { title: '15', code: 'U.S.C.', sections: '§§ 1-7' },
+  'Clayton Act': { title: '15', code: 'U.S.C.', sections: '§§ 12-27' },
+  'National Environmental Policy Act': { title: '42', code: 'U.S.C.', sections: '§ 4321 et seq.' },
+  'Fair Labor Standards Act': { title: '29', code: 'U.S.C.', sections: '§ 201 et seq.' },
+  'Family and Medical Leave Act': { title: '29', code: 'U.S.C.', sections: '§ 2601 et seq.' },
+  'Voting Rights Act': { title: '52', code: 'U.S.C.', sections: '§ 10301 et seq.' },
+  'Endangered Species Act': { title: '16', code: 'U.S.C.', sections: '§ 1531 et seq.' },
+  'Freedom of Information Act': { title: '5', code: 'U.S.C.', sections: '§ 552' },
+  'Religious Freedom Restoration Act': { title: '42', code: 'U.S.C.', sections: '§ 2000bb et seq.' },
+  'Telecommunications Act of 1996': { title: '47', code: 'U.S.C.', sections: '§ 151 et seq.' },
+  'Employee Retirement Income Security Act': { title: '29', code: 'U.S.C.', sections: '§ 1001 et seq.' },
+  'Securities Act of 1933': { title: '15', code: 'U.S.C.', sections: '§ 77a et seq.' },
+  'Securities Exchange Act of 1934': { title: '15', code: 'U.S.C.', sections: '§ 78a et seq.' },
+  'Bankruptcy Code': { title: '11', code: 'U.S.C.', sections: '§ 101 et seq.' },
+  'Immigration and Nationality Act': { title: '8', code: 'U.S.C.', sections: '§ 1101 et seq.' },
+};
+
+/**
  * Common state code abbreviations (selected states)
  */
 export const STATE_CODES: Record<string, string> = {

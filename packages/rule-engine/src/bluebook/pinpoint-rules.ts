@@ -215,11 +215,34 @@ function checkFirstPagePinpoint(
   const components = citation.components as CaseComponents;
   if (!components.firstPage || !components.pinCite) return;
 
-  // This check is informational — we can't know if the user meant to cite the first page
-  // But we can validate that if no pinpoint is present and the citation has specific content,
-  // a pinpoint should be provided.
-  // The guide says: "the only time a pinpoint is not required is when you are referring to
-  // a case in general, without discussing any specific fact, holding, rule, rationale..."
+  // R. 3.2(a): Pinpoint citations are strongly recommended
+  // The only time a pinpoint is not required is when referring to a case in general
+  // without discussing any specific fact, holding, rule, or rationale.
+
+  const firstPage = components.firstPage;
+  const pinCite = components.pinCite;
+
+  // If pinCite matches firstPage exactly, this is valid — citing the first page
+  if (pinCite === firstPage) return;
+
+  // If pinCite is a comma-separated value starting with firstPage, check format
+  if (pinCite && pinCite.startsWith(firstPage + ',')) return;
+
+  // No pinpoint at all — add a suggestion (not error, since general references are valid)
+  if (!pinCite) {
+    // Check if the raw text already contains "at" + page (pincite might not have been parsed)
+    const hasAtPage = /,\s*\d+\s/.test(rawText) || /\bat\s+\d+/.test(rawText);
+    if (!hasAtPage) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 3.2(a)',
+        source: 'Bluebook',
+        severity: 'suggestion',
+        message: 'Consider adding a pinpoint citation to direct the reader to the specific page(s) being referenced (R. 3.2(a)).',
+        suggestion: `Add a pinpoint: "${components.volume} ${components.reporter} ${firstPage}, [page]"`,
+      });
+    }
+  }
 }
 
 /**

@@ -55,6 +55,7 @@ export function FileUploader({ onTextExtracted, compact = false }: FileUploaderP
           onClick={() => inputRef.current?.click()}
           className="btn-secondary text-sm shrink-0"
           disabled={isProcessing}
+          data-tour="upload-btn"
         >
           {isProcessing ? 'Processing...' : 'Upload File'}
         </button>

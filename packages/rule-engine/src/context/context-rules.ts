@@ -2,12 +2,36 @@ import { v4 as uuid } from 'uuid';
 import type { ValidationIssue, ParsedCitation } from '@legalcitation/shared';
 
 /**
+ * Tracks hereinafter designations across the document.
+ */
+interface HereinafterDesignation {
+  designation: string;
+  citationId: string;
+  sourceType: string;
+}
+
+/**
  * Context-aware citation validation.
- * Analyzes citations as a sequence to check Id. usage, short form proximity, etc.
+ * Analyzes citations as a sequence to check Id. usage, short form proximity,
+ * hereinafter consistency, and source-type-aware Id. validation.
  */
 export function validateContext(citations: ParsedCitation[]): Map<string, ValidationIssue[]> {
   const issueMap = new Map<string, ValidationIssue[]>();
+  const hereinafterMap = new Map<string, HereinafterDesignation>();
 
+  // First pass: collect hereinafter designations
+  for (const citation of citations) {
+    const hereinafterMatch = citation.rawText.match(/\[hereinafter\s+([^\]]+)\]/i);
+    if (hereinafterMatch) {
+      hereinafterMap.set(hereinafterMatch[1].trim().toLowerCase(), {
+        designation: hereinafterMatch[1].trim(),
+        citationId: citation.id,
+        sourceType: citation.type,
+      });
+    }
+  }
+
+  // Second pass: validate context
   for (let i = 0; i < citations.length; i++) {
     const citation = citations[i];
     const issues: ValidationIssue[] = [];
@@ -18,6 +42,27 @@ export function validateContext(citations: ParsedCitation[]): Map<string, Valida
 
     if (citation.type === 'short_form') {
       validateShortFormContext(citations, i, issues);
+    }
+
+    // Validate hereinafter usage
+    if (citation.type === 'supra' && citation.rawText.toLowerCase().includes('hereinafter')) {
+      // This is a hereinafter definition — skip validation
+    } else if (citation.rawText.match(/\bhereinafter\b/i) && !citation.rawText.includes('[hereinafter')) {
+      // Using a hereinafter form — check it was properly established
+      const components = citation.components as { partyName?: string };
+      if (components.partyName) {
+        const designation = hereinafterMap.get(components.partyName.toLowerCase());
+        if (!designation) {
+          issues.push({
+            id: uuid(),
+            rule: 'R. 4.2(b)',
+            source: 'Context',
+            severity: 'warning',
+            message: `Hereinafter designation "${components.partyName}" was not established in a prior citation.`,
+            suggestion: 'Add [hereinafter Designation] to the first full citation of this source.',
+          });
+        }
+      }
     }
 
     if (issues.length > 0) {
@@ -59,6 +104,33 @@ function validateIdContext(
   if (prev.type === 'id') {
     // Consecutive Id. is fine — both refer to the same original source
     return;
+  }
+
+  // Source-type-aware Id. validation: check that Id. pincite format matches source type
+  if (prev.type === 'statute' || prev.type === 'regulation') {
+    // Statute/regulation Id. should use "§" not "at" for pinpoints
+    if (citation.rawText.match(/\bat\s+\d/)) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 4.1',
+        source: 'Context',
+        severity: 'warning',
+        message: 'When "Id." refers to a statute or regulation, use "Id. § [section]" rather than "Id. at [page]".',
+        suggestion: 'Replace "Id. at [number]" with "Id. § [section]" for statute/regulation references.',
+      });
+    }
+  } else if (prev.type === 'constitution') {
+    // Constitution Id. should not have "at" page references
+    if (citation.rawText.match(/\bat\s+\d/)) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 4.1',
+        source: 'Context',
+        severity: 'warning',
+        message: 'When "Id." refers to a constitutional provision, pinpoint to a specific section or clause, not a page.',
+        suggestion: 'Use "Id. § [section]" or "Id. cl. [clause]" for constitutional references.',
+      });
+    }
   }
 
   // R. 4.1 / B4: Id. may only be used when the immediately preceding citation

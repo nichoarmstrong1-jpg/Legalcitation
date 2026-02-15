@@ -33,6 +33,8 @@ const COMMON_PARTICIPLES = new Set([
   'invalidating', 'validating', 'incorporating', 'enumerating',
   'listing', 'identifying', 'examining', 'evaluating', 'assessing',
   'setting', 'relying', 'reaffirming',
+  'warning', 'cautioning', 'instructing', 'overturning',
+  'remanding', 'vacating', 'modifying', 'amending',
 ]);
 
 /**
@@ -56,6 +58,11 @@ const PROCEDURAL_PARENTHETICALS = [
   /^hereinafter\s/,
   /^last visited\s/,
   /^first\s.*;\s*(then|and then)\s/, // Multi-source quoting/citing per R. 1.5(b)
+  /^\d+-\d+\s+decision$/i, // Weight of authority: (5-4 decision)
+  /^plurality\s+opinion$/i,
+  /^mem\.$/i, // Memorandum opinion
+  /^unpublished$/i,
+  /^table$/i,
 ];
 
 /**
@@ -81,6 +88,18 @@ export function validateParenthetical(
     if (isProcedural(inner)) continue;
 
     // This is an explanatory parenthetical — validate it
+
+    // Validate quoting/citing parentheticals contain a citation reference
+    if (/^(quoting|citing)\s/i.test(inner)) {
+      validateQuotingCitingParenthetical(inner, issues);
+      continue;
+    }
+
+    // Validate alteration parentheticals use exact phrasing
+    if (/^(emphasis|internal|alteration|footnote|citation)/i.test(inner)) {
+      validateAlterationParenthetical(inner, issues);
+      continue;
+    }
 
     // B1.3 / R. 1.5(a)(ii): If it's a quoted sentence, it should start with a capital
     // and have closing punctuation
@@ -193,6 +212,78 @@ function validateNonQuotedParenthetical(inner: string, issues: ValidationIssue[]
       message: 'Non-quoted explanatory parenthetical should not end with a period (B1.3).',
       suggestion: 'Remove the trailing period from the parenthetical.',
     });
+  }
+}
+
+/**
+ * Validate (quoting ...) and (citing ...) parentheticals.
+ * These must contain a valid citation reference after the verb.
+ */
+function validateQuotingCitingParenthetical(inner: string, issues: ValidationIssue[]): void {
+  const verb = inner.split(/\s/)[0].toLowerCase();
+  const afterVerb = inner.slice(verb.length).trim();
+
+  // The text after "quoting" or "citing" should contain citation-like content
+  // (at minimum: a case name with "v.", a reporter abbreviation, or a statute reference)
+  const hasCitationContent =
+    /\bv\.\s/.test(afterVerb) ||
+    /\d+\s+[A-Z]/.test(afterVerb) ||
+    /§/.test(afterVerb) ||
+    /U\.S\.C\./.test(afterVerb) ||
+    /F\.\d|S\.\s*Ct\.|U\.S\.\s/.test(afterVerb);
+
+  if (!hasCitationContent && afterVerb.length < 10) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 1.5(b)',
+      source: 'Bluebook',
+      severity: 'warning',
+      message: `A "(${verb} ...)" parenthetical should contain a valid citation reference (R. 1.5(b)).`,
+      suggestion: `Include the full citation after "${verb}", e.g., "(${verb} Source, Vol Reporter Page (Year))".`,
+    });
+  }
+}
+
+/**
+ * Validate alteration parentheticals use exact Bluebook phrasing.
+ */
+function validateAlterationParenthetical(inner: string, issues: ValidationIssue[]): void {
+  const VALID_ALTERATIONS = [
+    'emphasis added',
+    'emphasis in original',
+    'emphasis omitted',
+    'footnote omitted',
+    'footnotes omitted',
+    'citation omitted',
+    'citations omitted',
+    'alteration in original',
+    'alterations in original',
+    'alteration added',
+    'alterations added',
+    'internal quotation marks omitted',
+    'internal quotation mark omitted',
+    'internal citations omitted',
+  ];
+
+  const lowerInner = inner.toLowerCase().trim();
+
+  // Check if it's close to a valid alteration but not exact
+  const isExactMatch = VALID_ALTERATIONS.some(a => lowerInner === a);
+  if (!isExactMatch) {
+    // Check for common mistakes
+    const closestMatch = VALID_ALTERATIONS.find(a =>
+      lowerInner.includes(a.split(' ')[0]) && lowerInner.includes(a.split(' ').slice(-1)[0])
+    );
+    if (closestMatch && lowerInner !== closestMatch) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 5.2',
+        source: 'Bluebook',
+        severity: 'warning',
+        message: `Alteration parenthetical should use exact phrasing: "(${closestMatch})" (R. 5.2).`,
+        suggestion: `Change to "(${closestMatch})".`,
+      });
+    }
   }
 }
 

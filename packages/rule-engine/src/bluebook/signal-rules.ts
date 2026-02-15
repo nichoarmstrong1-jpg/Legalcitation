@@ -69,15 +69,39 @@ export function validateSignal(
   if (signalInfo.requiresParenthetical) {
     const hasExplanatoryParenthetical = hasExplanatory(trimmed);
     if (!hasExplanatoryParenthetical) {
+      // Strict signals (see also, cf., but cf., see generally) are errors per R. 1.2
+      const strictSignals = new Set(['see also', 'cf.', 'but cf.', 'see generally']);
+      const isStrict = strictSignals.has(signalInfo.signal.toLowerCase());
       issues.push({
         id: uuid(),
         rule: 'R. 1.2',
         source: 'Bluebook',
-        severity: 'warning',
+        severity: isStrict ? 'error' : 'warning',
         message: `The signal "${signalInfo.signal}" requires an explanatory parenthetical to clarify the source's relevance (R. 1.2).`,
         suggestion: `Add a parenthetical, e.g.: ... ${signalInfo.signal} Source (explaining ...).`,
       });
     }
+  }
+
+  // R. 2.1(d): Signals must be italicized
+  const signalText = trimmed.slice(0, signal.length);
+  const beforeSignal = trimmed.slice(0, Math.max(0, trimmed.indexOf(signalText)));
+  const afterSignalChar = trimmed.charAt(signal.length);
+  const isWrappedInItalicMarkers =
+    (beforeSignal.endsWith('*') && afterSignalChar === '*') ||
+    (beforeSignal.endsWith('*') && trimmed.charAt(signal.length) === ' ');
+  // Check for italic markers around the signal text
+  const textBeforeSignal = trimmed.slice(0, 10);
+  const hasItalicMarker = textBeforeSignal.includes('*') || /^<[ei]m?>/.test(textBeforeSignal) || /^<u>/.test(textBeforeSignal);
+  if (!hasItalicMarker && signal.length > 0) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 2.1(d)',
+      source: 'Bluebook',
+      severity: 'warning',
+      message: `The signal "${signal}" should be italicized (R. 2.1(d)).`,
+      suggestion: `Italicize the signal: "*${signal}*"`,
+    });
   }
 
   // R. 1.2(b): "Compare" and "contrast" must include "with"

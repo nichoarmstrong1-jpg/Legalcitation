@@ -16,6 +16,8 @@ import { AnalysisProgressBar } from './components/ui/AnalysisProgressBar.tsx';
 import { useHistory, type HistoryEntry } from './hooks/useHistory.ts';
 import { useAuth } from './context/AuthContext.tsx';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.ts';
+import { GuidedTour } from './components/GuidedTour.tsx';
+import { useTour } from './hooks/useTour.ts';
 import type { AnalyzedCitation } from './services/api.ts';
 
 type Mode = 'checker' | 'builder' | 'history';
@@ -25,7 +27,9 @@ const MODES: Mode[] = ['checker', 'builder', 'history'];
 function AppContent() {
   useAuth();
   const [mode, setMode] = useState<Mode>('builder');
-  const [formatStyle, setFormatStyle] = useState<FormatStyle>('italics');
+  const [formatStyle, setFormatStyle] = useState<FormatStyle>(
+    () => (localStorage.getItem('legalcitation-format') as FormatStyle) || 'italics'
+  );
   const [selectedCitation, setSelectedCitation] = useState<AnalyzedCitation | null>(null);
   const [allResults, setAllResults] = useState<AnalyzedCitation[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -38,6 +42,7 @@ function AppContent() {
     () => !localStorage.getItem('legalcitation-onboarded')
   );
   const [authMessage, setAuthMessage] = useState<string | undefined>();
+  const tour = useTour();
   const { history, saveToHistory, deleteEntry, clearHistory } = useHistory();
   const sidebarRef = useRef<HTMLDivElement>(null);
 
@@ -105,10 +110,14 @@ function AppContent() {
     <div className="min-h-screen bg-surface-50">
       <Header
         formatStyle={formatStyle}
-        onFormatChange={setFormatStyle}
+        onFormatChange={(style: FormatStyle) => {
+          setFormatStyle(style);
+          localStorage.setItem('legalcitation-format', style);
+        }}
         onHistoryToggle={() => setMode(prev => prev === 'history' ? 'builder' : 'history')}
         onAuthOpen={() => openAuth()}
         onTipsOpen={() => setShowTips(true)}
+        onTourStart={tour.startTour}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -153,7 +162,7 @@ function AppContent() {
           </div>
 
           {/* Sidebar */}
-          <div ref={sidebarRef} className="lg:col-span-1">
+          <div ref={sidebarRef} className="lg:col-span-1" data-tour="sidebar">
             {selectedCitation ? (
               <AnalysisSidebar
                 citation={selectedCitation}
@@ -164,12 +173,31 @@ function AppContent() {
                 <AnalysisProgressBar />
               </div>
             ) : (
-              <div className="card text-center text-surface-400 py-16">
+              <div className="card text-center text-surface-400 py-10">
                 <div className="w-14 h-14 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
                   <Scale className="w-6 h-6 text-surface-400" />
                 </div>
                 <p className="font-medium text-surface-600">No citation selected</p>
-                <p className="text-sm mt-1 text-surface-400">Enter a citation to see analysis results</p>
+                <p className="text-sm mt-1 text-surface-400 mb-6">Try an example to get started</p>
+                <div className="space-y-2 text-left px-2">
+                  {[
+                    { label: 'Brown v. Bd. of Educ., 347 U.S. 483 (1954)', query: 'Brown v. Board of Education' },
+                    { label: 'Miranda v. Arizona, 384 U.S. 436 (1966)', query: 'Miranda v. Arizona' },
+                    { label: 'Marbury v. Madison, 5 U.S. 137 (1803)', query: 'Marbury v. Madison' },
+                    { label: 'Roe v. Wade, 410 U.S. 113 (1973)', query: 'Roe v. Wade' },
+                  ].map((ex) => (
+                    <button
+                      key={ex.query}
+                      onClick={() => {
+                        setMode('builder');
+                        setRestoredInput(ex.query);
+                      }}
+                      className="w-full text-left px-3 py-2.5 text-sm text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-xl transition-colors duration-150"
+                    >
+                      <span className="italic">{ex.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -178,7 +206,25 @@ function AppContent() {
 
       {/* Onboarding */}
       {showOnboarding && (
-        <OnboardingFlow onComplete={() => setShowOnboarding(false)} />
+        <OnboardingFlow onComplete={() => {
+          setShowOnboarding(false);
+          // After onboarding, offer guided tour
+          if (!tour.hasCompletedTour) {
+            setTimeout(() => tour.startTour(), 500);
+          }
+        }} />
+      )}
+
+      {/* Guided Tour */}
+      {tour.isActive && tour.step && (
+        <GuidedTour
+          step={tour.step}
+          currentStep={tour.currentStep}
+          totalSteps={tour.totalSteps}
+          onNext={tour.nextStep}
+          onPrev={tour.prevStep}
+          onExit={tour.exitTour}
+        />
       )}
 
       {/* Auth Modal */}
@@ -200,6 +246,13 @@ function AppContent() {
       )}
 
       <ToastContainer />
+
+      {/* Legal Disclaimer */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-6">
+        <p className="text-xs text-surface-400 text-center leading-relaxed">
+          This tool is not a substitute for legal research. It verifies citation formatting and searches case law databases to help ensure accuracy, but always confirm citations against an authoritative source like Westlaw or LexisNexis.
+        </p>
+      </div>
     </div>
   );
 }

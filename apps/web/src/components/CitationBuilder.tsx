@@ -240,7 +240,7 @@ export function CitationBuilder({ onResult, formatStyle, restoredInput }: Citati
           </ul>
         </div>
 
-        <div className="input-field h-24 overflow-y-auto">
+        <div className="input-field h-24 overflow-y-auto" data-tour="builder-input">
           <RichTextInput
             value={input}
             onChange={setInput}

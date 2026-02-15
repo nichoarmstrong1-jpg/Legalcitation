@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid';
 import type { ParsedCitation, CaseComponents, CitationContext } from '@legalcitation/shared';
-import { VALID_REPORTER_ABBREVIATIONS, ALL_REPORTERS } from '@legalcitation/shared';
+import { VALID_REPORTER_ABBREVIATIONS, ALL_REPORTERS, ALL_HISTORY_ABBREVIATIONS } from '@legalcitation/shared';
 
 /**
  * Reporter alias map — maps common lazy/incorrect reporter forms
@@ -215,9 +215,14 @@ function parseStandardCase(text: string): CaseComponents | null {
     parenRemainder = parenRemainder.slice(parenMatch[0].length);
   }
 
-  // Step 6: Extract subsequent history
+  // Step 6: Extract subsequent history using shared constants (T8)
   let subsequentHistory: string | undefined;
-  const historyMatch = parenRemainder.match(/^,?\s*(aff'd|rev'd|cert\.\s*denied|vacated|modified|reh'g\s*denied|overruled|rev'd\s*sub\s*nom\.|aff'd\s*sub\s*nom\.)\s*.*/i);
+  const historyAbbrs = Array.from(ALL_HISTORY_ABBREVIATIONS)
+    .sort((a, b) => b.length - a.length)
+    .map(h => h.replace(/\./g, '\\.').replace(/'/g, "\\'"));
+  const historyAlternation = historyAbbrs.join('|');
+  const historyRegex = new RegExp(`^,?\\s*(${historyAlternation})\\s*.*`, 'i');
+  const historyMatch = parenRemainder.match(historyRegex);
   if (historyMatch) {
     subsequentHistory = parenRemainder.replace(/^,?\s*/, '').replace(/\.\s*$/, '').trim();
   }
@@ -261,19 +266,44 @@ function parseStandardCase(text: string): CaseComponents | null {
  * Accepts both "v." (correct) and "v" (lazy) as separators.
  */
 function parseCaseNameParties(name: string): { partyOne: string; partyTwo: string } {
-  // Handle "In re", "Ex parte" — no "v."
-  if (/^(?:In re|Ex parte)\s+/i.test(name)) {
+  // Handle non-adversarial procedural phrases — no "v."
+  // R. 10.2.1(b): In re, Ex parte, In the Matter of, Estate of, Guardianship of, Ex rel.
+  if (/^(?:In re|Ex parte|In the Matter of|Estate of|Guardianship of)\s+/i.test(name)) {
+    return { partyOne: name, partyTwo: '' };
+  }
+
+  // Handle "Ex rel." — State ex rel. Party v. Party
+  if (/\bex\s+rel\.\s/i.test(name)) {
+    const vIndex = name.search(/\s+v\.?\s+/);
+    if (vIndex !== -1) {
+      const partyOne = name.slice(0, vIndex).trim();
+      const partyTwo = name.slice(vIndex).replace(/^\s+v\.?\s+/, '').trim();
+      return { partyOne, partyTwo };
+    }
     return { partyOne: name, partyTwo: '' };
   }
 
   // Standard adversarial: Party v. Party or Party v Party
-  const vIndex = name.search(/\s+v\.?\s+/);
-  if (vIndex === -1) {
+  // For consolidated cases with multiple "v." patterns, use only the first action
+  const vMatches = [...name.matchAll(/\s+v\.?\s+/gi)];
+  if (vMatches.length === 0) {
     return { partyOne: name, partyTwo: '' };
   }
 
+  // Use the first "v." occurrence
+  const firstV = vMatches[0];
+  const vIndex = firstV.index!;
+
   const partyOne = name.slice(0, vIndex).trim();
-  const partyTwo = name.slice(vIndex).replace(/^\s+v\.?\s+/, '').trim();
+  let partyTwo = name.slice(vIndex).replace(/^\s+v\.?\s+/, '').trim();
+
+  // R. 10.2.1(a): Only first-named defendant — trim after "and", "&", or second "v."
+  // But preserve corporate names like "Smith & Wesson" or "Johnson & Johnson"
+  // Only split on standalone " and " or " & " that separate distinct parties
+  const andSplit = partyTwo.match(/^(.+?)(?:\s+and\s+|\s+&\s+)(?=[A-Z][a-z]+ (?:v\.|of |ex ))/i);
+  if (andSplit) {
+    partyTwo = andSplit[1].trim();
+  }
 
   return { partyOne, partyTwo };
 }

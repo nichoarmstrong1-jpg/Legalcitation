@@ -72,6 +72,8 @@ export interface ArticleComponents {
   firstPage: string;
   pinCite?: string;
   year: string;
+  /** Student-written piece designator: Note, Comment, Recent Development, Book Review, Essay */
+  studentDesignator?: string;
 }
 
 export interface ShortFormComponents {

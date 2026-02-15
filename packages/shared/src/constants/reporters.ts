@@ -25,16 +25,16 @@ export const FEDERAL_REPORTERS: ReporterEntry[] = [
   { abbreviation: 'U.S.L.W.', fullName: 'United States Law Week', jurisdiction: 'federal', court: 'Supreme Court' },
 
   // Federal Courts of Appeals
-  { abbreviation: 'F.', fullName: 'Federal Reporter', jurisdiction: 'federal', court: 'Courts of Appeals', series: 1 },
-  { abbreviation: 'F.2d', fullName: 'Federal Reporter, Second Series', jurisdiction: 'federal', court: 'Courts of Appeals', series: 2 },
-  { abbreviation: 'F.3d', fullName: 'Federal Reporter, Third Series', jurisdiction: 'federal', court: 'Courts of Appeals', series: 3 },
-  { abbreviation: 'F.4th', fullName: 'Federal Reporter, Fourth Series', jurisdiction: 'federal', court: 'Courts of Appeals', series: 4 },
+  { abbreviation: 'F.', fullName: 'Federal Reporter', jurisdiction: 'federal', court: 'Courts of Appeals', series: 1, startYear: 1880, endYear: 1924 },
+  { abbreviation: 'F.2d', fullName: 'Federal Reporter, Second Series', jurisdiction: 'federal', court: 'Courts of Appeals', series: 2, startYear: 1924, endYear: 1993 },
+  { abbreviation: 'F.3d', fullName: 'Federal Reporter, Third Series', jurisdiction: 'federal', court: 'Courts of Appeals', series: 3, startYear: 1993, endYear: 2021 },
+  { abbreviation: 'F.4th', fullName: 'Federal Reporter, Fourth Series', jurisdiction: 'federal', court: 'Courts of Appeals', series: 4, startYear: 2021 },
   { abbreviation: 'F. App\'x', fullName: 'Federal Appendix', jurisdiction: 'federal', court: 'Courts of Appeals' },
 
   // Federal District Courts
-  { abbreviation: 'F. Supp.', fullName: 'Federal Supplement', jurisdiction: 'federal', court: 'District Courts', series: 1 },
-  { abbreviation: 'F. Supp. 2d', fullName: 'Federal Supplement, Second Series', jurisdiction: 'federal', court: 'District Courts', series: 2 },
-  { abbreviation: 'F. Supp. 3d', fullName: 'Federal Supplement, Third Series', jurisdiction: 'federal', court: 'District Courts', series: 3 },
+  { abbreviation: 'F. Supp.', fullName: 'Federal Supplement', jurisdiction: 'federal', court: 'District Courts', series: 1, startYear: 1932, endYear: 1998 },
+  { abbreviation: 'F. Supp. 2d', fullName: 'Federal Supplement, Second Series', jurisdiction: 'federal', court: 'District Courts', series: 2, startYear: 1998, endYear: 2014 },
+  { abbreviation: 'F. Supp. 3d', fullName: 'Federal Supplement, Third Series', jurisdiction: 'federal', court: 'District Courts', series: 3, startYear: 2014 },
 
   // Federal Rules Decisions
   { abbreviation: 'F.R.D.', fullName: 'Federal Rules Decisions', jurisdiction: 'federal', court: 'District Courts' },

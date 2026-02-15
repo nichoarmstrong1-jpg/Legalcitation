@@ -90,19 +90,31 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
     // Expand backward to find case name (look for the start of the sentence
     // or the last period/semicolon before a capital letter + " v. ")
     let caseStart = reporterStart;
-    const textBefore = text.slice(Math.max(0, reporterStart - 300), reporterStart);
+    const lookbackDistance = 500;
+    const textBefore = text.slice(Math.max(0, reporterStart - lookbackDistance), reporterStart);
 
     // Find the case name by looking backward for party v. party pattern
     const vPattern = /([A-Z][^.;]*?\s+v\.\s+[^,]+),\s*$/;
     const vMatch = textBefore.match(vPattern);
     if (vMatch && vMatch.index !== undefined) {
-      caseStart = Math.max(0, reporterStart - 300) + vMatch.index;
+      caseStart = Math.max(0, reporterStart - lookbackDistance) + vMatch.index;
     } else {
-      // Try to find "In re" or "Ex parte" patterns
-      const inRePattern = /((?:In re|Ex parte|Ex rel\.)\s+[^,]+),\s*$/;
+      // Try to find "In re", "Ex parte", "In the Matter of", "Estate of", "Guardianship of"
+      const inRePattern = /((?:In re|Ex parte|Ex rel\.|In the Matter of|Estate of|Guardianship of)\s+[^,]+),\s*$/;
       const inReMatch = textBefore.match(inRePattern);
       if (inReMatch && inReMatch.index !== undefined) {
-        caseStart = Math.max(0, reporterStart - 300) + inReMatch.index;
+        caseStart = Math.max(0, reporterStart - lookbackDistance) + inReMatch.index;
+      } else {
+        // Smarter boundary: find the last sentence terminator (. or ;) followed by a capital letter
+        const boundaryPattern = /[.;]\s+([A-Z])/g;
+        let lastBoundary = -1;
+        let boundaryMatch;
+        while ((boundaryMatch = boundaryPattern.exec(textBefore)) !== null) {
+          lastBoundary = boundaryMatch.index + boundaryMatch[0].length - 1;
+        }
+        if (lastBoundary >= 0) {
+          caseStart = Math.max(0, reporterStart - lookbackDistance) + lastBoundary;
+        }
       }
     }
 
@@ -127,7 +139,7 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
     const textAfter = text.slice(reporterEnd, reporterEnd + 500);
 
     // Look for optional pincite, then date parenthetical
-    const afterPattern = /^(?:,\s*\d[\d–\-,\s]*)?(?:\s*n\.\d+)?\s*\([^)]+\)(?:\s*\([^)]+\))*(?:\s*,\s*(?:aff'd|rev'd|cert\.\s*denied|vacated|modified|reh'g\s*denied|aff'g|rev'g)[^.;]*)*/;
+    const afterPattern = /^(?:,\s*\d[\d–\-,\s]*)?(?:\s*n\.\d+)?\s*\([^)]+\)(?:\s*\([^)]+\))*(?:\s*,\s*(?:aff'd|rev'd|cert\.\s*denied|vacated|modified|reh'g\s*denied|reh'g\s*en\s*banc\s*denied|aff'g|rev'g|remanded|aff'd\s*in\s*part|rev'd\s*in\s*part|overruled\s*by|aff'd\s*sub\s*nom\.|rev'd\s*sub\s*nom\.|cert\.\s*dismissed)[^.;]*)*/;
     const afterMatch = textAfter.match(afterPattern);
     if (afterMatch) {
       caseEnd = reporterEnd + afterMatch[0].length;

@@ -178,6 +178,9 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
           {status.label}
         </span>
       </div>
+      <p className="text-[10px] text-surface-400 px-1 leading-relaxed">
+        AI-powered verification. Always confirm with your research platform.
+      </p>
 
       {/* Pinpoint Match Result */}
       {citation.pinpointMatch && (
