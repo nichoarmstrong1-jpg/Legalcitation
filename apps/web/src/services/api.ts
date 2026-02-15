@@ -1,13 +1,15 @@
+import type {
+  ShortFormEntry,
+  ShortFormSuggestion,
+  PinpointMatchResult,
+} from '@legalcitation/shared';
+
+export type { ShortFormEntry, ShortFormSuggestion };
+
 export const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-export interface PinpointMatch {
-  documentId: string;
-  documentName: string;
-  matched: boolean;
-  pages: Array<{ pageNumber: number; found: boolean; textSnippet?: string }>;
-}
-
 export interface AnalyzedCitation {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   parsed: any;
   issues: ValidationIssue[];
   verificationStatus: string;
@@ -17,8 +19,9 @@ export interface AnalyzedCitation {
   referenceExamples: { source: string; context: string; url?: string }[];
   logicTrace: string[];
   score: number;
-  shortForms?: string[];
-  pinpointMatch?: PinpointMatch;
+  shortForms?: (string | ShortFormEntry)[];
+  shortFormSuggestions?: ShortFormSuggestion[];
+  pinpointMatch?: PinpointMatchResult;
 }
 
 export interface ValidationIssue {

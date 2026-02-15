@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { AnalyzedCitation } from '../services/api.ts';
+import type { CaseComponents } from '@legalcitation/shared';
 
 interface ComponentRuleMapping {
   rule: string;
@@ -7,8 +8,7 @@ interface ComponentRuleMapping {
 }
 
 const CASE_COMPONENT_RULES: Record<string, ComponentRuleMapping> = {
-  partyOne: { rule: 'R. 10.2.1', label: 'Case Name' },
-  partyTwo: { rule: 'R. 10.2.1', label: 'Case Name' },
+  caseName: { rule: 'R. 10.2.1', label: 'Case Name' },
   volume: { rule: 'R. 10.3', label: 'Volume' },
   reporter: { rule: 'T1', label: 'Reporter' },
   firstPage: { rule: 'R. 3.2', label: 'First Page' },
@@ -48,7 +48,20 @@ export function CitationBreakdown({ citation, formatStyle }: CitationBreakdownPr
   // Build the list of component parts that have values
   const parts: { key: string; value: string; rule: ComponentRuleMapping }[] = [];
 
+  // For case citations, merge partyOne + partyTwo into a single "Case Name" entry
+  if (parsed.type === 'case' && 'partyOne' in components) {
+    const caseComp = components as CaseComponents;
+    const caseName = caseComp.partyTwo
+      ? `${caseComp.partyOne} v. ${caseComp.partyTwo}`
+      : caseComp.partyOne;
+    if (caseName.trim() && ruleMap['caseName']) {
+      parts.push({ key: 'caseName', value: caseName.trim(), rule: ruleMap['caseName'] });
+    }
+  }
+
   for (const [key, value] of Object.entries(components)) {
+    // Skip partyOne/partyTwo — already handled as unified case name above
+    if (key === 'partyOne' || key === 'partyTwo') continue;
     if (value && typeof value === 'string' && value.trim() && ruleMap[key]) {
       parts.push({ key, value: value.trim(), rule: ruleMap[key] });
     }
@@ -57,8 +70,8 @@ export function CitationBreakdown({ citation, formatStyle }: CitationBreakdownPr
   if (parts.length === 0) return null;
 
   const renderValue = (value: string, key: string) => {
-    // Italicize case name parts
-    if (key === 'partyOne' || key === 'partyTwo') {
+    // Italicize the unified case name
+    if (key === 'caseName') {
       return formatStyle === 'italics'
         ? <em className="font-serif">{value}</em>
         : <u>{value}</u>;

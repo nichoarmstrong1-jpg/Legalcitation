@@ -161,7 +161,11 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
 
       {/* Short Form Citations */}
       {citation.shortForms && citation.shortForms.length > 0 && (
-        <ShortFormDisplay shortForms={citation.shortForms} formatStyle={formatStyle} />
+        <ShortFormDisplay
+          shortForms={citation.shortForms}
+          formatStyle={formatStyle}
+          suggestions={citation.shortFormSuggestions}
+        />
       )}
 
       {/* Citation Component Breakdown */}

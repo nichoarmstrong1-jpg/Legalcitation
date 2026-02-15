@@ -30,6 +30,7 @@ function AppContent() {
   const [allResults, setAllResults] = useState<AnalyzedCitation[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | undefined>();
+  const [restoredInput, setRestoredInput] = useState<string | undefined>();
   const [showAuth, setShowAuth] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showTips, setShowTips] = useState(false);
@@ -67,8 +68,12 @@ function AppContent() {
   }, [mode, saveToHistory]);
 
   const handleRestoreHistory = useCallback((entry: HistoryEntry) => {
+    // Switch to the original mode (checker or builder)
+    const targetMode: Mode = entry.mode === 'checker' || entry.mode === 'in_text' as string ? 'checker' : 'builder';
+    setMode(targetMode);
     setSelectedHistoryId(entry.id);
     setAllResults(entry.results);
+    setRestoredInput(entry.input);
     if (entry.results.length > 0) {
       setSelectedCitation(entry.results[0]);
     }
@@ -109,6 +114,7 @@ function AppContent() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <NavigationTabs mode={mode} onModeChange={(newMode) => {
           setMode(newMode);
+          setRestoredInput(undefined);
           if (newMode !== 'history') {
             setSelectedCitation(null);
             setAllResults([]);
@@ -125,10 +131,15 @@ function AppContent() {
                 onSelectCitation={setSelectedCitation}
                 results={allResults}
                 formatStyle={formatStyle}
+                restoredInput={restoredInput}
               />
             )}
             {mode === 'builder' && (
-              <CitationBuilder onResult={handleSingleResult} formatStyle={formatStyle} />
+              <CitationBuilder
+                onResult={handleSingleResult}
+                formatStyle={formatStyle}
+                restoredInput={restoredInput}
+              />
             )}
             {mode === 'history' && (
               <HistoryView

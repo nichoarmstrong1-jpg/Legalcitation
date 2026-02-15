@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BookOpen, ChevronRight, FileText } from 'lucide-react';
 import { searchCases, buildCitation, analyzeText, type AnalyzedCitation, type CaseSearchResult } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
@@ -6,14 +6,15 @@ import { CitationGeneratingView } from './CitationGeneratingView.tsx';
 import { CaseLibrary } from './CaseLibrary.tsx';
 import { SourceViewer } from './SourceViewer.tsx';
 import { FormattedCitation } from './FormattedCitation.tsx';
-import { htmlToMarkedText } from '../hooks/useRichPaste.ts';
+import { RichTextInput } from './RichTextInput.tsx';
 
 interface CitationBuilderProps {
   onResult: (result: AnalyzedCitation, input: string) => void;
   formatStyle: 'italics' | 'underline';
+  restoredInput?: string;
 }
 
-export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps) {
+export function CitationBuilder({ onResult, formatStyle, restoredInput }: CitationBuilderProps) {
   const [input, setInput] = useState('');
   const [searching, setSearching] = useState(false);
   const [building, setBuilding] = useState(false);
@@ -26,6 +27,13 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
   const [extractedCitations, setExtractedCitations] = useState<AnalyzedCitation[]>([]);
   const [extracting, setExtracting] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+
+  // Restore input from history
+  useEffect(() => {
+    if (restoredInput !== undefined) {
+      setInput(restoredInput);
+    }
+  }, [restoredInput]);
 
   const handleSearch = async (overrideQuery?: string) => {
     const query = overrideQuery || input.trim();
@@ -232,26 +240,20 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
           </ul>
         </div>
 
-        <textarea
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onPaste={e => {
-            const html = e.clipboardData.getData('text/html');
-            if (html) {
-              e.preventDefault();
-              const marked = htmlToMarkedText(html);
-              setInput(marked.trim() || e.clipboardData.getData('text') || '');
-            }
-          }}
-          placeholder="Enter a case name, topic, or partial citation..."
-          className="input-field h-24 resize-none"
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSearch();
-            }
-          }}
-        />
+        <div className="input-field h-24 overflow-y-auto">
+          <RichTextInput
+            value={input}
+            onChange={setInput}
+            placeholder="Enter a case name, topic, or partial citation..."
+            minHeight="4rem"
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSearch();
+              }
+            }}
+          />
+        </div>
 
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0 mt-4">
           <span className="text-xs text-surface-400 text-center sm:text-left">Press Enter to search</span>

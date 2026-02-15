@@ -15,6 +15,62 @@ export { detectCitations, type DetectedSpan } from './detector.js';
 export * from './parsers/index.js';
 
 /**
+ * Classify a citation's context by examining surrounding text.
+ *
+ * - citation_sentence: standalone sentence (preceded by period/start, ends with period)
+ * - citation_clause: set off by commas within a sentence
+ * - textual_sentence: embedded in prose as part of a textual sentence
+ */
+function classifyContext(
+  fullText: string,
+  spanStart: number,
+  spanEnd: number,
+  spanText: string
+): CitationContext {
+  // Look at text before the citation span
+  const before = fullText.slice(Math.max(0, spanStart - 300), spanStart);
+  const trimmedBefore = before.trimEnd();
+
+  // Look at text after the citation span
+  const after = fullText.slice(spanEnd, spanEnd + 100);
+  const trimmedAfter = after.trimStart();
+
+  const trimmedSpanText = spanText.trimEnd();
+  const endsWithPeriod = trimmedSpanText.endsWith('.');
+
+  // Check what precedes this citation
+  const precededByPeriodOrStart =
+    !trimmedBefore ||
+    trimmedBefore.endsWith('.') ||
+    trimmedBefore.endsWith(';') ||
+    trimmedBefore.endsWith(':');
+
+  // A citation sentence: preceded by period/start-of-text AND ends with period
+  // Also check that nothing follows except whitespace or another citation/period
+  if (precededByPeriodOrStart && endsWithPeriod) {
+    return 'citation_sentence';
+  }
+
+  // A citation clause: preceded by a comma (set off within a sentence)
+  if (trimmedBefore.endsWith(',')) {
+    // Check if the text after continues the sentence (common for embedded citations)
+    if (trimmedAfter.startsWith(',') || trimmedAfter.startsWith('that') || trimmedAfter.startsWith('which')) {
+      return 'citation_clause';
+    }
+    return 'citation_clause';
+  }
+
+  // If the citation is preceded by text that looks like prose (words, not just signals)
+  // and doesn't end with a period, it's a textual sentence
+  if (!endsWithPeriod) {
+    return 'textual_sentence';
+  }
+
+  // Default: if it ends with a period and we can't tell, assume citation sentence
+  return 'citation_sentence';
+}
+
+/**
  * Full pipeline: detect citations in text and parse each one.
  * Supports semicolon-separated citation strings (e.g., "Brown, 347 U.S. 483; Plessy, 163 U.S. 537").
  */
@@ -32,39 +88,48 @@ export function extractAndParseCitations(
 
     for (const span of spans) {
       const position = { start: span.start + offset, end: span.end + offset };
+
+      // Classify the citation's context based on surrounding text
+      const detectedContext = classifyContext(
+        text,
+        position.start,
+        position.end,
+        span.text
+      );
+
       let result: ParsedCitation | null = null;
 
       switch (span.type) {
         case 'full_case':
-          result = parseCaseCitation(span.text, position, context);
+          result = parseCaseCitation(span.text, position, detectedContext);
           break;
         case 'short_case':
-          result = parseShortCaseCitation(span.text, position, context);
+          result = parseShortCaseCitation(span.text, position, detectedContext);
           break;
         case 'id':
-          result = parseIdCitation(span.text, position, context);
+          result = parseIdCitation(span.text, position, detectedContext);
           break;
         case 'supra':
-          result = parseSupraCitation(span.text, position, context);
+          result = parseSupraCitation(span.text, position, detectedContext);
           break;
         case 'statute':
-          result = parseStatuteCitation(span.text, position, context);
+          result = parseStatuteCitation(span.text, position, detectedContext);
           break;
         case 'constitution':
-          result = parseConstitutionCitation(span.text, position, context);
+          result = parseConstitutionCitation(span.text, position, detectedContext);
           break;
         case 'regulation':
-          result = parseRegulationCitation(span.text, position, context);
+          result = parseRegulationCitation(span.text, position, detectedContext);
           break;
         default:
           // Try each parser in order
-          result = parseCaseCitation(span.text, position, context)
-            || parseStatuteCitation(span.text, position, context)
-            || parseConstitutionCitation(span.text, position, context)
-            || parseRegulationCitation(span.text, position, context)
-            || parseArticleCitation(span.text, position, context)
-            || parseIdCitation(span.text, position, context)
-            || parseSupraCitation(span.text, position, context);
+          result = parseCaseCitation(span.text, position, detectedContext)
+            || parseStatuteCitation(span.text, position, detectedContext)
+            || parseConstitutionCitation(span.text, position, detectedContext)
+            || parseRegulationCitation(span.text, position, detectedContext)
+            || parseArticleCitation(span.text, position, detectedContext)
+            || parseIdCitation(span.text, position, detectedContext)
+            || parseSupraCitation(span.text, position, detectedContext);
       }
 
       if (result) {

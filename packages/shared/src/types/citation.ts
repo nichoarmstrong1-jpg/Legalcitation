@@ -133,6 +133,22 @@ export interface PinpointMatchResult {
   pages: Array<{ pageNumber: number; found: boolean; textSnippet?: string }>;
 }
 
+export interface ShortFormEntry {
+  form: string;
+  type: 'id' | 'id_pinpoint' | 'short_case' | 'supra';
+  label: string;
+  whenToUse: string;
+  whereToPlace: string;
+  warnings?: string[];
+}
+
+export interface ShortFormSuggestion {
+  citationIndex: number;
+  suggestedForm: string;
+  reason: string;
+  contextSnippet: string;
+}
+
 export interface AnalyzedCitation {
   parsed: ParsedCitation;
   issues: ValidationIssue[];
@@ -144,6 +160,8 @@ export interface AnalyzedCitation {
   logicTrace: string[];
   score: number;
   pinpointMatch?: PinpointMatchResult;
+  shortForms?: (string | ShortFormEntry)[];
+  shortFormSuggestions?: ShortFormSuggestion[];
 }
 
 export interface HistoryEntry {

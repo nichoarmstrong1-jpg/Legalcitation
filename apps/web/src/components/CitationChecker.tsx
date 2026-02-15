@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileText as FileTextIcon } from 'lucide-react';
 import { analyzeText, type AnalyzedCitation } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
@@ -6,7 +6,7 @@ import { ScoreCounter } from './ui/ScoreCounter.tsx';
 import { AnalysisProgressBar } from './ui/AnalysisProgressBar.tsx';
 import { CitationTooltip } from './CitationTooltip.tsx';
 import { SourceViewer } from './SourceViewer.tsx';
-import { htmlToMarkedText } from '../hooks/useRichPaste.ts';
+import { RichTextInput } from './RichTextInput.tsx';
 import { useToast } from '../context/ToastContext.tsx';
 import { useCaseDocuments } from '../hooks/useCaseDocuments.ts';
 
@@ -17,9 +17,10 @@ interface CitationCheckerProps {
   onSelectCitation: (citation: AnalyzedCitation) => void;
   results: AnalyzedCitation[];
   formatStyle: FormatStyle;
+  restoredInput?: string;
 }
 
-export function CitationChecker({ onResults, onSelectCitation, results, formatStyle }: CitationCheckerProps) {
+export function CitationChecker({ onResults, onSelectCitation, results, formatStyle, restoredInput }: CitationCheckerProps) {
   const { showToast } = useToast();
   const { findMatchingDocument } = useCaseDocuments();
   const [input, setInput] = useState('');
@@ -32,6 +33,13 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   const [viewingDocId, setViewingDocId] = useState<string | null>(null);
   const annotatedRef = useRef<HTMLDivElement>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Restore input from history
+  useEffect(() => {
+    if (restoredInput !== undefined) {
+      setInput(restoredInput);
+    }
+  }, [restoredInput]);
 
   const handleCitationMouseEnter = useCallback((idx: number) => {
     if (hideTimeoutRef.current) {
@@ -288,20 +296,14 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
               <div className="flex-grow border-t border-surface-200"></div>
             </div>
 
-            <textarea
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onPaste={e => {
-                const html = e.clipboardData.getData('text/html');
-                if (html) {
-                  e.preventDefault();
-                  const marked = htmlToMarkedText(html);
-                  setInput(marked.trim() || e.clipboardData.getData('text') || '');
-                }
-              }}
-              placeholder={`Paste your legal text here. For example:\n\nThe Supreme Court held in Engel v. Vitale, 370 U.S. 421 (1962), that state-sponsored prayer in public schools violated the Establishment Clause. See also Abington School District v. Schempp, 374 U.S. 203 (1963). Id. at 210.`}
-              className="input-field h-48 resize-y font-serif"
-            />
+            <div className="input-field h-48 overflow-y-auto">
+              <RichTextInput
+                value={input}
+                onChange={setInput}
+                placeholder={`Paste your legal text here. For example:\n\nThe Supreme Court held in Engel v. Vitale, 370 U.S. 421 (1962), that state-sponsored prayer in public schools violated the Establishment Clause. See also Abington School District v. Schempp, 374 U.S. 203 (1963). Id. at 210.`}
+                minHeight="10rem"
+              />
+            </div>
 
             <div className="flex justify-end mt-4">
               <button

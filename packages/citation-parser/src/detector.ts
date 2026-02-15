@@ -133,9 +133,15 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
       caseEnd = reporterEnd + afterMatch[0].length;
     }
 
-    // Check for period at end
+    // Check for period at end (handle possible whitespace from Word paste)
     if (text[caseEnd] === '.') {
       caseEnd++;
+    } else {
+      const nextChars = text.slice(caseEnd, caseEnd + 5);
+      const periodMatch = nextChars.match(/^\s*\./);
+      if (periodMatch) {
+        caseEnd += periodMatch[0].length;
+      }
     }
 
     spans.push({
