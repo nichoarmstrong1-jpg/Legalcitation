@@ -5,6 +5,7 @@ import type { AnalyzedCitation, CaseComponents, CitationContext, ValidationIssue
 import { validateAnalyzeText } from '../middleware/validation.js';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
 import { logCitationCheck } from '../services/citation-logger.js';
+import { matchPinpointToDocument } from '../services/pinpoint-matcher.js';
 
 export const analyzeRouter = Router();
 
@@ -14,9 +15,10 @@ export const analyzeRouter = Router();
  */
 analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response) => {
   try {
-    const { text, context = 'citation_sentence' } = req.body as {
+    const { text, context = 'citation_sentence', documentIds } = req.body as {
       text: string;
       context?: CitationContext;
+      documentIds?: string[];
     };
 
     if (!text || typeof text !== 'string') {
@@ -61,8 +63,9 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
 
       // Verify case citations
       if (citation.type === 'case') {
+        const components = citation.components as CaseComponents;
+
         try {
-          const components = citation.components as CaseComponents;
           const verification = await cachedVerifyCaseCitation(components);
           analyzed.verificationStatus = verification.status;
           analyzed.discrepancies = verification.discrepancies;
@@ -73,6 +76,28 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
           console.error('Verification error in /analyze:', err);
           analyzed.verificationStatus = 'pending';
           analyzed.logicTrace.push('External verification temporarily unavailable. Bluebook formatting rules still checked.');
+        }
+
+        // Pinpoint-PDF matching: check pinCite against uploaded documents
+        if (components.pinCite && documentIds && documentIds.length > 0) {
+          for (const docId of documentIds) {
+            try {
+              const match = await matchPinpointToDocument(
+                components.pinCite,
+                docId,
+                components.firstPage
+              );
+              if (match && match.matched) {
+                analyzed.pinpointMatch = match;
+                analyzed.logicTrace.push(
+                  `Pinpoint page verified against uploaded source "${match.documentName}".`
+                );
+                break;
+              }
+            } catch {
+              // Non-critical — continue without pinpoint match
+            }
+          }
         }
       }
 

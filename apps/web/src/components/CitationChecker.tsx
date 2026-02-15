@@ -1,33 +1,59 @@
 import { useState, useRef, useCallback } from 'react';
-import { X, Check, Copy } from 'lucide-react';
+import { FileText as FileTextIcon } from 'lucide-react';
 import { analyzeText, type AnalyzedCitation } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
 import { ScoreCounter } from './ui/ScoreCounter.tsx';
 import { AnalysisProgressBar } from './ui/AnalysisProgressBar.tsx';
+import { CitationTooltip } from './CitationTooltip.tsx';
+import { SourceViewer } from './SourceViewer.tsx';
 import { htmlToMarkedText } from '../hooks/useRichPaste.ts';
 import { useToast } from '../context/ToastContext.tsx';
+import { useCaseDocuments } from '../hooks/useCaseDocuments.ts';
+
+type FormatStyle = 'italics' | 'underline';
 
 interface CitationCheckerProps {
   onResults: (results: AnalyzedCitation[], input: string) => void;
   onSelectCitation: (citation: AnalyzedCitation) => void;
   results: AnalyzedCitation[];
+  formatStyle: FormatStyle;
 }
 
-export function CitationChecker({ onResults, onSelectCitation, results }: CitationCheckerProps) {
+export function CitationChecker({ onResults, onSelectCitation, results, formatStyle }: CitationCheckerProps) {
   const { showToast } = useToast();
+  const { findMatchingDocument } = useCaseDocuments();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hoveredCitation, setHoveredCitation] = useState<number | null>(null);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [acceptedChanges, setAcceptedChanges] = useState<Set<number>>(new Set());
+  const [deniedChanges, setDeniedChanges] = useState<Set<number>>(new Set());
+  const [viewingDocId, setViewingDocId] = useState<string | null>(null);
   const annotatedRef = useRef<HTMLDivElement>(null);
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCitationMouseEnter = useCallback((idx: number) => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+    setHoveredCitation(idx);
+  }, []);
+
+  const handleCitationMouseLeave = useCallback(() => {
+    hideTimeoutRef.current = setTimeout(() => {
+      setHoveredCitation(null);
+    }, 200);
+  }, []);
 
   const handleAnalyze = async () => {
     if (!input.trim()) return;
     setLoading(true);
     setError(null);
     setSelectedIdx(null);
+    setAcceptedChanges(new Set());
+    setDeniedChanges(new Set());
 
     try {
       const data = await analyzeText(input.trim());
@@ -52,8 +78,31 @@ export function CitationChecker({ onResults, onSelectCitation, results }: Citati
     const result = results[idx];
     if (!result.verifiedCitation) return;
     setAcceptedChanges(prev => new Set(prev).add(idx));
+    setDeniedChanges(prev => {
+      const next = new Set(prev);
+      next.delete(idx);
+      return next;
+    });
     showToast('Citation corrected', 'success');
   }, [results, showToast]);
+
+  const handleDenyChange = useCallback((idx: number) => {
+    if (deniedChanges.has(idx)) {
+      // Undo deny
+      setDeniedChanges(prev => {
+        const next = new Set(prev);
+        next.delete(idx);
+        return next;
+      });
+    } else {
+      setDeniedChanges(prev => new Set(prev).add(idx));
+      setAcceptedChanges(prev => {
+        const next = new Set(prev);
+        next.delete(idx);
+        return next;
+      });
+    }
+  }, [deniedChanges]);
 
   const handleCopyCorrection = useCallback(async (result: AnalyzedCitation) => {
     const corrected = result.verifiedCitation;
@@ -73,9 +122,21 @@ export function CitationChecker({ onResults, onSelectCitation, results }: Citati
     if (errors > 0) return { underline: 'border-error-400', bg: 'bg-error-50/70', hover: 'bg-error-100' };
     if (warnings > 0) return { underline: 'border-warning-400', bg: 'bg-warning-50/70', hover: 'bg-warning-100' };
     if (result.verificationStatus === 'verified') return { underline: 'border-verified-400', bg: 'bg-verified-50/70', hover: 'bg-verified-100' };
-    // No issues and not verified — show subtle neutral style (fixes grey underline on Id. etc.)
     if (result.issues.length === 0) return { underline: 'border-surface-200', bg: 'bg-surface-50/30', hover: 'bg-surface-100' };
     return { underline: 'border-primary-400', bg: 'bg-primary-50/70', hover: 'bg-primary-100' };
+  };
+
+  const renderFormattedInline = (text: string) => {
+    const parts = text.split(/(\*[^*]+\*)/);
+    return parts.map((part, i) => {
+      if (part.startsWith('*') && part.endsWith('*')) {
+        const content = part.slice(1, -1);
+        return formatStyle === 'italics'
+          ? <em key={i} className="font-serif">{content}</em>
+          : <u key={i}>{content}</u>;
+      }
+      return <span key={i}>{part}</span>;
+    });
   };
 
   // Build annotated text with inline highlights (Grammarly-style)
@@ -128,85 +189,31 @@ export function CitationChecker({ onResults, onSelectCitation, results }: Citati
               className={`relative cursor-pointer border-b-2 ${colors.underline} ${
                 isSelected ? colors.hover : isHovered ? colors.bg : ''
               } transition-all duration-200 rounded-sm px-0.5 -mx-0.5`}
-              onMouseEnter={() => setHoveredCitation(seg.citationIdx!)}
-              onMouseLeave={() => setHoveredCitation(null)}
+              onMouseEnter={() => handleCitationMouseEnter(seg.citationIdx!)}
+              onMouseLeave={handleCitationMouseLeave}
               onClick={() => handleCitationClick(seg.citationIdx!)}
             >
               {acceptedChanges.has(seg.citationIdx) && result.verifiedCitation
-                ? result.verifiedCitation.replace(/\*/g, '')
+                ? renderFormattedInline(result.verifiedCitation)
                 : seg.text}
-              {/* Inline tooltip popover — persistent on click */}
+              {/* Shared tooltip popover */}
               {(isHovered || isSelected) && (
-                <span
-                  className="absolute z-20 left-0 bottom-full mb-2 w-[calc(100vw-3rem)] sm:w-72 p-3 sm:p-4 bg-white rounded-2xl shadow-modal border border-surface-200 text-left"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <span className="flex items-center justify-between mb-2">
-                    <span className="flex items-center gap-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-lg font-semibold ${
-                        result.issues.filter(i => i.severity === 'error').length > 0
-                          ? 'bg-error-100 text-error-700'
-                          : result.verificationStatus === 'verified'
-                          ? 'bg-verified-100 text-verified-700'
-                          : 'bg-warning-100 text-warning-700'
-                      }`}>
-                        {result.issues.filter(i => i.severity === 'error').length > 0
-                          ? `${result.issues.filter(i => i.severity === 'error').length} Error${result.issues.filter(i => i.severity === 'error').length !== 1 ? 's' : ''}`
-                          : result.verificationStatus === 'verified'
-                          ? 'Verified'
-                          : 'Needs Review'}
-                      </span>
-                      <span className={`text-xs font-bold ${
-                        result.score >= 80 ? 'text-verified-600' :
-                        result.score >= 50 ? 'text-warning-600' : 'text-error-600'
-                      }`}>
-                        {result.score}%
-                      </span>
-                    </span>
-                    {isSelected && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setSelectedIdx(null); }}
-                        className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-surface-100 text-surface-400"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
-                  </span>
-                  {result.issues.length > 0 && (
-                    <span className="block text-xs text-surface-600 leading-relaxed">
-                      {result.issues[0].message}
-                      {result.issues.length > 1 && (
-                        <span className="text-surface-400"> (+{result.issues.length - 1} more)</span>
-                      )}
-                    </span>
-                  )}
-                  {result.verifiedCitation && (
-                    <span className="block text-xs text-verified-700 mt-2 font-serif italic">
-                      {result.verifiedCitation.replace(/\*/g, '')}
-                    </span>
-                  )}
-                  {/* Action buttons */}
-                  {result.verifiedCitation && result.verifiedCitation.replace(/\*/g, '') !== seg.text && !acceptedChanges.has(seg.citationIdx!) && (
-                    <span className="flex gap-2 mt-3">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleAcceptChange(seg.citationIdx!); }}
-                        className="btn-success text-xs px-3 py-1.5 flex items-center gap-1"
-                      >
-                        <Check className="w-3 h-3" /> Accept Change
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleCopyCorrection(result); }}
-                        className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1"
-                      >
-                        <Copy className="w-3 h-3" /> Copy
-                      </button>
-                    </span>
-                  )}
-                  {acceptedChanges.has(seg.citationIdx!) && (
-                    <span className="block text-xs text-verified-600 mt-2 font-medium">Change accepted</span>
-                  )}
-                  <span className="block text-[10px] text-surface-400 mt-1.5">Click to see full analysis</span>
-                </span>
+                <CitationTooltip
+                  result={result}
+                  citationIdx={seg.citationIdx!}
+                  isSelected={isSelected}
+                  isAccepted={acceptedChanges.has(seg.citationIdx!)}
+                  isDenied={deniedChanges.has(seg.citationIdx!)}
+                  originalText={seg.text}
+                  formatStyle={formatStyle}
+                  onAccept={handleAcceptChange}
+                  onDeny={handleDenyChange}
+                  onCopy={handleCopyCorrection}
+                  onClose={() => setSelectedIdx(null)}
+                  onSelect={handleCitationClick}
+                  onMouseEnter={() => handleCitationMouseEnter(seg.citationIdx!)}
+                  onMouseLeave={handleCitationMouseLeave}
+                />
               )}
             </span>
           );
@@ -263,7 +270,7 @@ export function CitationChecker({ onResults, onSelectCitation, results }: Citati
 
             <div className="flex justify-between items-center mt-4">
               <button
-                onClick={() => { onResults([], ''); setInput(''); setSelectedIdx(null); }}
+                onClick={() => { onResults([], ''); setInput(''); setSelectedIdx(null); setAcceptedChanges(new Set()); setDeniedChanges(new Set()); }}
                 className="text-xs text-surface-400 hover:text-surface-600 transition-colors"
               >
                 Clear and start over
@@ -329,41 +336,66 @@ export function CitationChecker({ onResults, onSelectCitation, results }: Citati
           <div className="space-y-2">
             {results.map((result, i) => {
               const colors = getSeverityColor(result);
+              const matchingDoc = findMatchingDocument(result);
               return (
-                <button
+                <div
                   key={i}
-                  onClick={() => handleCitationClick(i)}
-                  onMouseEnter={() => setHoveredCitation(i)}
-                  onMouseLeave={() => setHoveredCitation(null)}
                   className={`w-full text-left p-3 rounded-xl border transition-all duration-200 ${
                     selectedIdx === i
                       ? `border-primary-400 bg-primary-50 ring-1 ring-primary-200`
                       : `border-surface-200 hover:border-surface-300 ${hoveredCitation === i ? colors.bg : ''}`
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${
-                        result.issues.filter(i => i.severity === 'error').length > 0 ? 'bg-error-500' :
-                        result.issues.filter(i => i.severity === 'warning').length > 0 ? 'bg-warning-500' :
-                        result.verificationStatus === 'verified' ? 'bg-verified-500' : 'bg-surface-300'
-                      }`} />
-                      <span className="text-xs font-mono truncate text-surface-700">
-                        {result.parsed?.rawText || 'Unknown citation'}
-                      </span>
+                  <button
+                    onClick={() => handleCitationClick(i)}
+                    onMouseEnter={() => handleCitationMouseEnter(i)}
+                    onMouseLeave={handleCitationMouseLeave}
+                    className="w-full text-left"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${
+                          result.issues.filter(iss => iss.severity === 'error').length > 0 ? 'bg-error-500' :
+                          result.issues.filter(iss => iss.severity === 'warning').length > 0 ? 'bg-warning-500' :
+                          result.verificationStatus === 'verified' ? 'bg-verified-500' : 'bg-surface-300'
+                        }`} />
+                        <span className="text-xs font-mono truncate text-surface-700">
+                          {result.parsed?.rawText || 'Unknown citation'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {matchingDoc && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setViewingDocId(matchingDoc.id); }}
+                            className="flex items-center gap-1 text-[10px] font-medium text-primary-600 hover:text-primary-700 transition-colors"
+                            title="View source document"
+                          >
+                            <FileTextIcon className="w-3 h-3" />
+                            Source
+                          </button>
+                        )}
+                        <span className={`text-xs font-bold ${
+                          result.score >= 80 ? 'text-verified-600' :
+                          result.score >= 50 ? 'text-warning-600' : 'text-error-600'
+                        }`}>
+                          {result.score}%
+                        </span>
+                      </div>
                     </div>
-                    <span className={`text-xs font-bold shrink-0 ${
-                      result.score >= 80 ? 'text-verified-600' :
-                      result.score >= 50 ? 'text-warning-600' : 'text-error-600'
-                    }`}>
-                      {result.score}%
-                    </span>
-                  </div>
-                </button>
+                  </button>
+                </div>
               );
             })}
           </div>
         </div>
+      )}
+
+      {/* Source Viewer Modal */}
+      {viewingDocId && (
+        <SourceViewer
+          documentId={viewingDocId}
+          onClose={() => setViewingDocId(null)}
+        />
       )}
     </div>
   );

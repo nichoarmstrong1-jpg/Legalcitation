@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { BookOpen, ChevronRight } from 'lucide-react';
-import { searchCases, buildCitation, type AnalyzedCitation, type CaseSearchResult } from '../services/api.ts';
+import { BookOpen, ChevronRight, FileText } from 'lucide-react';
+import { searchCases, buildCitation, analyzeText, type AnalyzedCitation, type CaseSearchResult } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
 import { CitationGeneratingView } from './CitationGeneratingView.tsx';
 import { CaseLibrary } from './CaseLibrary.tsx';
 import { SourceViewer } from './SourceViewer.tsx';
+import { FormattedCitation } from './FormattedCitation.tsx';
 import { htmlToMarkedText } from '../hooks/useRichPaste.ts';
 
 interface CitationBuilderProps {
@@ -22,6 +23,9 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
   const [selectedResult, setSelectedResult] = useState<CaseSearchResult | null>(null);
   const [builtCitation, setBuiltCitation] = useState<AnalyzedCitation | null>(null);
   const [viewingDocId, setViewingDocId] = useState<string | null>(null);
+  const [extractedCitations, setExtractedCitations] = useState<AnalyzedCitation[]>([]);
+  const [extracting, setExtracting] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
   const handleSearch = async (overrideQuery?: string) => {
     const query = overrideQuery || input.trim();
@@ -65,8 +69,31 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
     }
   };
 
-  const handleFileText = (text: string, _fileName: string) => {
-    setInput(text);
+  const handleFileText = async (text: string, fileName: string) => {
+    setUploadedFileName(fileName);
+    setExtracting(true);
+    setError(null);
+    setExtractedCitations([]);
+
+    try {
+      const data = await analyzeText(text);
+      if (data.results.length === 0) {
+        setError('No citations found in this document. Try searching manually instead.');
+      } else {
+        setExtractedCitations(data.results);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not extract citations from this file.');
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const handleExtractedCitationClick = (citation: AnalyzedCitation) => {
+    const rawText = citation.parsed?.rawText;
+    if (!rawText) return;
+    setInput(rawText);
+    handleSearch(rawText);
   };
 
   const handleClear = () => {
@@ -75,20 +102,13 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
     setSearchTrace([]);
     setSelectedResult(null);
     setBuiltCitation(null);
+    setExtractedCitations([]);
+    setUploadedFileName(null);
     setError(null);
   };
 
   const renderFormattedCitation = (text: string) => {
-    const parts = text.split(/(\*[^*]+\*)/);
-    return parts.map((part, i) => {
-      if (part.startsWith('*') && part.endsWith('*')) {
-        const content = part.slice(1, -1);
-        return formatStyle === 'italics'
-          ? <em key={i} className="font-serif">{content}</em>
-          : <u key={i}>{content}</u>;
-      }
-      return <span key={i}>{part}</span>;
-    });
+    return <FormattedCitation text={text} formatStyle={formatStyle} />;
   };
 
   return (
@@ -118,6 +138,69 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
             </div>
           </div>
         </div>
+
+        {/* Extracting indicator */}
+        {extracting && (
+          <div className="mb-5 p-4 bg-surface-50 border border-surface-200 rounded-2xl">
+            <div className="flex items-center gap-3">
+              <span className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm text-surface-600">Scanning document for citations...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Extracted citations from uploaded file */}
+        {extractedCitations.length > 0 && (
+          <div className="mb-5 p-5 bg-surface-50 border border-surface-200 rounded-2xl">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary-600" />
+                <h3 className="text-sm font-semibold text-primary-900">
+                  {extractedCitations.length} Citation{extractedCitations.length !== 1 ? 's' : ''} Found
+                </h3>
+              </div>
+              {uploadedFileName && (
+                <span className="text-xs text-surface-400 truncate max-w-[200px]">{uploadedFileName}</span>
+              )}
+            </div>
+            <p className="text-xs text-surface-500 mb-3">
+              Select a citation below to search for and build the correct Bluebook format.
+            </p>
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {extractedCitations.map((citation, i) => {
+                const rawText = citation.parsed?.rawText || 'Unknown citation';
+                const citationType = citation.parsed?.type || 'unknown';
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handleExtractedCitationClick(citation)}
+                    disabled={searching || building}
+                    className="w-full text-left p-3 rounded-xl border border-surface-200 hover:border-primary-300 hover:bg-white transition-all duration-200 disabled:opacity-50"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-serif text-surface-700 leading-relaxed">
+                          <FormattedCitation text={rawText} formatStyle={formatStyle} />
+                        </span>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-2">
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-primary-50 text-primary-600 uppercase">
+                          {citationType}
+                        </span>
+                        <span className={`text-xs font-bold ${
+                          citation.score >= 80 ? 'text-verified-600' :
+                          citation.score >= 50 ? 'text-warning-600' : 'text-error-600'
+                        }`}>
+                          {citation.score}%
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Divider */}
         <div className="relative flex items-center mb-5">
@@ -173,7 +256,7 @@ export function CitationBuilder({ onResult, formatStyle }: CitationBuilderProps)
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0 mt-4">
           <span className="text-xs text-surface-400 text-center sm:text-left">Press Enter to search</span>
           <div className="flex gap-2">
-            {(searchResults.length > 0 || builtCitation) && (
+            {(searchResults.length > 0 || builtCitation || extractedCitations.length > 0) && (
               <button onClick={handleClear} className="btn-secondary text-sm">
                 Clear
               </button>

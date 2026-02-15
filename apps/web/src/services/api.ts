@@ -1,5 +1,12 @@
 export const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+export interface PinpointMatch {
+  documentId: string;
+  documentName: string;
+  matched: boolean;
+  pages: Array<{ pageNumber: number; found: boolean; textSnippet?: string }>;
+}
+
 export interface AnalyzedCitation {
   parsed: any;
   issues: ValidationIssue[];
@@ -11,6 +18,7 @@ export interface AnalyzedCitation {
   logicTrace: string[];
   score: number;
   shortForms?: string[];
+  pinpointMatch?: PinpointMatch;
 }
 
 export interface ValidationIssue {
@@ -27,16 +35,25 @@ export interface AnalyzeResponse {
   citationCount: number;
 }
 
-export async function analyzeText(text: string, context = 'citation_sentence'): Promise<AnalyzeResponse> {
+export async function analyzeText(
+  text: string,
+  context = 'citation_sentence',
+  documentIds?: string[]
+): Promise<AnalyzeResponse> {
+  const body: Record<string, unknown> = { text, context };
+  if (documentIds && documentIds.length > 0) {
+    body.documentIds = documentIds;
+  }
+
   const res = await fetch(`${API_BASE}/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ text, context }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.message || body?.error || `Analysis failed: ${res.status}`);
+    const errBody = await res.json().catch(() => null);
+    throw new Error(errBody?.message || errBody?.error || `Analysis failed: ${res.status}`);
   }
   return res.json();
 }
@@ -83,6 +100,12 @@ export async function buildCitation(input: string): Promise<AnalyzedCitation> {
   return res.json();
 }
 
+export interface UploadError {
+  error: string;
+  suggestion?: string;
+  code?: string;
+}
+
 export async function uploadFile(file: File): Promise<{ extractedText: string; fileName: string }> {
   const formData = new FormData();
   formData.append('file', file);
@@ -93,10 +116,18 @@ export async function uploadFile(file: File): Promise<{ extractedText: string; f
     body: formData,
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.message || body?.error || `Upload failed: ${res.status}`);
+    const body = await res.json().catch(() => null) as UploadError | null;
+    const err = new Error(body?.error || `Upload failed: ${res.status}`);
+    if (body?.suggestion) (err as UploadErrorWithSuggestion).suggestion = body.suggestion;
+    if (body?.code) (err as UploadErrorWithSuggestion).code = body.code;
+    throw err;
   }
   return res.json();
+}
+
+export interface UploadErrorWithSuggestion extends Error {
+  suggestion?: string;
+  code?: string;
 }
 
 export async function submitFeedback(data: {

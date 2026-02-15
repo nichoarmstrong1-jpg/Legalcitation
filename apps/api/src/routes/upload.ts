@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { extractTextFromFile } from '../services/document-processor.js';
+import { extractTextFromFile, DocumentExtractionError } from '../services/document-processor.js';
 
 export const uploadRouter = Router();
 
@@ -34,8 +34,14 @@ uploadRouter.post('/', upload.single('file'), async (req, res) => {
     });
   } catch (error) {
     console.error('Upload error:', error);
+    if (error instanceof DocumentExtractionError) {
+      res.status(422).json(error.toJSON());
+      return;
+    }
     res.status(500).json({
       error: error instanceof Error ? error.message : 'File processing failed',
+      suggestion: 'Try a different file, or copy and paste the text directly.',
+      code: 'UNKNOWN',
     });
   }
 });

@@ -3,7 +3,7 @@ import multer from 'multer';
 import { eq, desc } from 'drizzle-orm';
 import { getDb, isDatabaseConfigured, schema } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
-import { extractFromPdfWithPages, extractTextFromFile } from '../services/document-processor.js';
+import { extractFromPdfWithPages, extractTextFromFile, DocumentExtractionError } from '../services/document-processor.js';
 import { extractAndParseCitations } from '@legalcitation/citation-parser';
 
 export const caseDocumentsRouter = Router();
@@ -108,8 +108,14 @@ caseDocumentsRouter.post(
       res.json({ documents: results });
     } catch (error) {
       console.error('Case document upload error:', error);
+      if (error instanceof DocumentExtractionError) {
+        res.status(422).json(error.toJSON());
+        return;
+      }
       res.status(500).json({
         error: error instanceof Error ? error.message : 'File processing failed',
+        suggestion: 'Try a different file, or copy and paste the text directly.',
+        code: 'UNKNOWN',
       });
     }
   }

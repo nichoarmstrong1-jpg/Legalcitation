@@ -17,7 +17,119 @@ export interface ExtractedDocument {
   pageCount?: number;
 }
 
+export interface ExtractionError {
+  message: string;
+  suggestion: string;
+  code: 'SCANNED_PDF' | 'ENCRYPTED_PDF' | 'CORRUPTED_FILE' | 'EMPTY_EXTRACTION' | 'UNSUPPORTED_FORMAT' | 'OCR_UNAVAILABLE' | 'FILE_TOO_LARGE' | 'UNKNOWN';
+}
+
+export class DocumentExtractionError extends Error {
+  public readonly suggestion: string;
+  public readonly code: ExtractionError['code'];
+
+  constructor({ message, suggestion, code }: ExtractionError) {
+    super(message);
+    this.name = 'DocumentExtractionError';
+    this.suggestion = suggestion;
+    this.code = code;
+  }
+
+  toJSON() {
+    return {
+      error: this.message,
+      suggestion: this.suggestion,
+      code: this.code,
+    };
+  }
+}
+
+function classifyExtractionError(error: unknown, fileName: string): DocumentExtractionError {
+  const msg = error instanceof Error ? error.message.toLowerCase() : '';
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+
+  if (msg.includes('password') || msg.includes('encrypt') || msg.includes('protected')) {
+    return new DocumentExtractionError({
+      message: 'This PDF is password-protected.',
+      suggestion: 'Try opening it first, then saving an unprotected copy, or paste the text directly.',
+      code: 'ENCRYPTED_PDF',
+    });
+  }
+
+  if (msg.includes('invalid pdf') || msg.includes('not a pdf') || msg.includes('bad pdf') || msg.includes('startxref')) {
+    return new DocumentExtractionError({
+      message: "We couldn't read this file. It may be corrupted or not a valid PDF.",
+      suggestion: 'Try re-downloading the file from your research database, or copy and paste the text directly.',
+      code: 'CORRUPTED_FILE',
+    });
+  }
+
+  if (msg.includes('ocr') || msg.includes('tesseract') || msg.includes('image')) {
+    return new DocumentExtractionError({
+      message: 'This file appears to be an image. Text extraction from images is not yet supported.',
+      suggestion: 'Try downloading a text-based version from your research database, or copy and paste the text directly.',
+      code: 'OCR_UNAVAILABLE',
+    });
+  }
+
+  const supportedExts = ['pdf', 'docx', 'doc', 'rtf', 'txt', 'csv', 'tsv', 'html', 'htm', 'text', 'log'];
+  if (!supportedExts.includes(ext)) {
+    return new DocumentExtractionError({
+      message: `The file format ".${ext}" isn't supported yet.`,
+      suggestion: 'We accept PDF, DOCX, DOC, RTF, and TXT files. You can also paste text directly.',
+      code: 'UNSUPPORTED_FORMAT',
+    });
+  }
+
+  return new DocumentExtractionError({
+    message: "We couldn't process this file.",
+    suggestion: 'Try re-downloading it from your research database, or copy and paste the relevant text instead.',
+    code: 'UNKNOWN',
+  });
+}
+
+function validateExtractedText(text: string, fileName: string): void {
+  if (!text || text.trim().length === 0) {
+    throw new DocumentExtractionError({
+      message: 'No text was found in this document.',
+      suggestion: "If it's a scanned document, try downloading a text-based version. You can also paste text directly.",
+      code: 'EMPTY_EXTRACTION',
+    });
+  }
+
+  // Detect scanned/image PDFs: very short text relative to what's expected, or mostly garbled characters
+  const trimmed = text.trim();
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  if (ext === 'pdf' && trimmed.length < 50) {
+    const nonAsciiRatio = (trimmed.replace(/[\x20-\x7E\n\r\t]/g, '').length) / trimmed.length;
+    if (nonAsciiRatio > 0.5 || trimmed.length < 20) {
+      throw new DocumentExtractionError({
+        message: 'This PDF appears to be a scanned image with little readable text.',
+        suggestion: 'Try downloading a text-based version from your research database, or copy and paste the text directly.',
+        code: 'SCANNED_PDF',
+      });
+    }
+  }
+}
+
 export async function extractTextFromFile(
+  buffer: Buffer,
+  mimeType: string,
+  fileName: string
+): Promise<string> {
+  let text: string;
+
+  try {
+    text = await extractTextRaw(buffer, mimeType, fileName);
+  } catch (error) {
+    if (error instanceof DocumentExtractionError) throw error;
+    throw classifyExtractionError(error, fileName);
+  }
+
+  validateExtractedText(text, fileName);
+  return text;
+}
+
+async function extractTextRaw(
   buffer: Buffer,
   mimeType: string,
   fileName: string
@@ -196,7 +308,8 @@ export async function extractFromPdfWithPages(buffer: Buffer): Promise<Extracted
       pageCount: pageTexts.length,
     };
   } catch (error) {
-    throw new Error(`PDF parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    if (error instanceof DocumentExtractionError) throw error;
+    throw classifyExtractionError(error, 'document.pdf');
   }
 }
 

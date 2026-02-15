@@ -4,6 +4,7 @@ import type { AnalyzedCitation } from '../services/api.ts';
 import { submitFeedback } from '../services/api.ts';
 import { ShortFormDisplay } from './ShortFormDisplay.tsx';
 import { CitationBreakdown } from './CitationBreakdown.tsx';
+import { FormattedCitation } from './FormattedCitation.tsx';
 import { useToast } from '../context/ToastContext.tsx';
 
 interface AnalysisSidebarProps {
@@ -96,16 +97,7 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
   const status = statusConfig[citation.verificationStatus as keyof typeof statusConfig] || statusConfig.pending;
 
   const renderFormattedCitation = (text: string) => {
-    const parts = text.split(/(\*[^*]+\*)/);
-    return parts.map((part, i) => {
-      if (part.startsWith('*') && part.endsWith('*')) {
-        const content = part.slice(1, -1);
-        return formatStyle === 'italics'
-          ? <em key={i} className="font-serif">{content}</em>
-          : <u key={i}>{content}</u>;
-      }
-      return <span key={i}>{part}</span>;
-    });
+    return <FormattedCitation text={text} formatStyle={formatStyle} />;
   };
 
   // Filter out raw HTTP/technical details
@@ -182,6 +174,36 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
           {status.label}
         </span>
       </div>
+
+      {/* Pinpoint Match Result */}
+      {citation.pinpointMatch && (
+        <div className={`card border ${citation.pinpointMatch.matched ? 'border-verified-200 bg-verified-50' : 'border-warning-200 bg-warning-50'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            {citation.pinpointMatch.matched ? (
+              <Check className="w-4 h-4 text-verified-600" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-warning-600" />
+            )}
+            <span className={`text-xs font-semibold ${citation.pinpointMatch.matched ? 'text-verified-700' : 'text-warning-700'}`}>
+              {citation.pinpointMatch.matched ? 'Source Page Verified' : 'Source Page Not Found'}
+            </span>
+          </div>
+          <p className="text-xs text-surface-600 mb-1">
+            Checked against: {citation.pinpointMatch.documentName}
+          </p>
+          {citation.pinpointMatch.pages.map((page, i) => (
+            <div key={i} className="flex items-center gap-1.5 text-[11px] text-surface-500 mt-1">
+              <span className={`w-1.5 h-1.5 rounded-full ${page.found ? 'bg-verified-500' : 'bg-warning-500'}`} />
+              Page {page.pageNumber}: {page.found ? 'Found' : 'Not found'}
+              {page.textSnippet && (
+                <span className="text-surface-400 truncate max-w-[180px]" title={page.textSnippet}>
+                  — {page.textSnippet}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Verification Steps (collapsible) */}
       {cleanTrace.length > 0 && (() => {

@@ -124,6 +124,7 @@ function AppContent() {
                 onResults={handleResults}
                 onSelectCitation={setSelectedCitation}
                 results={allResults}
+                formatStyle={formatStyle}
               />
             )}
             {mode === 'builder' && (

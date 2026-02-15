@@ -126,6 +126,13 @@ export interface ReferenceExample {
   url?: string;
 }
 
+export interface PinpointMatchResult {
+  documentId: string;
+  documentName: string;
+  matched: boolean;
+  pages: Array<{ pageNumber: number; found: boolean; textSnippet?: string }>;
+}
+
 export interface AnalyzedCitation {
   parsed: ParsedCitation;
   issues: ValidationIssue[];
@@ -136,6 +143,7 @@ export interface AnalyzedCitation {
   referenceExamples: ReferenceExample[];
   logicTrace: string[];
   score: number;
+  pinpointMatch?: PinpointMatchResult;
 }
 
 export interface HistoryEntry {

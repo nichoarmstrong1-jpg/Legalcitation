@@ -1,0 +1,291 @@
+import { useState, useRef, useCallback } from 'react';
+import { X, Check, Copy, ChevronRight, ChevronDown, AlertTriangle, Undo2 } from 'lucide-react';
+import type { AnalyzedCitation } from '../services/api.ts';
+
+type FormatStyle = 'italics' | 'underline';
+
+interface CitationTooltipProps {
+  result: AnalyzedCitation;
+  citationIdx: number;
+  isSelected: boolean;
+  isAccepted: boolean;
+  isDenied: boolean;
+  originalText: string;
+  formatStyle: FormatStyle;
+  onAccept: (idx: number) => void;
+  onDeny: (idx: number) => void;
+  onCopy: (result: AnalyzedCitation) => void;
+  onClose: () => void;
+  onSelect: (idx: number) => void;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}
+
+function renderFormattedText(text: string, formatStyle: FormatStyle) {
+  const parts = text.split(/(\*[^*]+\*)/);
+  return parts.map((part, i) => {
+    if (part.startsWith('*') && part.endsWith('*')) {
+      const content = part.slice(1, -1);
+      return formatStyle === 'italics'
+        ? <em key={i} className="font-serif">{content}</em>
+        : <u key={i}>{content}</u>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+function isRuleStep(step: string): boolean {
+  return /[RBT]\.\s*[\d]/.test(step) ||
+    /verified|accurate|correct|confirmed|abbreviat|format|court|reporter|case name|year|page|pinpoint|italic|underlin|spacing|signal/i.test(step);
+}
+
+function getStepIcon(step: string) {
+  if (/verified|Verified|accurate|correct|confirmed/.test(step)) {
+    return <Check className="w-3 h-3 text-verified-500" />;
+  }
+  if (/issue|could not|discrepan|correction/.test(step)) {
+    return <AlertTriangle className="w-3 h-3 text-warning-500" />;
+  }
+  return <span className="w-1.5 h-1.5 rounded-full bg-surface-300 inline-block" />;
+}
+
+function getStepTextColor(step: string): string {
+  if (/verified|Verified|accurate|confirmed/.test(step)) {
+    return 'text-verified-700 font-medium';
+  }
+  if (/issue|could not|correction/.test(step)) {
+    return 'text-warning-700';
+  }
+  return 'text-surface-600';
+}
+
+export function CitationTooltip({
+  result,
+  citationIdx,
+  isSelected,
+  isAccepted,
+  isDenied,
+  originalText,
+  formatStyle,
+  onAccept,
+  onDeny,
+  onCopy,
+  onClose,
+  onSelect,
+  onMouseEnter,
+  onMouseLeave,
+}: CitationTooltipProps) {
+  const [expanded, setExpanded] = useState(false);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  const errorCount = result.issues.filter(i => i.severity === 'error').length;
+  const hasCorrection = result.verifiedCitation &&
+    result.verifiedCitation.replace(/\*/g, '') !== originalText;
+
+  const handleExpandToggle = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpanded(prev => !prev);
+  }, []);
+
+  // Filter logic trace to rule-related steps
+  const cleanTrace = (result.logicTrace || []).filter(step =>
+    !step.includes('http://') &&
+    !step.includes('https://') &&
+    !step.match(/\b(403|401|500)\b.*error/i) &&
+    !step.includes('ANTHROPIC_API_KEY') &&
+    !step.includes('API_KEY')
+  );
+  const ruleSteps = cleanTrace.filter(isRuleStep);
+
+  return (
+    <div
+      ref={tooltipRef}
+      className="absolute z-20 left-0 bottom-full mb-2 w-[calc(100vw-3rem)] sm:w-80 p-3 sm:p-4 bg-white rounded-2xl shadow-modal border border-surface-200 text-left"
+      onClick={e => e.stopPropagation()}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {/* Header: status badge + score + close */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className={`text-xs px-2 py-0.5 rounded-lg font-semibold ${
+            errorCount > 0
+              ? 'bg-error-100 text-error-700'
+              : result.verificationStatus === 'verified'
+              ? 'bg-verified-100 text-verified-700'
+              : 'bg-warning-100 text-warning-700'
+          }`}>
+            {errorCount > 0
+              ? `${errorCount} Error${errorCount !== 1 ? 's' : ''}`
+              : result.verificationStatus === 'verified'
+              ? 'Verified'
+              : 'Needs Review'}
+          </span>
+          <span className={`text-xs font-bold ${
+            result.score >= 80 ? 'text-verified-600' :
+            result.score >= 50 ? 'text-warning-600' : 'text-error-600'
+          }`}>
+            {result.score}%
+          </span>
+        </div>
+        {isSelected && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-surface-100 text-surface-400"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+
+      {/* First issue */}
+      {result.issues.length > 0 && (
+        <div className="text-xs text-surface-600 leading-relaxed mb-2">
+          {result.issues[0].message}
+          {result.issues.length > 1 && (
+            <span className="text-surface-400"> (+{result.issues.length - 1} more)</span>
+          )}
+        </div>
+      )}
+
+      {/* Verified / corrected citation */}
+      {result.verifiedCitation && (
+        <div className="text-xs text-verified-700 font-serif leading-relaxed mb-2">
+          {renderFormattedText(result.verifiedCitation, formatStyle)}
+        </div>
+      )}
+
+      {/* Action buttons */}
+      {hasCorrection && !isAccepted && !isDenied && (
+        <div className="flex gap-2 mb-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); onAccept(citationIdx); }}
+            className="btn-success text-xs px-3 py-1.5 flex items-center gap-1"
+          >
+            <Check className="w-3 h-3" /> Accept
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onCopy(result); }}
+            className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1"
+          >
+            <Copy className="w-3 h-3" /> Copy
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDeny(citationIdx); }}
+            className="text-xs px-3 py-1.5 rounded-xl text-surface-500 hover:text-surface-700 hover:bg-surface-100 transition-colors flex items-center gap-1"
+          >
+            <X className="w-3 h-3" /> Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Accepted state */}
+      {isAccepted && (
+        <div className="text-xs text-verified-600 font-medium mb-2">
+          Change applied
+        </div>
+      )}
+
+      {/* Denied state */}
+      {isDenied && (
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs text-surface-400">Change dismissed</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDeny(citationIdx); }}
+            className="text-[10px] text-primary-600 hover:text-primary-700 flex items-center gap-0.5"
+          >
+            <Undo2 className="w-2.5 h-2.5" /> Undo
+          </button>
+        </div>
+      )}
+
+      {/* Pinpoint match badge */}
+      {result.pinpointMatch && (
+        <div className={`flex items-center gap-1.5 text-[11px] mb-2 px-2 py-1 rounded-lg ${
+          result.pinpointMatch.matched
+            ? 'bg-verified-50 text-verified-700'
+            : 'bg-warning-50 text-warning-700'
+        }`}>
+          {result.pinpointMatch.matched ? (
+            <><Check className="w-3 h-3" /> Source page verified — {result.pinpointMatch.documentName}</>
+          ) : (
+            <><AlertTriangle className="w-3 h-3" /> Page not found in source document</>
+          )}
+        </div>
+      )}
+
+      {/* Expandable analysis */}
+      <button
+        onClick={handleExpandToggle}
+        className="flex items-center gap-1 text-[10px] text-surface-400 hover:text-surface-600 transition-colors w-full"
+      >
+        {expanded ? (
+          <ChevronDown className="w-3 h-3 shrink-0" />
+        ) : (
+          <ChevronRight className="w-3 h-3 shrink-0" />
+        )}
+        {expanded ? 'Hide analysis' : 'View analysis'}
+        {!expanded && result.issues.length > 0 && (
+          <span className="text-surface-300 ml-auto">{result.issues.length} rule{result.issues.length !== 1 ? 's' : ''} checked</span>
+        )}
+      </button>
+
+      {expanded && (
+        <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
+          {/* Per-issue breakdown */}
+          {result.issues.map((issue, i) => (
+            <div key={issue.id || i} className="flex items-start gap-2 text-[11px]">
+              <div className="mt-0.5 shrink-0">
+                {issue.severity === 'error' ? (
+                  <AlertTriangle className="w-3 h-3 text-error-500" />
+                ) : issue.severity === 'warning' ? (
+                  <AlertTriangle className="w-3 h-3 text-warning-500" />
+                ) : (
+                  <Check className="w-3 h-3 text-surface-400" />
+                )}
+              </div>
+              <div>
+                <span className={`font-medium ${
+                  issue.severity === 'error' ? 'text-error-700' :
+                  issue.severity === 'warning' ? 'text-warning-700' : 'text-surface-600'
+                }`}>
+                  {issue.rule && <span className="text-surface-400 mr-1">{issue.rule}</span>}
+                  {issue.message}
+                </span>
+                {issue.suggestion && (
+                  <span className="block text-surface-400 mt-0.5">{issue.suggestion}</span>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Logic trace steps */}
+          {ruleSteps.length > 0 && (
+            <div className="pt-1.5 mt-1.5 border-t border-surface-100 space-y-1">
+              {ruleSteps.map((step, i) => (
+                <div key={i} className="flex items-start gap-2 text-[11px]">
+                  <div className="mt-0.5 shrink-0">{getStepIcon(step)}</div>
+                  <span className={`leading-relaxed ${getStepTextColor(step)}`}>{step}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {result.issues.length === 0 && ruleSteps.length === 0 && (
+            <div className="text-[11px] text-surface-400">No issues found for this citation.</div>
+          )}
+        </div>
+      )}
+
+      {/* Click to select for full sidebar analysis */}
+      {!isSelected && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onSelect(citationIdx); }}
+          className="block text-[10px] text-surface-400 hover:text-primary-600 mt-1.5 transition-colors"
+        >
+          Click for full sidebar analysis
+        </button>
+      )}
+    </div>
+  );
+}
