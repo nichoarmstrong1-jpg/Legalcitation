@@ -15,6 +15,13 @@
       "when": 1771069200000,
       "tag": "0001_case_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771206361058,
+      "tag": "0002_nifty_rachel_grey",
+      "breakpoints": true
     }
   ]
 }

@@ -64,6 +64,89 @@ export const caseDocuments = pgTable('case_documents', {
   uploadedAt: timestamp('uploaded_at').notNull().defaultNow(),
 });
 
+// --- Spading Feature ---
+
+export const spadingStatusEnum = pgEnum('spading_status', [
+  'draft',
+  'processing',
+  'completed',
+  'error',
+]);
+
+export const documentRoleEnum = pgEnum('document_role', [
+  'journal_entry',
+  'source',
+]);
+
+export const annotationStatusEnum = pgEnum('annotation_status', [
+  'verified',
+  'partial_match',
+  'not_found',
+  'format_error',
+  'quote_mismatch',
+  'pending',
+  'error',
+]);
+
+export const spadingProjects = pgTable('spading_projects', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 500 }).notNull(),
+  description: text('description'),
+  status: spadingStatusEnum('status').notNull().default('draft'),
+  journalDocumentId: uuid('journal_document_id'),
+  citationCount: integer('citation_count'),
+  verifiedCount: integer('verified_count'),
+  issueCount: integer('issue_count'),
+  progress: integer('progress').default(0),
+  currentStep: varchar('current_step', { length: 200 }),
+  errorMessage: text('error_message'),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const projectDocuments = pgTable('project_documents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull().references(() => spadingProjects.id, { onDelete: 'cascade' }),
+  role: documentRoleEnum('role').notNull(),
+  fileName: text('file_name').notNull(),
+  mimeType: varchar('mime_type', { length: 100 }).notNull(),
+  fileSize: integer('file_size').notNull(),
+  filePath: text('file_path'),
+  extractedText: text('extracted_text').notNull(),
+  pageMapping: jsonb('page_mapping'),
+  pageCount: integer('page_count'),
+  caseName: text('case_name'),
+  citation: text('citation'),
+  uploadedAt: timestamp('uploaded_at').notNull().defaultNow(),
+});
+
+export const spadingAnnotations = pgTable('spading_annotations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull().references(() => spadingProjects.id, { onDelete: 'cascade' }),
+  startOffset: integer('start_offset').notNull(),
+  endOffset: integer('end_offset').notNull(),
+  rawCitationText: text('raw_citation_text').notNull(),
+  parsedCitation: jsonb('parsed_citation').notNull(),
+  status: annotationStatusEnum('status').notNull().default('pending'),
+  issues: jsonb('issues'),
+  score: integer('score'),
+  verifiedCitation: text('verified_citation'),
+  discrepancies: jsonb('discrepancies'),
+  logicTrace: jsonb('logic_trace'),
+  matchedDocumentId: uuid('matched_document_id').references(() => projectDocuments.id, { onDelete: 'set null' }),
+  matchedPageNumber: integer('matched_page_number'),
+  matchedTextSnippet: text('matched_text_snippet'),
+  quotedText: text('quoted_text'),
+  sourceText: text('source_text'),
+  quoteAccurate: boolean('quote_accurate'),
+  editorNote: text('editor_note'),
+  resolved: boolean('resolved').default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // JWT refresh token sessions
 export const sessions = pgTable('sessions', {
   id: uuid('id').primaryKey().defaultRandom(),

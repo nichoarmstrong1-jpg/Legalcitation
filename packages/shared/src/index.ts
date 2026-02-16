@@ -1,6 +1,7 @@
 // Types
 export * from './types/citation.js';
 export * from './types/document.js';
+export * from './types/spading.js';
 
 // Constants
 export * from './constants/abbreviations.js';

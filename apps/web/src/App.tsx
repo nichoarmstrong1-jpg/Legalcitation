@@ -6,6 +6,7 @@ import { CitationChecker } from './components/CitationChecker.tsx';
 import { CitationBuilder } from './components/CitationBuilder.tsx';
 import { AnalysisSidebar } from './components/AnalysisSidebar.tsx';
 import { HistoryView } from './components/HistoryView.tsx';
+import { SpadingDashboard } from './components/spading/SpadingDashboard.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
 import { OnboardingFlow } from './components/OnboardingFlow.tsx';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal.tsx';
@@ -20,9 +21,9 @@ import { GuidedTour } from './components/GuidedTour.tsx';
 import { useTour } from './hooks/useTour.ts';
 import type { AnalyzedCitation } from './services/api.ts';
 
-type Mode = 'checker' | 'builder' | 'history';
+type Mode = 'checker' | 'builder' | 'history' | 'spading';
 type FormatStyle = 'italics' | 'underline';
-const MODES: Mode[] = ['checker', 'builder', 'history'];
+const MODES: Mode[] = ['checker', 'builder', 'history', 'spading'];
 
 function AppContent() {
   useAuth();
@@ -62,14 +63,14 @@ function AppContent() {
     if (results.length > 0) {
       setSelectedCitation(results[0]);
     }
-    saveToHistory({ mode: mode as Exclude<Mode, 'history'>, input, results });
+    saveToHistory({ mode: mode as 'checker' | 'builder', input, results });
   }, [mode, saveToHistory]);
 
   const handleSingleResult = useCallback((result: AnalyzedCitation, input: string) => {
     setIsAnalyzing(false);
     setAllResults([result]);
     setSelectedCitation(result);
-    saveToHistory({ mode: mode as Exclude<Mode, 'history'>, input, results: [result] });
+    saveToHistory({ mode: mode as 'checker' | 'builder', input, results: [result] });
   }, [mode, saveToHistory]);
 
   const handleRestoreHistory = useCallback((entry: HistoryEntry) => {
@@ -131,77 +132,83 @@ function AppContent() {
           }
         }} />
 
-        <div className="mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            {mode === 'checker' && (
-              <CitationChecker
-                onResults={handleResults}
-                onSelectCitation={setSelectedCitation}
-                results={allResults}
-                formatStyle={formatStyle}
-                restoredInput={restoredInput}
-              />
-            )}
-            {mode === 'builder' && (
-              <CitationBuilder
-                onResult={handleSingleResult}
-                formatStyle={formatStyle}
-                restoredInput={restoredInput}
-              />
-            )}
-            {mode === 'history' && (
-              <HistoryView
-                history={history}
-                onRestore={handleRestoreHistory}
-                onDelete={deleteEntry}
-                onClear={clearHistory}
-                selectedEntryId={selectedHistoryId}
-              />
-            )}
+        {mode === 'spading' ? (
+          <div className="mt-6 sm:mt-8">
+            <SpadingDashboard onAuthOpen={openAuth} />
           </div>
+        ) : (
+          <div className="mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+            {/* Main Content */}
+            <div className="lg:col-span-2">
+              {mode === 'checker' && (
+                <CitationChecker
+                  onResults={handleResults}
+                  onSelectCitation={setSelectedCitation}
+                  results={allResults}
+                  formatStyle={formatStyle}
+                  restoredInput={restoredInput}
+                />
+              )}
+              {mode === 'builder' && (
+                <CitationBuilder
+                  onResult={handleSingleResult}
+                  formatStyle={formatStyle}
+                  restoredInput={restoredInput}
+                />
+              )}
+              {mode === 'history' && (
+                <HistoryView
+                  history={history}
+                  onRestore={handleRestoreHistory}
+                  onDelete={deleteEntry}
+                  onClear={clearHistory}
+                  selectedEntryId={selectedHistoryId}
+                />
+              )}
+            </div>
 
-          {/* Sidebar */}
-          <div ref={sidebarRef} className="lg:col-span-1" data-tour="sidebar">
-            {selectedCitation ? (
-              <AnalysisSidebar
-                citation={selectedCitation}
-                formatStyle={formatStyle}
-              />
-            ) : isAnalyzing ? (
-              <div className="card">
-                <AnalysisProgressBar />
-              </div>
-            ) : (
-              <div className="card text-center text-surface-400 py-10">
-                <div className="w-14 h-14 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
-                  <Scale className="w-6 h-6 text-surface-400" />
+            {/* Sidebar */}
+            <div ref={sidebarRef} className="lg:col-span-1" data-tour="sidebar">
+              {selectedCitation ? (
+                <AnalysisSidebar
+                  citation={selectedCitation}
+                  formatStyle={formatStyle}
+                />
+              ) : isAnalyzing ? (
+                <div className="card">
+                  <AnalysisProgressBar />
                 </div>
-                <p className="font-medium text-surface-600">No citation selected</p>
-                <p className="text-sm mt-1 text-surface-400 mb-6">Try an example to get started</p>
-                <div className="space-y-2 text-left px-2">
-                  {[
-                    { label: 'Brown v. Bd. of Educ., 347 U.S. 483 (1954)', query: 'Brown v. Board of Education' },
-                    { label: 'Miranda v. Arizona, 384 U.S. 436 (1966)', query: 'Miranda v. Arizona' },
-                    { label: 'Marbury v. Madison, 5 U.S. 137 (1803)', query: 'Marbury v. Madison' },
-                    { label: 'Roe v. Wade, 410 U.S. 113 (1973)', query: 'Roe v. Wade' },
-                  ].map((ex) => (
-                    <button
-                      key={ex.query}
-                      onClick={() => {
-                        setMode('builder');
-                        setRestoredInput(ex.query);
-                      }}
-                      className="w-full text-left px-3 py-2.5 text-sm text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-xl transition-colors duration-150"
-                    >
-                      <span className="italic">{ex.label}</span>
-                    </button>
-                  ))}
+              ) : (
+                <div className="card text-center text-surface-400 py-10">
+                  <div className="w-14 h-14 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
+                    <Scale className="w-6 h-6 text-surface-400" />
+                  </div>
+                  <p className="font-medium text-surface-600">No citation selected</p>
+                  <p className="text-sm mt-1 text-surface-400 mb-6">Try an example to get started</p>
+                  <div className="space-y-2 text-left px-2">
+                    {[
+                      { label: 'Brown v. Bd. of Educ., 347 U.S. 483 (1954)', query: 'Brown v. Board of Education' },
+                      { label: 'Miranda v. Arizona, 384 U.S. 436 (1966)', query: 'Miranda v. Arizona' },
+                      { label: 'Marbury v. Madison, 5 U.S. 137 (1803)', query: 'Marbury v. Madison' },
+                      { label: 'Roe v. Wade, 410 U.S. 113 (1973)', query: 'Roe v. Wade' },
+                    ].map((ex) => (
+                      <button
+                        key={ex.query}
+                        onClick={() => {
+                          setMode('builder');
+                          setRestoredInput(ex.query);
+                        }}
+                        className="w-full text-left px-3 py-2.5 text-sm text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-xl transition-colors duration-150"
+                      >
+                        <span className="italic">{ex.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Onboarding */}

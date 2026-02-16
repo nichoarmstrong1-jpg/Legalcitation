@@ -1,7 +1,7 @@
 import { useRef, useCallback, type ComponentType } from 'react';
-import { FileText, Hammer, Clock } from 'lucide-react';
+import { FileText, Hammer, Clock, BookOpen } from 'lucide-react';
 
-type Mode = 'checker' | 'builder' | 'history';
+type Mode = 'checker' | 'builder' | 'history' | 'spading';
 
 interface NavigationTabsProps {
   mode: Mode;
@@ -12,6 +12,7 @@ const TABS: { id: Mode; label: string; icon: ComponentType<{ className?: string 
   { id: 'checker', label: 'Citation Checker', icon: FileText, description: 'Check citations in text or documents' },
   { id: 'builder', label: 'Citation Builder', icon: Hammer, description: 'Search & build citations' },
   { id: 'history', label: 'History', icon: Clock, description: 'Review your past checks' },
+  { id: 'spading', label: 'Journal Spading', icon: BookOpen, description: 'Automated cite-checking for articles' },
 ];
 
 export function NavigationTabs({ mode, onModeChange }: NavigationTabsProps) {

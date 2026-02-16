@@ -214,3 +214,292 @@ export async function deleteCaseDocument(id: string): Promise<void> {
     throw new Error(body?.message || body?.error || `Failed to delete document: ${res.status}`);
   }
 }
+
+// --- Spading API ---
+
+export type SpadingStatus = 'draft' | 'processing' | 'completed' | 'error';
+export type DocumentRole = 'journal_entry' | 'source';
+export type AnnotationStatus =
+  | 'verified'
+  | 'partial_match'
+  | 'not_found'
+  | 'format_error'
+  | 'quote_mismatch'
+  | 'pending'
+  | 'error';
+
+export interface SpadingProject {
+  id: string;
+  name: string;
+  description: string | null;
+  status: SpadingStatus;
+  journalDocumentId: string | null;
+  citationCount: number | null;
+  verifiedCount: number | null;
+  issueCount: number | null;
+  progress: number;
+  currentStep: string | null;
+  errorMessage: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectDocument {
+  id: string;
+  role: DocumentRole;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  pageCount: number | null;
+  caseName: string | null;
+  citation: string | null;
+  uploadedAt: string;
+}
+
+export interface SpadingAnnotation {
+  id: string;
+  projectId: string;
+  startOffset: number;
+  endOffset: number;
+  rawCitationText: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  parsedCitation: any;
+  status: AnnotationStatus;
+  issues: ValidationIssue[];
+  score: number | null;
+  verifiedCitation: string | null;
+  discrepancies: { component: string; userValue: string; verifiedValue: string }[];
+  logicTrace: string[];
+  matchedDocumentId: string | null;
+  matchedPageNumber: number | null;
+  matchedTextSnippet: string | null;
+  quotedText: string | null;
+  sourceText: string | null;
+  quoteAccurate: boolean | null;
+  editorNote: string | null;
+  resolved: boolean;
+}
+
+export interface SpadingProgressEvent {
+  progress: number;
+  currentStep: string;
+  citationIndex?: number;
+  totalCitations?: number;
+  status: 'processing' | 'completed' | 'error';
+  errorMessage?: string;
+}
+
+export async function createSpadingProject(
+  name: string,
+  description?: string
+): Promise<SpadingProject> {
+  const res = await fetch(`${API_BASE}/spading/projects`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ name, description }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to create project: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getSpadingProjects(): Promise<SpadingProject[]> {
+  const res = await fetch(`${API_BASE}/spading/projects`, {
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to list projects: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.projects;
+}
+
+export async function getSpadingProject(id: string): Promise<SpadingProject> {
+  const res = await fetch(`${API_BASE}/spading/projects/${id}`, {
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to get project: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function updateSpadingProject(
+  id: string,
+  data: { name?: string; description?: string }
+): Promise<SpadingProject> {
+  const res = await fetch(`${API_BASE}/spading/projects/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to update project: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteSpadingProject(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/spading/projects/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to delete project: ${res.status}`);
+  }
+}
+
+export async function uploadProjectDocuments(
+  projectId: string,
+  files: File[],
+  role: DocumentRole
+): Promise<{ documents: ProjectDocument[] }> {
+  const formData = new FormData();
+  formData.append('role', role);
+  for (const file of files) {
+    formData.append('files', file);
+  }
+
+  const res = await fetch(`${API_BASE}/spading/projects/${projectId}/documents`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to upload documents: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getProjectDocuments(
+  projectId: string
+): Promise<ProjectDocument[]> {
+  const res = await fetch(`${API_BASE}/spading/projects/${projectId}/documents`, {
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to list documents: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.documents;
+}
+
+export async function getProjectDocument(
+  projectId: string,
+  documentId: string
+): Promise<ProjectDocument & { extractedText: string }> {
+  const res = await fetch(
+    `${API_BASE}/spading/projects/${projectId}/documents/${documentId}`,
+    { credentials: 'include' }
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to get document: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteProjectDocument(
+  projectId: string,
+  documentId: string
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/spading/projects/${projectId}/documents/${documentId}`,
+    { method: 'DELETE', credentials: 'include' }
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to delete document: ${res.status}`);
+  }
+}
+
+export function getProjectDocumentFileUrl(
+  projectId: string,
+  documentId: string
+): string {
+  return `${API_BASE}/spading/projects/${projectId}/documents/${documentId}/file`;
+}
+
+export async function runSpading(projectId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/spading/projects/${projectId}/run`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to start spading: ${res.status}`);
+  }
+}
+
+export async function getSpadingAnnotations(
+  projectId: string
+): Promise<SpadingAnnotation[]> {
+  const res = await fetch(`${API_BASE}/spading/projects/${projectId}/annotations`, {
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to get annotations: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.annotations;
+}
+
+export async function updateSpadingAnnotation(
+  projectId: string,
+  annotationId: string,
+  data: { editorNote?: string; resolved?: boolean }
+): Promise<SpadingAnnotation> {
+  const res = await fetch(
+    `${API_BASE}/spading/projects/${projectId}/annotations/${annotationId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    }
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to update annotation: ${res.status}`);
+  }
+  return res.json();
+}
+
+export function subscribeSpadingProgress(
+  projectId: string,
+  onEvent: (event: SpadingProgressEvent) => void
+): () => void {
+  const url = `${API_BASE}/spading/projects/${projectId}/progress`;
+  const eventSource = new EventSource(url, { withCredentials: true });
+
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data) as SpadingProgressEvent;
+      onEvent(data);
+
+      if (data.status === 'completed' || data.status === 'error') {
+        eventSource.close();
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  };
+
+  eventSource.onerror = () => {
+    eventSource.close();
+  };
+
+  return () => eventSource.close();
+}
