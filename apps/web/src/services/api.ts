@@ -574,3 +574,47 @@ export function subscribeSpadingProgress(
     eventSource?.close();
   };
 }
+
+// --- Profile API ---
+
+export async function updateProfile(
+  data: { name?: string; formatPreference?: string }
+): Promise<{ user: { id: string; email: string; name: string | null; formatPreference?: string; isAdmin?: boolean; oauthProvider?: string; plan?: string; createdAt?: string } }> {
+  const res = await authenticatedFetch(`${API_BASE}/auth/me`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to update profile: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  const res = await authenticatedFetch(`${API_BASE}/auth/password`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to change password: ${res.status}`);
+  }
+}
+
+export async function deleteAccount(confirmation: string): Promise<void> {
+  const res = await authenticatedFetch(`${API_BASE}/auth/me`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirmation }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to delete account: ${res.status}`);
+  }
+}

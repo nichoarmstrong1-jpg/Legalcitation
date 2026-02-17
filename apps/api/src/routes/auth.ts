@@ -330,11 +330,161 @@ authRouter.get('/me', requireAuth, async (req: Request, res: Response) => {
         name: user.name,
         formatPreference: user.formatPreference,
         isAdmin: user.isAdmin,
+        oauthProvider: user.oauthProvider,
+        plan: user.plan,
+        createdAt: user.createdAt,
       },
     });
   } catch (error) {
     console.error('Me error:', error);
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+/**
+ * PATCH /api/auth/me — Update profile (name, formatPreference)
+ */
+authRouter.patch('/me', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const { name, formatPreference } = req.body as {
+      name?: string;
+      formatPreference?: string;
+    };
+
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+
+    if (name !== undefined) {
+      const trimmed = name.trim();
+      if (trimmed.length > 255) {
+        res.status(400).json({ error: 'Name must be 255 characters or fewer' });
+        return;
+      }
+      updates.name = trimmed || null;
+    }
+
+    if (formatPreference !== undefined) {
+      if (!['italics', 'underline'].includes(formatPreference)) {
+        res.status(400).json({ error: 'Format preference must be "italics" or "underline"' });
+        return;
+      }
+      updates.formatPreference = formatPreference;
+    }
+
+    const [updated] = await db
+      .update(schema.users)
+      .set(updates)
+      .where(eq(schema.users.id, req.user!.userId))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    res.json({
+      user: {
+        id: updated.id,
+        email: updated.email,
+        name: updated.name,
+        formatPreference: updated.formatPreference,
+        isAdmin: updated.isAdmin,
+        oauthProvider: updated.oauthProvider,
+        plan: updated.plan,
+        createdAt: updated.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+/**
+ * PATCH /api/auth/password — Change password (email accounts only)
+ */
+authRouter.patch('/password', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const { currentPassword, newPassword } = req.body as {
+      currentPassword: string;
+      newPassword: string;
+    };
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: 'Current password and new password are required' });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      res.status(400).json({ error: 'New password must be at least 8 characters' });
+      return;
+    }
+
+    const [user] = await db.select().from(schema.users)
+      .where(eq(schema.users.id, req.user!.userId)).limit(1);
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (user.oauthProvider !== 'email' || !user.passwordHash) {
+      res.status(400).json({ error: 'Password change is only available for email accounts' });
+      return;
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      res.status(401).json({ error: 'Current password is incorrect' });
+      return;
+    }
+
+    const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await db
+      .update(schema.users)
+      .set({ passwordHash: newHash, updatedAt: new Date() })
+      .where(eq(schema.users.id, req.user!.userId));
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+/**
+ * DELETE /api/auth/me — Delete account and all user data
+ */
+authRouter.delete('/me', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const { confirmation } = req.body as { confirmation: string };
+
+    const [user] = await db.select().from(schema.users)
+      .where(eq(schema.users.id, req.user!.userId)).limit(1);
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (!confirmation || confirmation.toLowerCase() !== user.email.toLowerCase()) {
+      res.status(400).json({ error: 'Please type your email address to confirm account deletion' });
+      return;
+    }
+
+    // Cascade delete handles sessions, spadingProjects, caseDocuments
+    // SET NULL handles citationHistory, feedback, userEvents
+    await db.delete(schema.users).where(eq(schema.users.id, req.user!.userId));
+
+    res.clearCookie(COOKIE_NAME, { path: '/' });
+    res.clearCookie(REFRESH_COOKIE, { path: '/api/auth' });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ error: 'Failed to delete account' });
   }
 });
 

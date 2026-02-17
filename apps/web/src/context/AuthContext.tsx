@@ -6,6 +6,9 @@ export interface User {
   name: string | null;
   formatPreference?: string;
   isAdmin?: boolean;
+  oauthProvider?: 'google' | 'email' | 'apple' | 'microsoft';
+  plan?: 'free' | 'student' | 'professional';
+  createdAt?: string;
 }
 
 interface AuthState {

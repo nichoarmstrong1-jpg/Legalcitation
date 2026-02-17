@@ -12,6 +12,7 @@ import { OnboardingFlow } from './components/OnboardingFlow.tsx';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal.tsx';
 import { TipsPage } from './components/TipsPage.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
+import { ProfileModal } from './components/ProfileModal.tsx';
 import { ToastProvider } from './context/ToastContext.tsx';
 import { ToastContainer } from './components/ui/Toast.tsx';
 import { AnalysisProgressBar } from './components/ui/AnalysisProgressBar.tsx';
@@ -46,6 +47,7 @@ function AppContent() {
   );
   const [authMessage, setAuthMessage] = useState<string | undefined>();
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const tour = useTour();
   const { history, saveToHistory, deleteEntry, clearHistory } = useHistory();
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -99,10 +101,11 @@ function AppContent() {
   }, []);
 
   const closeAllModals = useCallback(() => {
+    if (showProfile) { setShowProfile(false); return; }
     if (showTips) { setShowTips(false); return; }
     if (showShortcuts) { setShowShortcuts(false); return; }
     if (showAuth) { setShowAuth(false); return; }
-  }, [showTips, showShortcuts, showAuth]);
+  }, [showProfile, showTips, showShortcuts, showAuth]);
 
   const shortcutHandlers = useMemo(() => ({
     onToggleHistory: () => setMode(prev => prev === 'history' ? 'builder' : 'history'),
@@ -127,6 +130,7 @@ function AppContent() {
         onAuthOpen={() => openAuth()}
         onTipsOpen={() => setShowTips(true)}
         onTourStart={tour.startTour}
+        onProfileOpen={() => setShowProfile(true)}
         onAdminOpen={() => setShowAdmin(true)}
       />
 
@@ -277,6 +281,17 @@ function AppContent() {
       {/* Tips / Quick Reference Modal */}
       {showTips && (
         <TipsPage onClose={() => setShowTips(false)} />
+      )}
+
+      {/* Profile Modal */}
+      {showProfile && user && (
+        <ProfileModal
+          onClose={() => setShowProfile(false)}
+          onFormatChange={(style: FormatStyle) => {
+            setFormatStyle(style);
+            localStorage.setItem('legalcitation-format', style);
+          }}
+        />
       )}
 
       {/* Admin Dashboard */}

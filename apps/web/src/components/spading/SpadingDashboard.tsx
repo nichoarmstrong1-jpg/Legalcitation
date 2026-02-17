@@ -12,7 +12,7 @@ interface SpadingDashboardProps {
 }
 
 export function SpadingDashboard({ onAuthOpen }: SpadingDashboardProps) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const spading = useSpading();
 
@@ -21,6 +21,16 @@ export function SpadingDashboard({ onAuthOpen }: SpadingDashboardProps) {
       spading.loadProjects();
     }
   }, [user]);
+
+  if (isLoading) {
+    return (
+      <div className="card text-center py-16">
+        <div className="w-12 h-12 rounded-full bg-surface-100 animate-pulse mx-auto mb-4" />
+        <div className="h-5 w-40 bg-surface-100 animate-pulse rounded-lg mx-auto mb-2" />
+        <div className="h-3 w-64 bg-surface-100 animate-pulse rounded-lg mx-auto" />
+      </div>
+    );
+  }
 
   if (!user) {
     return (
