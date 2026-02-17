@@ -21,10 +21,11 @@ authRouter.use((_req: Request, res: Response, next) => {
 });
 
 const SALT_ROUNDS = 12;
+const IS_PROD = process.env.NODE_ENV === 'production';
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  secure: IS_PROD,
+  sameSite: (IS_PROD ? 'none' : 'lax') as 'none' | 'lax',
   maxAge: 15 * 60 * 1000, // 15 minutes
   path: '/',
 };
