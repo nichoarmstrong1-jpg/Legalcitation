@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
 import type { Readable } from 'stream';
 
@@ -27,6 +27,20 @@ export function isFileStorageConfigured(): boolean {
   return !!(process.env.S3_ENDPOINT && process.env.S3_ACCESS_KEY_ID);
 }
 
+export async function validateFileStorage(): Promise<void> {
+  if (!isFileStorageConfigured()) {
+    console.warn('  File storage: NOT CONFIGURED (S3_ENDPOINT or S3_ACCESS_KEY_ID missing)');
+    return;
+  }
+  try {
+    const client = getS3Client();
+    await client.send(new HeadBucketCommand({ Bucket: BUCKET }));
+    console.log(`  File storage: connected (bucket: ${BUCKET})`);
+  } catch (err) {
+    console.warn(`  File storage: WARNING — bucket "${BUCKET}" not accessible: ${(err as Error).message}`);
+  }
+}
+
 export async function saveFile(
   projectId: string,
   fileName: string,
@@ -48,7 +62,7 @@ export async function saveFile(
   return key;
 }
 
-export async function getFileStream(filePath: string): Promise<Readable> {
+export async function getFileStream(filePath: string): Promise<{ stream: Readable; contentLength?: number }> {
   const client = getS3Client();
   const response = await client.send(
     new GetObjectCommand({
@@ -61,7 +75,10 @@ export async function getFileStream(filePath: string): Promise<Readable> {
     throw new Error(`File not found: ${filePath}`);
   }
 
-  return response.Body as Readable;
+  return {
+    stream: response.Body as Readable,
+    contentLength: response.ContentLength,
+  };
 }
 
 export async function deleteFile(filePath: string): Promise<void> {

@@ -481,25 +481,45 @@ export function subscribeSpadingProgress(
   projectId: string,
   onEvent: (event: SpadingProgressEvent) => void
 ): () => void {
-  const url = `${API_BASE}/spading/projects/${projectId}/progress`;
-  const eventSource = new EventSource(url, { withCredentials: true });
+  let eventSource: EventSource | null = null;
+  let closed = false;
+  let retryCount = 0;
+  const MAX_RETRIES = 5;
 
-  eventSource.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data) as SpadingProgressEvent;
-      onEvent(data);
+  function connect() {
+    if (closed) return;
+    const url = `${API_BASE}/spading/projects/${projectId}/progress`;
+    eventSource = new EventSource(url, { withCredentials: true });
 
-      if (data.status === 'completed' || data.status === 'error') {
-        eventSource.close();
+    eventSource.onmessage = (event) => {
+      retryCount = 0;
+      try {
+        const data = JSON.parse(event.data) as SpadingProgressEvent;
+        onEvent(data);
+
+        if (data.status === 'completed' || data.status === 'error') {
+          closed = true;
+          eventSource?.close();
+        }
+      } catch {
+        // Ignore parse errors
       }
-    } catch {
-      // Ignore parse errors
-    }
-  };
+    };
 
-  eventSource.onerror = () => {
-    eventSource.close();
-  };
+    eventSource.onerror = () => {
+      eventSource?.close();
+      if (!closed && retryCount < MAX_RETRIES) {
+        retryCount++;
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+        setTimeout(connect, delay);
+      }
+    };
+  }
 
-  return () => eventSource.close();
+  connect();
+
+  return () => {
+    closed = true;
+    eventSource?.close();
+  };
 }

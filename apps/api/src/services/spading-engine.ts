@@ -252,12 +252,8 @@ export async function runSpadingPipeline(projectId: string): Promise<void> {
   const db = getDb();
 
   try {
-    // Update project status
-    await db
-      .update(schema.spadingProjects)
-      .set({ status: 'processing', progress: 0, currentStep: 'Loading journal entry...' })
-      .where(eq(schema.spadingProjects.id, projectId));
-
+    // Status already set to 'processing' by the route handler (atomic guard).
+    // Emit initial progress event.
     emitProgress(projectId, {
       progress: 5,
       currentStep: 'Loading journal entry...',

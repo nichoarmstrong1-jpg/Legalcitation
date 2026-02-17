@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, ne } from 'drizzle-orm';
 import { getDb, isDatabaseConfigured, schema } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import {
@@ -254,6 +254,22 @@ spadingRouter.post(
       if (role === 'journal_entry' && files.length > 1) {
         res.status(400).json({ error: 'Only one journal entry allowed per project' });
         return;
+      }
+
+      // Validate file types server-side
+      const ALLOWED_MIMES = new Set([
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/msword',
+      ]);
+      const ALLOWED_EXTS = new Set(['.pdf', '.docx', '.doc']);
+
+      for (const file of files) {
+        const ext = file.originalname.toLowerCase().match(/\.[^.]+$/)?.[0] || '';
+        if (!ALLOWED_MIMES.has(file.mimetype) && !ALLOWED_EXTS.has(ext)) {
+          res.status(400).json({ error: `Unsupported file type: ${file.originalname}. Only PDF and Word documents are accepted.` });
+          return;
+        }
       }
 
       const results = [];
@@ -580,9 +596,13 @@ spadingRouter.get('/projects/:id/documents/:docId/file', async (req: Request, re
       return;
     }
 
-    const stream = await getFileStream(doc.filePath);
+    const { stream, contentLength } = await getFileStream(doc.filePath);
     res.setHeader('Content-Type', doc.mimeType);
-    res.setHeader('Content-Disposition', `inline; filename="${doc.fileName}"`);
+    const safeName = doc.fileName.replace(/[^\w.\- ]/g, '_');
+    res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
     stream.pipe(res);
   } catch (error) {
     console.error('File serve error:', error);
@@ -602,9 +622,13 @@ spadingRouter.post('/projects/:id/run', async (req: Request, res: Response) => {
     const db = getDb();
     const projectId = (req.params.id as string);
 
-    // Verify ownership
+    // Verify ownership and pre-conditions
     const [project] = await db
-      .select()
+      .select({
+        id: schema.spadingProjects.id,
+        userId: schema.spadingProjects.userId,
+        journalDocumentId: schema.spadingProjects.journalDocumentId,
+      })
       .from(schema.spadingProjects)
       .where(eq(schema.spadingProjects.id, projectId));
 
@@ -616,16 +640,32 @@ spadingRouter.post('/projects/:id/run', async (req: Request, res: Response) => {
       res.status(403).json({ error: 'Access denied' });
       return;
     }
-    if (project.status === 'processing') {
-      res.status(409).json({ error: 'Spading is already running for this project' });
-      return;
-    }
     if (!project.journalDocumentId) {
       res.status(400).json({ error: 'No journal entry uploaded. Upload a journal entry first.' });
       return;
     }
 
-    // Start the pipeline asynchronously
+    // Atomic guard: only start if not already processing
+    const [updated] = await db
+      .update(schema.spadingProjects)
+      .set({
+        status: 'processing',
+        progress: 0,
+        currentStep: 'Starting...',
+        errorMessage: null,
+      })
+      .where(and(
+        eq(schema.spadingProjects.id, projectId),
+        ne(schema.spadingProjects.status, 'processing')
+      ))
+      .returning({ id: schema.spadingProjects.id });
+
+    if (!updated) {
+      res.status(409).json({ error: 'Spading is already running for this project' });
+      return;
+    }
+
+    // Start the pipeline asynchronously (status already set to processing)
     runSpadingPipeline(projectId).catch(err => {
       console.error('Spading pipeline unhandled error:', err);
     });

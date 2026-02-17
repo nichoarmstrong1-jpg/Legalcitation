@@ -67,6 +67,12 @@ export function ProjectWorkspace({
 
   const [journalText, setJournalText] = useState<string>('');
 
+  // Clear stale state when switching projects
+  useEffect(() => {
+    setJournalText('');
+    setViewingSourceAnnotation(null);
+  }, [project.id]);
+
   // Load journal text when project opens
   useEffect(() => {
     if (!project.journalDocumentId) return;

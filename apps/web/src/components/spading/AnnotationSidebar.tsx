@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   CheckCircle,
   AlertTriangle,
@@ -29,6 +29,13 @@ export function AnnotationSidebar({
   const [showTrace, setShowTrace] = useState(false);
   const [noteText, setNoteText] = useState(annotation.editorNote || '');
   const [editingNote, setEditingNote] = useState(false);
+
+  // Sync state when a different annotation is selected
+  useEffect(() => {
+    setNoteText(annotation.editorNote || '');
+    setEditingNote(false);
+    setShowTrace(false);
+  }, [annotation.id]);
 
   const handleSaveNote = () => {
     onNote(annotation.id, noteText);

@@ -13,6 +13,7 @@ import { spadingRouter } from './routes/spading.js';
 import { optionalAuth } from './middleware/auth.js';
 import { isDatabaseConfigured } from './db/index.js';
 import { runMigrations } from './db/migrate.js';
+import { validateFileStorage } from './services/file-storage.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -100,6 +101,7 @@ app.get('/api/health', (_req, res) => {
 
 // Run database migrations (if DATABASE_URL is set), then start the server
 runMigrations()
+  .then(() => validateFileStorage())
   .then(() => {
     app.listen(Number(PORT), '0.0.0.0', () => {
       console.log(`LegalCitation API running on 0.0.0.0:${PORT}`);

@@ -1,6 +1,7 @@
 import { pgTable, uuid, varchar, text, integer, timestamp, boolean, pgEnum, jsonb } from 'drizzle-orm/pg-core';
 
 export const oauthProviderEnum = pgEnum('oauth_provider', ['google', 'email']);
+export const planEnum = pgEnum('plan', ['free', 'student', 'professional']);
 
 // Users
 export const users = pgTable('users', {
@@ -12,6 +13,11 @@ export const users = pgTable('users', {
   oauthId: varchar('oauth_id', { length: 255 }),
   emailVerified: boolean('email_verified').notNull().default(false),
   formatPreference: varchar('format_preference', { length: 20 }).default('italics'),
+  plan: planEnum('plan').notNull().default('free'),
+  referralCode: varchar('referral_code', { length: 50 }),
+  referredBy: uuid('referred_by'),
+  stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
+  stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
