@@ -15,7 +15,7 @@ export function ShortFormDisplay({ shortForms, formatStyle, suggestions }: Short
   const [expandedIdx, setExpandedIdx] = useState<Set<number>>(new Set([0]));
 
   const renderFormattedCitation = (text: string) => {
-    const parts = text.split(/(\*[^*]+\*)/);
+    const parts = text.split(/(\*[^*]+\*|_[^_]+_)/);
     return parts.map((part, i) => {
       if (part.startsWith('*') && part.endsWith('*')) {
         const content = part.slice(1, -1);
@@ -23,15 +23,20 @@ export function ShortFormDisplay({ shortForms, formatStyle, suggestions }: Short
           ? <em key={i} className="font-serif">{content}</em>
           : <u key={i}>{content}</u>;
       }
+      if (part.startsWith('_') && part.endsWith('_')) {
+        const content = part.slice(1, -1);
+        return <u key={i}>{content}</u>;
+      }
       return <span key={i}>{part}</span>;
     });
   };
 
   const handleCopy = useCallback(async (text: string, idx: number) => {
-    const htmlContent = text.replace(/\*([^*]+)\*/g, (_match, content) => {
+    let htmlContent = text.replace(/_([^_]+)_/g, '<u>$1</u>');
+    htmlContent = htmlContent.replace(/\*([^*]+)\*/g, (_match, content) => {
       return formatStyle === 'italics' ? `<em>${content}</em>` : `<u>${content}</u>`;
     });
-    const plainText = text.replace(/\*([^*]+)\*/g, '$1');
+    const plainText = text.replace(/\*([^*]+)\*/g, '$1').replace(/_([^_]+)_/g, '$1');
 
     try {
       const blob = new Blob([`<html><body>${htmlContent}</body></html>`], { type: 'text/html' });

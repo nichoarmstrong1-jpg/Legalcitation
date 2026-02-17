@@ -111,6 +111,26 @@ function validateExtractedText(text: string, fileName: string): void {
   }
 }
 
+/**
+ * Normalize formatting markers in extracted text:
+ * - Merge adjacent markers: *a* *b* → *a b*
+ * - Remove empty markers: ** → (nothing)
+ * - Trim whitespace inside markers: * foo * → *foo*
+ */
+function normalizeMarkers(text: string): string {
+  // Merge adjacent italic markers separated by whitespace
+  text = text.replace(/\*([^*]+)\*\s+\*([^*]+)\*/g, '*$1 $2*');
+  // Merge adjacent underline markers
+  text = text.replace(/_([^_]+)_\s+_([^_]+)_/g, '_$1 $2_');
+  // Remove empty markers
+  text = text.replace(/\*\*/g, '');
+  text = text.replace(/__/g, '');
+  // Trim whitespace inside markers
+  text = text.replace(/\*\s+([^*]+?)\s+\*/g, '*$1*');
+  text = text.replace(/_\s+([^_]+?)\s+_/g, '_$1_');
+  return text;
+}
+
 export async function extractTextFromFile(
   buffer: Buffer,
   mimeType: string,
@@ -252,19 +272,48 @@ export async function extractFromPdfWithPages(buffer: Buffer): Promise<Extracted
 
     const pageTexts: string[] = [];
 
-    // Use pdf-parse's pagerender to extract text page by page
+    // Use pdf-parse's pagerender to extract text page by page with font metadata
     const options = {
       pagerender: (pageData: any) => {
         return pageData.getTextContent().then((textContent: any) => {
           let lastY: number | null = null;
           let pageText = '';
+          let italicCount = 0;
+          let totalCount = 0;
+
           for (const item of textContent.items) {
             if (lastY !== null && Math.abs(item.transform[5] - lastY) > 2) {
               pageText += '\n';
             }
-            pageText += item.str;
+
+            const str = item.str as string;
+            if (!str.trim()) {
+              pageText += str;
+              lastY = item.transform[5];
+              continue;
+            }
+
+            totalCount++;
+            const fontName = (item.fontName || '') as string;
+            const isItalic = /italic|oblique|(?:^|-)i$/i.test(fontName);
+
+            if (isItalic) {
+              italicCount++;
+              pageText += `*${str}*`;
+            } else {
+              pageText += str;
+            }
             lastY = item.transform[5];
           }
+
+          // If >80% of items are italic, font metadata is unreliable — strip markers
+          if (totalCount > 0 && italicCount / totalCount > 0.8) {
+            pageText = pageText.replace(/\*([^*]+)\*/g, '$1');
+          } else {
+            // Merge adjacent markers: *foo* *bar* → *foo bar*
+            pageText = normalizeMarkers(pageText);
+          }
+
           pageTexts.push(pageText);
           return pageText;
         });
@@ -280,11 +329,25 @@ export async function extractFromPdfWithPages(buffer: Buffer): Promise<Extracted
     for (let i = 0; i < pageTexts.length; i++) {
       let pageText = pageTexts[i];
 
-      // Apply case name heuristic to each page
+      // Apply legal italic heuristic to each page (case names, signals, Id., supra)
+      // Case names: Party v. Party before a volume number
       pageText = pageText.replace(
-        /(?<!\*)([A-Z][a-zA-Z'.]+(?:\s+(?:of|the|ex rel\.|in re)\s+)?(?:\s+[A-Z][a-zA-Z'.]+)*\s+v\.\s+[A-Z][a-zA-Z'.]+(?:\s+(?:of|the)\s+)?(?:\s+[A-Z][a-zA-Z'.]+)*)(?=,\s*\d)/g,
+        /(?<!\*)([A-Z][a-zA-Z'.]+(?:\s+(?:of|the|ex rel\.|in re)\s+)?(?:\s+[A-Z][a-zA-Z'.]+)*\s+v\.\s+[A-Z][a-zA-Z'.]+(?:\s+(?:of|the)\s+)?(?:\s+[A-Z][a-zA-Z'.]+)*)(?=,?\s*\d)/g,
         '*$1*'
       );
+      // In re / Ex parte case names
+      pageText = pageText.replace(/(?<!\*)\b(In re\s+[A-Z][a-zA-Z'.]+(?:\s+[A-Z][a-zA-Z'.]+)*)/g, '*$1*');
+      pageText = pageText.replace(/(?<!\*)\b(Ex parte\s+[A-Z][a-zA-Z'.]+(?:\s+[A-Z][a-zA-Z'.]+)*)/g, '*$1*');
+      // Signals
+      pageText = pageText.replace(
+        /(?<!\*)\b(See also|See,?\s*e\.g\.,?|See|Cf\.|But see|But cf\.|Accord|Contra|E\.g\.,)\b/g,
+        '*$1*'
+      );
+      // Id.
+      pageText = pageText.replace(/(?<!\*)\b(Id\.)/g, '*$1*');
+      // supra, infra
+      pageText = pageText.replace(/(?<!\*)\b(supra|infra)\b/g, '*$1*');
+      pageText = normalizeMarkers(pageText);
 
       pageMapping.push({
         pageNumber: i + 1,
@@ -295,12 +358,8 @@ export async function extractFromPdfWithPages(buffer: Buffer): Promise<Extracted
       offset += pageText.length + 1; // +1 for page separator newline
     }
 
-    // Combine all pages with the case name heuristic applied
-    let fullText = data.text;
-    fullText = fullText.replace(
-      /(?<!\*)([A-Z][a-zA-Z'.]+(?:\s+(?:of|the|ex rel\.|in re)\s+)?(?:\s+[A-Z][a-zA-Z'.]+)*\s+v\.\s+[A-Z][a-zA-Z'.]+(?:\s+(?:of|the)\s+)?(?:\s+[A-Z][a-zA-Z'.]+)*)(?=,\s*\d)/g,
-      '*$1*'
-    );
+    // Build full text from processed pages (case name markers already applied per-page)
+    const fullText = pageMapping.map(p => p.text).join('\n');
 
     return {
       text: fullText,
@@ -352,20 +411,120 @@ function extractFromHtml(buffer: Buffer): string {
 }
 
 /**
- * Extract text from RTF files by stripping RTF control words.
+ * Extract text from RTF files, preserving italic and underline formatting.
+ * Uses a stateful parser to track \i (italic) and \ul (underline) control words.
  */
 function extractFromRtf(buffer: Buffer): string {
-  let text = buffer.toString('utf-8');
+  const rtf = buffer.toString('utf-8');
+  let result = '';
+  let inItalic = false;
+  let inUnderline = false;
+  const stateStack: Array<{ italic: boolean; underline: boolean }> = [];
+  let pos = 0;
 
-  // Remove RTF header/groups
-  text = text.replace(/\{\\[^{}]*\}/g, '');
-  // Remove RTF control words (e.g., \par, \b, \i, \f0, etc.)
-  text = text.replace(/\\[a-z]+\d*\s?/gi, ' ');
-  // Remove remaining braces
-  text = text.replace(/[{}]/g, '');
-  // Clean up whitespace
+  while (pos < rtf.length) {
+    const ch = rtf[pos];
+
+    if (ch === '{') {
+      // Push current formatting state before entering group
+      stateStack.push({ italic: inItalic, underline: inUnderline });
+      pos++;
+      continue;
+    }
+
+    if (ch === '}') {
+      // Close any open markers before restoring state
+      if (inItalic) { result += '*'; inItalic = false; }
+      if (inUnderline) { result += '_'; inUnderline = false; }
+      // Restore state from before this group
+      const prev = stateStack.pop();
+      if (prev) {
+        inItalic = prev.italic;
+        inUnderline = prev.underline;
+        if (inItalic) result += '*';
+        if (inUnderline) result += '_';
+      }
+      pos++;
+      continue;
+    }
+
+    if (ch === '\\') {
+      // Parse control word
+      pos++;
+      if (pos >= rtf.length) break;
+
+      // Escaped characters
+      if (rtf[pos] === '\\' || rtf[pos] === '{' || rtf[pos] === '}') {
+        result += rtf[pos];
+        pos++;
+        continue;
+      }
+
+      // Read control word name
+      let word = '';
+      while (pos < rtf.length && /[a-zA-Z]/.test(rtf[pos])) {
+        word += rtf[pos];
+        pos++;
+      }
+
+      // Read optional numeric parameter
+      let param = '';
+      if (pos < rtf.length && (rtf[pos] === '-' || /\d/.test(rtf[pos]))) {
+        if (rtf[pos] === '-') { param += '-'; pos++; }
+        while (pos < rtf.length && /\d/.test(rtf[pos])) {
+          param += rtf[pos];
+          pos++;
+        }
+      }
+
+      // Consume optional trailing space
+      if (pos < rtf.length && rtf[pos] === ' ') pos++;
+
+      const paramNum = param ? parseInt(param, 10) : undefined;
+
+      switch (word) {
+        case 'i':
+          if (paramNum === 0) {
+            if (inItalic) { result += '*'; inItalic = false; }
+          } else {
+            if (!inItalic) { result += '*'; inItalic = true; }
+          }
+          break;
+        case 'ul':
+          if (paramNum === 0) {
+            if (inUnderline) { result += '_'; inUnderline = false; }
+          } else {
+            if (!inUnderline) { result += '_'; inUnderline = true; }
+          }
+          break;
+        case 'ulnone':
+          if (inUnderline) { result += '_'; inUnderline = false; }
+          break;
+        case 'par':
+        case 'line':
+          result += '\n';
+          break;
+        case 'tab':
+          result += '\t';
+          break;
+        default:
+          // Skip unknown control words
+          break;
+      }
+      continue;
+    }
+
+    // Regular text character
+    result += ch;
+    pos++;
+  }
+
+  // Close any remaining open markers
+  if (inItalic) result += '*';
+  if (inUnderline) result += '_';
+
+  let text = normalizeMarkers(result);
   text = text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-
   return text;
 }
 

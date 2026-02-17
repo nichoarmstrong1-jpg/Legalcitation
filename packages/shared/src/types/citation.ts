@@ -4,6 +4,11 @@ export type CitationType =
   | 'constitution'
   | 'regulation'
   | 'article'
+  | 'book'
+  | 'restatement'
+  | 'internet'
+  | 'ai_source'
+  | 'unpublished'
   | 'short_form'
   | 'id'
   | 'supra'
@@ -74,6 +79,76 @@ export interface ArticleComponents {
   year: string;
   /** Student-written piece designator: Note, Comment, Recent Development, Book Review, Essay */
   studentDesignator?: string;
+  /** Whether the article is forthcoming (not yet published) */
+  forthcoming?: boolean;
+  /** Year of expected publication for forthcoming articles */
+  forthcomingYear?: string;
+  /** Manuscript page for pincites in forthcoming articles */
+  manuscriptPage?: string;
+  /** Repository for forthcoming article manuscripts */
+  onFileWith?: string;
+}
+
+export interface BookComponents {
+  authors: string[];
+  title: string;
+  section?: string;
+  page?: string;
+  pinCite?: string;
+  volume?: string;
+  edition?: string;
+  publisher?: string;
+  year: string;
+  editor?: string;
+  translator?: string;
+}
+
+export interface RestatementComponents {
+  series: string;
+  subject: string;
+  section: string;
+  pinCite?: string;
+  organization?: string;
+  year: string;
+}
+
+export interface InternetComponents {
+  author?: string;
+  title: string;
+  websiteName?: string;
+  date?: string;
+  url: string;
+  archiveUrl?: string;
+  lastVisited?: string;
+  pinCite?: string;
+}
+
+export interface AiSourceComponents {
+  subtype: 'llm' | 'search' | 'generated_content';
+  promptAuthor?: string;
+  modelName: string;
+  modelVersion?: string;
+  prompt?: string;
+  searchEngine?: string;
+  query?: string;
+  resultCount?: string;
+  date: string;
+  onFileWith?: string;
+  contentDescription?: string;
+  generatedByModel?: string;
+}
+
+export interface UnpublishedComponents {
+  subtype: 'manuscript' | 'working_paper' | 'dissertation';
+  author: string;
+  title: string;
+  page?: string;
+  date: string;
+  institution?: string;
+  workingPaperNumber?: string;
+  degree?: string;
+  onFileWith?: string;
+  pinCite?: string;
 }
 
 export interface ShortFormComponents {
@@ -95,6 +170,11 @@ export type CitationComponents =
   | ConstitutionComponents
   | RegulationComponents
   | ArticleComponents
+  | BookComponents
+  | RestatementComponents
+  | InternetComponents
+  | AiSourceComponents
+  | UnpublishedComponents
   | ShortFormComponents;
 
 export interface ParsedCitation {
@@ -114,6 +194,8 @@ export interface ValidationIssue {
   message: string;
   suggestion: string;
   position?: { start: number; end: number };
+  antecedentIndex?: number;
+  antecedentText?: string;
 }
 
 export interface CitationDiscrepancy {

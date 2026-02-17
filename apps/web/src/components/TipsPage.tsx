@@ -257,7 +257,7 @@ export function TipsPage({ onClose }: TipsPageProps) {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-primary-900">Bluebook Quick Reference</h2>
-              <p className="text-xs text-surface-400">Based on the Bluebook 21st Edition</p>
+              <p className="text-xs text-surface-400">Based on the Bluebook 22nd Edition</p>
             </div>
           </div>
           <button

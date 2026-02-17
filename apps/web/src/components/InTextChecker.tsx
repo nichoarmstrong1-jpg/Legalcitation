@@ -105,7 +105,7 @@ export function InTextChecker({ onResults, onSelectCitation, results, formatStyl
   const handleCopyCorrection = useCallback(async (result: AnalyzedCitation) => {
     const corrected = result.verifiedCitation;
     if (!corrected) return;
-    const plainText = corrected.replace(/\*/g, '');
+    const plainText = corrected.replace(/\*([^*]+)\*/g, '$1').replace(/_([^_]+)_/g, '$1');
     try {
       await navigator.clipboard.writeText(plainText);
       showToast('Correction copied to clipboard', 'success');
@@ -118,10 +118,11 @@ export function InTextChecker({ onResults, onSelectCitation, results, formatStyl
     const corrected = result.verifiedCitation;
     if (!corrected) return;
 
-    const htmlContent = corrected.replace(/\*([^*]+)\*/g, (_match: string, content: string) => {
+    let htmlContent = corrected.replace(/_([^_]+)_/g, '<u>$1</u>');
+    htmlContent = htmlContent.replace(/\*([^*]+)\*/g, (_match: string, content: string) => {
       return formatStyle === 'italics' ? `<em>${content}</em>` : `<u>${content}</u>`;
     });
-    const plainText = corrected.replace(/\*([^*]+)\*/g, '$1');
+    const plainText = corrected.replace(/\*([^*]+)\*/g, '$1').replace(/_([^_]+)_/g, '$1');
 
     try {
       const blob = new Blob([`<html><body>${htmlContent}</body></html>`], { type: 'text/html' });
@@ -154,13 +155,17 @@ export function InTextChecker({ onResults, onSelectCitation, results, formatStyl
   };
 
   const renderFormattedInline = (text: string) => {
-    const parts = text.split(/(\*[^*]+\*)/);
+    const parts = text.split(/(\*[^*]+\*|_[^_]+_)/);
     return parts.map((part, i) => {
       if (part.startsWith('*') && part.endsWith('*')) {
         const content = part.slice(1, -1);
         return formatStyle === 'italics'
           ? <em key={i} className="font-serif">{content}</em>
           : <u key={i}>{content}</u>;
+      }
+      if (part.startsWith('_') && part.endsWith('_')) {
+        const content = part.slice(1, -1);
+        return <u key={i}>{content}</u>;
       }
       return <span key={i}>{part}</span>;
     });

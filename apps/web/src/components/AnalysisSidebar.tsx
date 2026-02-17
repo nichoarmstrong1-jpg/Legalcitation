@@ -57,11 +57,12 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
     const corrected = buildCorrectedCitation();
     if (!corrected) return;
 
-    const htmlContent = corrected.replace(/\*([^*]+)\*/g, (_match, content) => {
+    let htmlContent = corrected.replace(/_([^_]+)_/g, '<u>$1</u>');
+    htmlContent = htmlContent.replace(/\*([^*]+)\*/g, (_match, content) => {
       return formatStyle === 'italics' ? `<em>${content}</em>` : `<u>${content}</u>`;
     });
 
-    const plainText = corrected.replace(/\*([^*]+)\*/g, '$1');
+    const plainText = corrected.replace(/\*([^*]+)\*/g, '$1').replace(/_([^_]+)_/g, '$1');
 
     try {
       const blob = new Blob([`<html><body>${htmlContent}</body></html>`], { type: 'text/html' });
@@ -166,6 +167,27 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
           formatStyle={formatStyle}
           suggestions={citation.shortFormSuggestions}
         />
+      )}
+
+      {/* Antecedent / Context Info */}
+      {citation.issues.some(iss => iss.antecedentText) && (
+        <div className="card border border-primary-100 bg-primary-50/50">
+          <div className="text-[10px] font-bold text-primary-700 uppercase tracking-wider mb-2">Citation Context</div>
+          {citation.issues
+            .filter(iss => iss.antecedentText)
+            .slice(0, 3)
+            .map((iss, i) => (
+              <div key={iss.id || i} className="text-xs text-surface-600 mb-1.5 last:mb-0">
+                <span className="text-primary-600 font-medium">
+                  References #{(iss.antecedentIndex ?? 0) + 1}:
+                </span>{' '}
+                <span className="font-serif">
+                  {iss.antecedentText!.slice(0, 100)}
+                  {iss.antecedentText!.length > 100 ? '...' : ''}
+                </span>
+              </div>
+            ))}
+        </div>
       )}
 
       {/* Citation Component Breakdown */}

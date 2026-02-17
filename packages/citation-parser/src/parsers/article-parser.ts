@@ -29,11 +29,30 @@ export function parseArticleCitation(
 }
 
 function parseArticle(text: string): ArticleComponents | null {
-  // Pattern: Author(s), Title, Vol Journal Page (Year)
-  // The tricky part is distinguishing the title from the journal.
-  // The journal always has a volume number before it.
+  // Try forthcoming pattern first: Authors, Title, [Vol] Journal (forthcoming Month Year)
+  const forthcomingPattern = /^(.+?),\s+(.+?),\s+(?:(\d{1,4})\s+)?([A-Z][^\d]+?)\s*\(forthcoming\s+(.+?)\)\s*\.?$/;
+  const forthMatch = text.match(forthcomingPattern);
+  if (forthMatch) {
+    const authorsStr = forthMatch[1].trim();
+    const title = forthMatch[2].trim();
+    const volume = forthMatch[3] || '';
+    const journal = forthMatch[4].trim();
+    const forthcomingDate = forthMatch[5].trim();
+    const yearMatch = forthcomingDate.match(/(\d{4})/);
 
-  // Try: Authors, Title, vol Journal page (year)
+    return {
+      authors: parseArticleAuthors(authorsStr),
+      title,
+      journal,
+      volume,
+      firstPage: '',
+      year: '',
+      forthcoming: true,
+      forthcomingYear: yearMatch ? yearMatch[1] : forthcomingDate,
+    };
+  }
+
+  // Standard pattern: Authors, Title, vol Journal page (year)
   const pattern = /^(.+?),\s+(.+?),\s+(\d{1,4})\s+([A-Z][^\d]+?)\s+(\d+)(?:,\s*(\d[\d–\-,\s]*))?(?:\s*\((\d{4})\))?\s*\.?$/;
   const match = text.match(pattern);
   if (!match) return null;
@@ -54,26 +73,8 @@ function parseArticle(text: string): ArticleComponents | null {
     title = title.slice(studentMatch[0].length);
   }
 
-  // Parse multiple authors
-  // Two authors: "John Smith & Jane Doe"
-  // Three+: "John Smith, Jane Doe & Bob Jones" or "John Smith et al."
-  let authors: string[];
-  if (authorsStr.includes(' et al.')) {
-    authors = [authorsStr.replace(/\s+et al\.?$/, '').trim()];
-  } else if (authorsStr.includes(' & ')) {
-    // Split on final " & " only
-    const ampIndex = authorsStr.lastIndexOf(' & ');
-    const before = authorsStr.slice(0, ampIndex);
-    const after = authorsStr.slice(ampIndex + 3);
-    // Before may contain comma-separated authors
-    const beforeAuthors = before.split(/,\s*/).map(a => a.trim()).filter(Boolean);
-    authors = [...beforeAuthors, after.trim()];
-  } else {
-    authors = [authorsStr];
-  }
-
   return {
-    authors,
+    authors: parseArticleAuthors(authorsStr),
     title,
     journal,
     volume,
@@ -84,28 +85,16 @@ function parseArticle(text: string): ArticleComponents | null {
   };
 }
 
-/**
- * Common journal abbreviations (per T13 style)
- */
-export const JOURNAL_ABBREVIATIONS: Record<string, string> = {
-  'Harvard Law Review': 'Harv. L. Rev.',
-  'Yale Law Journal': 'Yale L.J.',
-  'Stanford Law Review': 'Stan. L. Rev.',
-  'Columbia Law Review': 'Colum. L. Rev.',
-  'Michigan Law Review': 'Mich. L. Rev.',
-  'University of Pennsylvania Law Review': 'U. Pa. L. Rev.',
-  'California Law Review': 'Cal. L. Rev.',
-  'Georgetown Law Journal': 'Geo. L.J.',
-  'New York University Law Review': 'N.Y.U. L. Rev.',
-  'Virginia Law Review': 'Va. L. Rev.',
-  'Duke Law Journal': 'Duke L.J.',
-  'Northwestern University Law Review': 'Nw. U. L. Rev.',
-  'Texas Law Review': 'Tex. L. Rev.',
-  'University of Chicago Law Review': 'U. Chi. L. Rev.',
-  'Minnesota Law Review': 'Minn. L. Rev.',
-  'Iowa Law Review': 'Iowa L. Rev.',
-  'Cornell Law Review': 'Cornell L. Rev.',
-  'Vanderbilt Law Review': 'Vand. L. Rev.',
-  'Boston University Law Review': 'B.U. L. Rev.',
-  'Notre Dame Law Review': 'Notre Dame L. Rev.',
-};
+function parseArticleAuthors(authorsStr: string): string[] {
+  if (authorsStr.includes(' et al.')) {
+    return [authorsStr.replace(/\s+et al\.?$/, '').trim()];
+  }
+  if (authorsStr.includes(' & ')) {
+    const ampIndex = authorsStr.lastIndexOf(' & ');
+    const before = authorsStr.slice(0, ampIndex);
+    const after = authorsStr.slice(ampIndex + 3);
+    const beforeAuthors = before.split(/,\s*/).map(a => a.trim()).filter(Boolean);
+    return [...beforeAuthors, after.trim()];
+  }
+  return [authorsStr];
+}

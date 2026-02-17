@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { extractAndParseCitations, normalizeCitationInput } from '@legalcitation/citation-parser';
 import { runFullAnalysis, calculateScore } from '@legalcitation/rule-engine';
-import type { AnalyzedCitation, CaseComponents, CitationContext, ValidationIssue, ShortFormEntry, ShortFormSuggestion } from '@legalcitation/shared';
+import type { AnalyzedCitation, CaseComponents, StatuteComponents, BookComponents, ArticleComponents, CitationContext, ValidationIssue, ShortFormEntry, ShortFormSuggestion } from '@legalcitation/shared';
 import { validateAnalyzeText } from '../middleware/validation.js';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
 import { logCitationCheck } from '../services/citation-logger.js';
@@ -150,14 +150,145 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
         analyzed.shortForms = shortForms;
       }
 
+      // Generate short forms for statute citations
+      if (citation.type === 'statute') {
+        const comp = citation.components as StatuteComponents;
+        const shortForms: ShortFormEntry[] = [
+          {
+            form: '*Id.*',
+            type: 'id',
+            label: 'Id. Citation',
+            whenToUse: 'Use when citing the EXACT same statute as the immediately preceding citation.',
+            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+            warnings: ['Id. must be italicized, including the period.'],
+          },
+          {
+            form: `*Id.* § ${comp.section || '[section]'}`,
+            type: 'id_pinpoint',
+            label: 'Id. with Section',
+            whenToUse: 'Use when citing the same statute but a different section.',
+            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+            warnings: ['Use § (not "at") before section numbers for statutes.'],
+          },
+        ];
+        analyzed.shortForms = shortForms;
+      }
+
+      // Generate short forms for book/treatise citations
+      if (citation.type === 'book') {
+        const comp = citation.components as BookComponents;
+        const author = comp.authors?.[0] || 'Author';
+        const shortForms: ShortFormEntry[] = [
+          {
+            form: '*Id.*',
+            type: 'id',
+            label: 'Id. Citation',
+            whenToUse: 'Use when citing the EXACT same source as the immediately preceding citation.',
+            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+            warnings: ['Id. must be italicized, including the period.'],
+          },
+          {
+            form: '*Id.* at [page]',
+            type: 'id_pinpoint',
+            label: 'Id. with Page',
+            whenToUse: 'Use when citing the same source but a different page.',
+            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+          },
+          {
+            form: `${author}, *supra* note [N], at [page]`,
+            type: 'supra',
+            label: 'Supra Form',
+            whenToUse: 'Use after the full citation has been given once AND there are intervening citations (making Id. unavailable).',
+            whereToPlace: `Replace [N] with the footnote number where ${author} was first cited in full.`,
+            warnings: ['Only use in footnotes, not in main text.'],
+          },
+        ];
+        analyzed.shortForms = shortForms;
+      }
+
+      // Generate short forms for article citations
+      if (citation.type === 'article') {
+        const comp = citation.components as ArticleComponents;
+        const author = comp.authors?.[0] || 'Author';
+        const shortForms: ShortFormEntry[] = [
+          {
+            form: '*Id.*',
+            type: 'id',
+            label: 'Id. Citation',
+            whenToUse: 'Use when citing the EXACT same article as the immediately preceding citation.',
+            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+            warnings: ['Id. must be italicized, including the period.'],
+          },
+          {
+            form: '*Id.* at [page]',
+            type: 'id_pinpoint',
+            label: 'Id. with Page',
+            whenToUse: 'Use when citing the same article but a different page.',
+            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+          },
+          {
+            form: `${author}, *supra* note [N], at [page]`,
+            type: 'supra',
+            label: 'Supra Form',
+            whenToUse: 'Use after the full citation has been given once AND there are intervening citations.',
+            whereToPlace: `Replace [N] with the footnote number where ${author} was first cited in full.`,
+            warnings: ['Only use in footnotes, not in main text.'],
+          },
+        ];
+        analyzed.shortForms = shortForms;
+      }
+
+      // Generate short forms for regulation citations
+      if (citation.type === 'regulation') {
+        const shortForms: ShortFormEntry[] = [
+          {
+            form: '*Id.*',
+            type: 'id',
+            label: 'Id. Citation',
+            whenToUse: 'Use when citing the EXACT same regulation as the immediately preceding citation.',
+            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+          },
+          {
+            form: '*Id.* § [section]',
+            type: 'id_pinpoint',
+            label: 'Id. with Section',
+            whenToUse: 'Use when citing the same regulation but a different section.',
+            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+            warnings: ['Use § (not "at") before section numbers for regulations.'],
+          },
+        ];
+        analyzed.shortForms = shortForms;
+      }
+
+      // Generate short forms for constitution citations
+      if (citation.type === 'constitution') {
+        const shortForms: ShortFormEntry[] = [
+          {
+            form: '*Id.*',
+            type: 'id',
+            label: 'Id. Citation',
+            whenToUse: 'Use when citing the EXACT same constitutional provision as the immediately preceding citation.',
+            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+          },
+        ];
+        analyzed.shortForms = shortForms;
+      }
+
       results.push(analyzed);
     }
 
     // Post-processing: detect duplicate case citations and suggest short forms
     const shortFormSuggestions = generateShortFormSuggestions(results, text);
     if (shortFormSuggestions.length > 0) {
-      // Attach suggestions to the first citation result
-      results[0].shortFormSuggestions = shortFormSuggestions;
+      for (const suggestion of shortFormSuggestions) {
+        const targetIdx = suggestion.citationIndex;
+        if (targetIdx >= 0 && targetIdx < results.length) {
+          if (!results[targetIdx].shortFormSuggestions) {
+            results[targetIdx].shortFormSuggestions = [];
+          }
+          results[targetIdx].shortFormSuggestions!.push(suggestion);
+        }
+      }
     }
 
     // Even if no citations found, return 200 with empty results (never 400 for in-text)

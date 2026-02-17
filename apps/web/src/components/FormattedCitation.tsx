@@ -19,8 +19,8 @@ export function FormattedCitation({ text, formatStyle, className, directives }: 
     );
   }
 
-  // Default: existing *marker* + formatStyle system
-  const parts = text.split(/(\*[^*]+\*)/);
+  // Default: *italic* and _underline_ marker system
+  const parts = text.split(/(\*[^*]+\*|_[^_]+_)/);
   return (
     <span className={className}>
       {parts.map((part, i) => {
@@ -29,6 +29,10 @@ export function FormattedCitation({ text, formatStyle, className, directives }: 
           return formatStyle === 'italics'
             ? <em key={i} className="font-serif">{content}</em>
             : <u key={i}>{content}</u>;
+        }
+        if (part.startsWith('_') && part.endsWith('_')) {
+          const content = part.slice(1, -1);
+          return <u key={i}>{content}</u>;
         }
         return <span key={i}>{part}</span>;
       })}

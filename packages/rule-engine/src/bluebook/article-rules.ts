@@ -20,6 +20,7 @@ export function validateArticle(components: ArticleComponents, rawText?: string)
   checkAuthors(components, rawText, issues);
   checkTitle(components, rawText, issues);
   checkJournalAbbreviation(components, issues);
+  checkForthcoming(components, issues);
   checkVolume(components, issues);
   checkPage(components, issues);
   checkYear(components, issues);
@@ -199,6 +200,8 @@ function checkJournalAbbreviation(components: ArticleComponents, issues: Validat
 
 function checkVolume(components: ArticleComponents, issues: ValidationIssue[]): void {
   if (!components.volume || components.volume.trim().length === 0) {
+    // Volume is optional for forthcoming articles (R. 17.3)
+    if (components.forthcoming) return;
     issues.push({
       id: uuid(),
       rule: 'R. 15.1',
@@ -224,6 +227,8 @@ function checkVolume(components: ArticleComponents, issues: ValidationIssue[]): 
 
 function checkPage(components: ArticleComponents, issues: ValidationIssue[]): void {
   if (!components.firstPage || components.firstPage.trim().length === 0) {
+    // Page number is not available for forthcoming articles (R. 17.3)
+    if (components.forthcoming) return;
     issues.push({
       id: uuid(),
       rule: 'R. 15.1',
@@ -304,6 +309,37 @@ function checkStudentDesignator(components: ArticleComponents, rawText: string |
       }
     }
   }
+}
+
+function checkForthcoming(components: ArticleComponents, issues: ValidationIssue[]): void {
+  if (!components.forthcoming) return;
+
+  // R. 17.3: Forthcoming articles must include a year
+  if (!components.forthcomingYear && !components.year) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 17.3',
+      source: 'Bluebook',
+      severity: 'error',
+      message: 'Forthcoming article must include a year.',
+      suggestion: 'Add the expected year: (forthcoming 2025).',
+    });
+  }
+
+  // R. 17.3: Pinpoint citations in forthcoming works use manuscript pages
+  if (components.pinCite && !components.manuscriptPage) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 17.3',
+      source: 'Bluebook',
+      severity: 'warning',
+      message: 'Pinpoint citations in forthcoming articles should use "(manuscript at [page])" format.',
+      suggestion: 'Use "(manuscript at 12)" instead of a bare page number.',
+    });
+  }
+
+  // R. 17.3: Volume number is optional for forthcoming works
+  // (don't flag missing volume if forthcoming)
 }
 
 function checkPinCite(components: ArticleComponents, issues: ValidationIssue[]): void {

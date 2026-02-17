@@ -105,6 +105,14 @@ function htmlToPlain(html: string): string {
   const temp = document.createElement('div');
   temp.innerHTML = html;
 
+  // Convert formatting tags to markers before extracting text
+  for (const el of Array.from(temp.querySelectorAll('em, i'))) {
+    el.replaceWith(`*${el.textContent}*`);
+  }
+  for (const el of Array.from(temp.querySelectorAll('u'))) {
+    el.replaceWith(`_${el.textContent}_`);
+  }
+
   // Replace block elements with newlines
   for (const el of Array.from(temp.querySelectorAll('p, div, br'))) {
     if (el.tagName === 'BR') {

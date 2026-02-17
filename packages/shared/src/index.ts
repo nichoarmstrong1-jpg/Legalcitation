@@ -17,6 +17,7 @@ export * from './constants/publishing.js';
 export * from './constants/periodicals.js';
 export * from './constants/arbitral-reporters.js';
 export * from './constants/court-documents.js';
+export * from './constants/ai-models.js';
 
 // Utils
 export * from './utils/formatting.js';

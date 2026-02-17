@@ -6,6 +6,11 @@ import type {
   ConstitutionComponents,
   RegulationComponents,
   ArticleComponents,
+  BookComponents,
+  RestatementComponents,
+  InternetComponents,
+  AiSourceComponents,
+  UnpublishedComponents,
   ValidationIssue,
   CitationContext,
 } from '@legalcitation/shared';
@@ -47,6 +52,11 @@ import { validatePinpoints } from './bluebook/pinpoint-rules.js';
 import { validateProceduralRules } from './bluebook/procedural-rule-rules.js';
 import { validateSubsequentHistory } from './bluebook/subsequent-history-rules.js';
 import { validateArticle } from './bluebook/article-rules.js';
+import { validateBook } from './bluebook/book-rules.js';
+import { validateRestatement } from './bluebook/restatement-rules.js';
+import { validateInternet } from './bluebook/internet-rules.js';
+import { validateAiSource } from './bluebook/ai-source-rules.js';
+import { validateUnpublished } from './bluebook/unpublished-rules.js';
 
 export { RULE_EXPLANATIONS } from './explanations.js';
 export type { RuleExplanation } from './explanations.js';
@@ -139,6 +149,31 @@ export function runBluebookRules(citation: ParsedCitation): ValidationIssue[] {
     case 'article': {
       const components = citation.components as ArticleComponents;
       issues.push(...validateArticle(components, citation.rawText));
+      break;
+    }
+    case 'book': {
+      const components = citation.components as BookComponents;
+      issues.push(...validateBook(components, citation.rawText));
+      break;
+    }
+    case 'restatement': {
+      const components = citation.components as RestatementComponents;
+      issues.push(...validateRestatement(components, citation.rawText));
+      break;
+    }
+    case 'internet': {
+      const components = citation.components as InternetComponents;
+      issues.push(...validateInternet(components, citation.rawText));
+      break;
+    }
+    case 'ai_source': {
+      const components = citation.components as AiSourceComponents;
+      issues.push(...validateAiSource(components, citation.rawText));
+      break;
+    }
+    case 'unpublished': {
+      const components = citation.components as UnpublishedComponents;
+      issues.push(...validateUnpublished(components, citation.rawText));
       break;
     }
   }
@@ -234,6 +269,12 @@ const RULE_WEIGHTS: Record<string, number> = {
   'R. 11': 1.2,         // Constitution citation
   'R. 14.2': 1.1,       // Regulation citation
   'B1.1': 1.2,          // Placement errors affect flow
+  'R. 15.1': 1.2,       // Book/article author errors
+  'R. 15.4': 1.2,       // Book parenthetical errors
+  'R. 15.8': 1.1,       // Restatement format
+  'R. 17.1': 1.1,       // Unpublished source errors
+  'R. 18.2.1(d)': 2.0,  // Archive requirement (22nd ed. critical change)
+  'R. 18.3': 1.5,       // AI citation format (new in 22nd ed.)
 };
 
 /**

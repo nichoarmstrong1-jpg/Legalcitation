@@ -81,6 +81,8 @@ export interface ValidationIssue {
   severity: 'error' | 'warning' | 'suggestion';
   message: string;
   suggestion: string;
+  antecedentIndex?: number;
+  antecedentText?: string;
 }
 
 export interface AnalyzeResponse {

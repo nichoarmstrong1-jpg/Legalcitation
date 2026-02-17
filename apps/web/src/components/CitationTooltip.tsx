@@ -22,13 +22,17 @@ interface CitationTooltipProps {
 }
 
 function renderFormattedText(text: string, formatStyle: FormatStyle) {
-  const parts = text.split(/(\*[^*]+\*)/);
+  const parts = text.split(/(\*[^*]+\*|_[^_]+_)/);
   return parts.map((part, i) => {
     if (part.startsWith('*') && part.endsWith('*')) {
       const content = part.slice(1, -1);
       return formatStyle === 'italics'
         ? <em key={i} className="font-serif">{content}</em>
         : <u key={i}>{content}</u>;
+    }
+    if (part.startsWith('_') && part.endsWith('_')) {
+      const content = part.slice(1, -1);
+      return <u key={i}>{content}</u>;
     }
     return <span key={i}>{part}</span>;
   });
@@ -138,20 +142,59 @@ export function CitationTooltip({
         )}
       </div>
 
+      {/* Full citation display */}
+      {result.verifiedCitation && (
+        <div className="text-xs font-serif leading-relaxed mb-2 p-2 bg-surface-50 rounded-lg border border-surface-100">
+          <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-1">Full Citation</div>
+          <div className="text-verified-700">
+            {renderFormattedText(result.verifiedCitation, formatStyle)}
+          </div>
+        </div>
+      )}
+
+      {/* Short forms summary */}
+      {result.shortForms && result.shortForms.length > 0 && (
+        <div className="mb-2 p-2 bg-primary-50 rounded-lg border border-primary-100">
+          <div className="text-[10px] font-bold text-primary-700 uppercase tracking-wider mb-1">Short Forms</div>
+          <div className="space-y-0.5">
+            {result.shortForms.map((sf, i) => {
+              const form = typeof sf === 'string' ? sf : sf.form;
+              return (
+                <div key={i} className="text-[11px] font-serif text-primary-800">
+                  {renderFormattedText(form, formatStyle)}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* First issue */}
-      {result.issues.length > 0 && (
+      {result.issues.filter(iss => iss.severity !== 'suggestion').length > 0 && (
         <div className="text-xs text-surface-600 leading-relaxed mb-2">
-          {result.issues[0].message}
-          {result.issues.length > 1 && (
-            <span className="text-surface-400"> (+{result.issues.length - 1} more)</span>
+          {result.issues.filter(iss => iss.severity !== 'suggestion')[0].message}
+          {result.issues.filter(iss => iss.severity !== 'suggestion').length > 1 && (
+            <span className="text-surface-400"> (+{result.issues.filter(iss => iss.severity !== 'suggestion').length - 1} more)</span>
           )}
         </div>
       )}
 
-      {/* Verified / corrected citation */}
-      {result.verifiedCitation && (
-        <div className="text-xs text-verified-700 font-serif leading-relaxed mb-2">
-          {renderFormattedText(result.verifiedCitation, formatStyle)}
+      {/* Antecedent info (from traceability) */}
+      {result.issues.some(iss => iss.antecedentText) && (
+        <div className="text-[11px] text-surface-500 mb-2 p-1.5 bg-surface-50 rounded-lg">
+          {(() => {
+            const traceIssue = result.issues.find(iss => iss.antecedentText);
+            if (!traceIssue) return null;
+            return (
+              <span>
+                References citation #{(traceIssue.antecedentIndex ?? 0) + 1}:{' '}
+                <span className="font-serif text-surface-600">
+                  {traceIssue.antecedentText!.slice(0, 60)}
+                  {traceIssue.antecedentText!.length > 60 ? '...' : ''}
+                </span>
+              </span>
+            );
+          })()}
         </div>
       )}
 

@@ -7,6 +7,11 @@ import {
   parseConstitutionCitation,
   parseRegulationCitation,
   parseArticleCitation,
+  parseBookCitation,
+  parseRestatementCitation,
+  parseInternetCitation,
+  parseAiSourceCitation,
+  parseUnpublishedCitation,
   parseIdCitation,
   parseSupraCitation,
 } from './parsers/index.js';
@@ -121,6 +126,24 @@ export function extractAndParseCitations(
         case 'regulation':
           result = parseRegulationCitation(span.text, position, detectedContext);
           break;
+        case 'article':
+          result = parseArticleCitation(span.text, position, detectedContext);
+          break;
+        case 'book':
+          result = parseBookCitation(span.text, position, detectedContext);
+          break;
+        case 'restatement':
+          result = parseRestatementCitation(span.text, position, detectedContext);
+          break;
+        case 'internet':
+          result = parseInternetCitation(span.text, position, detectedContext);
+          break;
+        case 'ai_source':
+          result = parseAiSourceCitation(span.text, position, detectedContext);
+          break;
+        case 'unpublished':
+          result = parseUnpublishedCitation(span.text, position, detectedContext);
+          break;
         default:
           // Try each parser in order
           result = parseCaseCitation(span.text, position, detectedContext)
@@ -128,6 +151,11 @@ export function extractAndParseCitations(
             || parseConstitutionCitation(span.text, position, detectedContext)
             || parseRegulationCitation(span.text, position, detectedContext)
             || parseArticleCitation(span.text, position, detectedContext)
+            || parseRestatementCitation(span.text, position, detectedContext)
+            || parseBookCitation(span.text, position, detectedContext)
+            || parseInternetCitation(span.text, position, detectedContext)
+            || parseAiSourceCitation(span.text, position, detectedContext)
+            || parseUnpublishedCitation(span.text, position, detectedContext)
             || parseIdCitation(span.text, position, detectedContext)
             || parseSupraCitation(span.text, position, detectedContext);
       }
