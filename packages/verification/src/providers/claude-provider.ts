@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { CaseComponents, VerificationStatus, CitationDiscrepancy } from '@legalcitation/shared';
+import { caseNamesOverlap } from '../utils.js';
 
 export interface ClaudeVerificationResult {
   status: VerificationStatus;
@@ -176,6 +177,23 @@ EXAMPLE (correct output for Brown v. Board of Education):
           verifiedValue: d.correct_value,
         });
       }
+    }
+
+    // Guard: reject results where the returned case name does not overlap with
+    // the user's input. This prevents showing a completely different case that
+    // happens to share the same reporter citation (e.g., "Easley v. Reilly"
+    // when the user entered "Anderson v. Burke Cnty.").
+    if (result.correct_case_name && !caseNamesOverlap(caseName, result.correct_case_name)) {
+      trace.push(`Could not verify "${caseName}" — the citation at ${targetCite} may belong to a different case. Please verify manually.`);
+      return {
+        status: 'partial_match',
+        discrepancies: [{
+          component: 'case name',
+          userValue: caseName,
+          verifiedValue: 'Could not verify',
+        }],
+        logicTrace: trace,
+      };
     }
 
     if (result.verified) {

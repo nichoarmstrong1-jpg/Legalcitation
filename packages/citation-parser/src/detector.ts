@@ -94,26 +94,36 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
     const textBefore = text.slice(Math.max(0, reporterStart - lookbackDistance), reporterStart);
 
     // Find the case name by looking backward for party v. party pattern
-    const vPattern = /([A-Z][^.;]*?\s+v\.\s+[^,]+),\s*$/;
+    // Use [^;]+ after v. to handle commas in party names (e.g., "Burke Cnty., Ga.")
+    // while stopping at semicolons which are citation boundaries
+    const vPattern = /([A-Z][^.;]*?\s+v\.\s+[^;]+),\s*$/;
     const vMatch = textBefore.match(vPattern);
     if (vMatch && vMatch.index !== undefined) {
       caseStart = Math.max(0, reporterStart - lookbackDistance) + vMatch.index;
     } else {
-      // Try to find "In re", "Ex parte", "In the Matter of", "Estate of", "Guardianship of"
-      const inRePattern = /((?:In re|Ex parte|Ex rel\.|In the Matter of|Estate of|Guardianship of)\s+[^,]+),\s*$/;
-      const inReMatch = textBefore.match(inRePattern);
-      if (inReMatch && inReMatch.index !== undefined) {
-        caseStart = Math.max(0, reporterStart - lookbackDistance) + inReMatch.index;
+      // Also try "v " without period (lazy input)
+      const vNoPeriodPattern = /([A-Z][^.;]*?\s+v\s+[^;]+),\s*$/;
+      const vNoPeriodMatch = textBefore.match(vNoPeriodPattern);
+      if (vNoPeriodMatch && vNoPeriodMatch.index !== undefined) {
+        caseStart = Math.max(0, reporterStart - lookbackDistance) + vNoPeriodMatch.index;
       } else {
-        // Smarter boundary: find the last sentence terminator (. or ;) followed by a capital letter
-        const boundaryPattern = /[.;]\s+([A-Z])/g;
-        let lastBoundary = -1;
-        let boundaryMatch;
-        while ((boundaryMatch = boundaryPattern.exec(textBefore)) !== null) {
-          lastBoundary = boundaryMatch.index + boundaryMatch[0].length - 1;
-        }
-        if (lastBoundary >= 0) {
-          caseStart = Math.max(0, reporterStart - lookbackDistance) + lastBoundary;
+        // Try to find "In re", "Ex parte", "In the Matter of", "Estate of", "Guardianship of"
+        const inRePattern = /((?:In re|Ex parte|Ex rel\.|In the Matter of|Estate of|Guardianship of)\s+[^,]+),\s*$/;
+        const inReMatch = textBefore.match(inRePattern);
+        if (inReMatch && inReMatch.index !== undefined) {
+          caseStart = Math.max(0, reporterStart - lookbackDistance) + inReMatch.index;
+        } else {
+          // Smarter boundary: find the last sentence terminator (. or ;) followed by a capital letter
+          // Use negative lookbehind to skip "v." (not a sentence boundary)
+          const boundaryPattern = /(?<!\bv)[.;]\s+([A-Z])/g;
+          let lastBoundary = -1;
+          let boundaryMatch;
+          while ((boundaryMatch = boundaryPattern.exec(textBefore)) !== null) {
+            lastBoundary = boundaryMatch.index + boundaryMatch[0].length - 1;
+          }
+          if (lastBoundary >= 0) {
+            caseStart = Math.max(0, reporterStart - lookbackDistance) + lastBoundary;
+          }
         }
       }
     }

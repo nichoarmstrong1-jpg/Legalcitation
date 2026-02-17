@@ -1,4 +1,5 @@
 import type { CaseComponents, VerificationStatus, CitationDiscrepancy } from '@legalcitation/shared';
+import { caseNamesOverlap } from '../utils.js';
 
 const CASELAW_URLS = [
   'https://api.case.law/v1',
@@ -128,11 +129,18 @@ export async function verifyWithCaselaw(
       }
     }
 
+    // Guard: verify the first result actually matches the user's case name
+    const topResult = data.results[0];
+    if (topResult?.name_abbreviation && !caseNamesOverlap(caseName, topResult.name_abbreviation)) {
+      trace.push('Cases found but none match the input case name.');
+      return { status: 'not_found', discrepancies: [], logicTrace: trace };
+    }
+
     trace.push('Case found but citation details could not be confirmed.');
     return {
       status: 'partial_match',
       discrepancies,
-      caseName: data.results[0]?.name_abbreviation,
+      caseName: topResult?.name_abbreviation,
       logicTrace: trace,
     };
 

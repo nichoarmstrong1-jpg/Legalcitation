@@ -1,35 +1,13 @@
 import { v4 as uuid } from 'uuid';
 import type { ValidationIssue, ArticleComponents } from '@legalcitation/shared';
+import { JOURNAL_ABBREVIATIONS, JOURNAL_ABBREVIATION_REVERSE, lookupJournal } from '@legalcitation/shared';
 
 /**
  * Bluebook R. 15 — Periodicals (Journals, Magazines, Newspapers)
  * Validates article citation formatting per the 22nd Edition.
  */
 
-const KNOWN_ABBREVIATIONS: Record<string, string> = {
-  'Harvard Law Review': 'Harv. L. Rev.',
-  'Yale Law Journal': 'Yale L.J.',
-  'Stanford Law Review': 'Stan. L. Rev.',
-  'Columbia Law Review': 'Colum. L. Rev.',
-  'Michigan Law Review': 'Mich. L. Rev.',
-  'University of Pennsylvania Law Review': 'U. Pa. L. Rev.',
-  'California Law Review': 'Cal. L. Rev.',
-  'Georgetown Law Journal': 'Geo. L.J.',
-  'New York University Law Review': 'N.Y.U. L. Rev.',
-  'Virginia Law Review': 'Va. L. Rev.',
-  'Duke Law Journal': 'Duke L.J.',
-  'Northwestern University Law Review': 'Nw. U. L. Rev.',
-  'Texas Law Review': 'Tex. L. Rev.',
-  'University of Chicago Law Review': 'U. Chi. L. Rev.',
-  'Minnesota Law Review': 'Minn. L. Rev.',
-  'Iowa Law Review': 'Iowa L. Rev.',
-  'Cornell Law Review': 'Cornell L. Rev.',
-  'Vanderbilt Law Review': 'Vand. L. Rev.',
-  'Boston University Law Review': 'B.U. L. Rev.',
-  'Notre Dame Law Review': 'Notre Dame L. Rev.',
-};
-
-const KNOWN_ABBREVIATED_FORMS = new Set(Object.values(KNOWN_ABBREVIATIONS));
+const KNOWN_ABBREVIATED_FORMS = new Set(Object.values(JOURNAL_ABBREVIATIONS));
 
 const STUDENT_DESIGNATORS = new Set([
   'Note', 'Comment', 'Recent Development', 'Book Review', 'Essay',
@@ -76,7 +54,7 @@ function checkAuthors(components: ArticleComponents, rawText: string | undefined
       });
     }
 
-    if (/^[A-Z]+$/.test(author.trim())) {
+    if (/^[A-Z\s]+$/.test(author.trim()) && author.trim().length > 1) {
       issues.push({
         id: uuid(),
         rule: 'R. 15.1',
@@ -182,30 +160,38 @@ function checkJournalAbbreviation(components: ArticleComponents, issues: Validat
 
   const journal = components.journal.trim();
 
-  for (const [fullName, abbreviation] of Object.entries(KNOWN_ABBREVIATIONS)) {
-    if (journal.toLowerCase() === fullName.toLowerCase()) {
-      issues.push({
-        id: uuid(),
-        rule: 'R. 15.1 / T13',
-        source: 'Bluebook',
-        severity: 'error',
-        message: `Journal name "${journal}" should be abbreviated per T13.`,
-        suggestion: `Use "${abbreviation}" instead of "${fullName}".`,
-      });
-      return;
-    }
+  // Check if the journal is a known full name that should be abbreviated
+  const result = lookupJournal(journal);
+  if (result && result.abbreviation.toLowerCase() !== journal.toLowerCase()) {
+    // User provided a full name or unabbreviated form
+    const sourceLabel = result.source === 'known' ? 'T13' : 'T6';
+    issues.push({
+      id: uuid(),
+      rule: `R. 15.1 / ${sourceLabel}`,
+      source: 'Bluebook',
+      severity: 'error',
+      message: `Journal name "${journal}" should be abbreviated.`,
+      suggestion: `Use "${result.abbreviation}" instead of "${result.fullName}".`,
+    });
+    return;
   }
 
+  // If not in our known database and doesn't look abbreviated, suggest abbreviation
   if (!journal.includes('.') && !KNOWN_ABBREVIATED_FORMS.has(journal)) {
     const hasMultiWordUnabbreviated = journal.split(/\s+/).length >= 3 && !/\.$/.test(journal);
     if (hasMultiWordUnabbreviated) {
+      // Try to generate an abbreviation via T6
+      const generated = lookupJournal(journal);
+      const suggestion = generated
+        ? `Use "${generated.abbreviation}".`
+        : 'Abbreviate journal words per T13 (e.g., "Review" → "Rev.", "Journal" → "J.", "Law" → "L.").';
       issues.push({
         id: uuid(),
         rule: 'R. 15.1 / T13',
         source: 'Bluebook',
         severity: 'suggestion',
         message: `Journal name "${journal}" may need abbreviation per T13.`,
-        suggestion: 'Abbreviate journal words per T13 (e.g., "Review" → "Rev.", "Journal" → "J.", "Law" → "L.").',
+        suggestion,
       });
     }
   }

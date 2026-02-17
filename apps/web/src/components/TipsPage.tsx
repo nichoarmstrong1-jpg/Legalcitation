@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { X, BookOpen, Scale, FileText, Hash, Bookmark, AlertCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { X, BookOpen, Scale, FileText, Hash, Bookmark, AlertCircle, Search } from 'lucide-react';
+import { lookupJournal, JOURNAL_ABBREVIATIONS } from '@legalcitation/shared';
 
 interface TipsPageProps {
   onClose: () => void;
@@ -171,6 +172,19 @@ const SECTIONS: TipSection[] = [
     ],
   },
   {
+    id: 'journal-lookup',
+    title: 'Journal Abbreviations',
+    icon: <Search className="w-4 h-4" />,
+    tips: [
+      {
+        rule: 'T13 / T6',
+        title: 'Journal Abbreviation Lookup',
+        content:
+          'Use the search tool below to look up the correct Bluebook abbreviation for any law journal, review, or periodical. Enter the full journal name or its abbreviation to find the match. Abbreviations follow Tables T13 (institutional names) and T6 (word-level abbreviations).',
+      },
+    ],
+  },
+  {
     id: 'common-mistakes',
     title: 'Common Mistakes',
     icon: <AlertCircle className="w-4 h-4" />,
@@ -211,8 +225,22 @@ const SECTIONS: TipSection[] = [
 
 export function TipsPage({ onClose }: TipsPageProps) {
   const [activeSection, setActiveSection] = useState(SECTIONS[0].id);
+  const [journalInput, setJournalInput] = useState('');
 
   const section = SECTIONS.find((s) => s.id === activeSection) || SECTIONS[0];
+
+  const journalResult = useMemo(() => {
+    if (journalInput.trim().length < 2) return null;
+    return lookupJournal(journalInput.trim());
+  }, [journalInput]);
+
+  const journalBrowseMatches = useMemo(() => {
+    if (journalInput.trim().length < 2) return [];
+    const lower = journalInput.trim().toLowerCase();
+    return Object.entries(JOURNAL_ABBREVIATIONS)
+      .filter(([full, abbr]) => full.toLowerCase().includes(lower) || abbr.toLowerCase().includes(lower))
+      .slice(0, 12);
+  }, [journalInput]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -284,6 +312,72 @@ export function TipsPage({ onClose }: TipsPageProps) {
                 )}
               </div>
             ))}
+
+            {/* Interactive journal lookup tool */}
+            {activeSection === 'journal-lookup' && (
+              <div className="rounded-xl border border-primary-200 p-5 bg-primary-50/30">
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
+                  <input
+                    type="text"
+                    value={journalInput}
+                    onChange={(e) => setJournalInput(e.target.value)}
+                    placeholder="Enter a journal name or abbreviation..."
+                    className="w-full pl-9 pr-3 py-2.5 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-300 bg-white transition-all"
+                  />
+                </div>
+
+                {journalResult && (
+                  <div className="mb-4 p-4 bg-white rounded-xl border border-primary-100">
+                    <div className="text-[10px] font-semibold text-surface-400 uppercase tracking-wider mb-2">Result</div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs text-surface-500 w-24 shrink-0">Full Name:</span>
+                        <span className="text-xs font-medium text-primary-900">{journalResult.fullName}</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs text-surface-500 w-24 shrink-0">Abbreviation:</span>
+                        <span className="text-xs font-mono font-semibold text-primary-700">{journalResult.abbreviation}</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs text-surface-500 w-24 shrink-0">Source:</span>
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${
+                          journalResult.source === 'known'
+                            ? 'bg-verified-100 text-verified-700'
+                            : journalResult.source === 'T13'
+                              ? 'bg-primary-100 text-primary-700'
+                              : 'bg-warning-100 text-warning-700'
+                        }`}>
+                          {journalResult.source === 'known' ? 'Known (T13)' : journalResult.source === 'T13' ? 'T13 Match' : 'T6 Generated'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {journalBrowseMatches.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-semibold text-surface-400 uppercase tracking-wider mb-2">
+                      Matching Journals ({journalBrowseMatches.length})
+                    </div>
+                    <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                      {journalBrowseMatches.map(([full, abbr], i) => (
+                        <div key={i} className="flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-surface-100 hover:border-primary-200 transition-colors">
+                          <span className="text-xs text-primary-900">{full}</span>
+                          <span className="text-[11px] text-surface-500 font-mono shrink-0 ml-3">{abbr}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {journalInput.trim().length >= 2 && journalBrowseMatches.length === 0 && !journalResult && (
+                  <div className="text-xs text-surface-500 text-center py-3">
+                    No matching journals found. The abbreviation will be generated from T6 word-level rules.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

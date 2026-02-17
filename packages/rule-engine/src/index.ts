@@ -36,7 +36,7 @@ import {
   validateParenthetical,
   validateParentheticalOrder,
 } from './bluebook/parenthetical-rules.js';
-import { validateTypeface } from './bluebook/typeface-rules.js';
+import { validateTypeface, validateAcademicTypeface } from './bluebook/typeface-rules.js';
 import { validateSubdivisions } from './bluebook/subdivision-rules.js';
 import { validateQuotations } from './bluebook/quotation-rules.js';
 import { validateNumerals, validateApostropheAbbreviations } from './bluebook/abbreviation-numeral-rules.js';
@@ -69,8 +69,11 @@ export function runBluebookRules(citation: ParsedCitation): ValidationIssue[] {
   issues.push(...validateParenthetical(citation, citation.rawText));
   issues.push(...validateParentheticalOrder(citation.rawText));
 
-  // B2: Typeface validation
+  // B2: Typeface validation (Bluepages)
   issues.push(...validateTypeface(citation, citation.rawText));
+
+  // R. 2: Typeface validation (Whitepages/academic)
+  issues.push(...validateAcademicTypeface(citation, citation.rawText));
 
   // B3 / T16: Subdivision formatting
   issues.push(...validateSubdivisions(citation.rawText));

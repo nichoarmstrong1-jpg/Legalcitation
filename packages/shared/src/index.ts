@@ -22,3 +22,4 @@ export * from './constants/court-documents.js';
 export * from './utils/formatting.js';
 export * from './utils/page-ranges.js';
 export * from './utils/section-ranges.js';
+export * from './utils/journal-abbreviator.js';

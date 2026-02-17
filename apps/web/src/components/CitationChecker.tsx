@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { FileText as FileTextIcon } from 'lucide-react';
+import { FileText as FileTextIcon, Copy, Check, AlertTriangle, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { analyzeText, type AnalyzedCitation } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
 import { ScoreCounter } from './ui/ScoreCounter.tsx';
@@ -7,6 +7,8 @@ import { AnalysisProgressBar } from './ui/AnalysisProgressBar.tsx';
 import { CitationTooltip } from './CitationTooltip.tsx';
 import { SourceViewer } from './SourceViewer.tsx';
 import { RichTextInput } from './RichTextInput.tsx';
+import { FormattedCitation } from './FormattedCitation.tsx';
+import { ShortFormDisplay } from './ShortFormDisplay.tsx';
 import { useToast } from '../context/ToastContext.tsx';
 import { useCaseDocuments } from '../hooks/useCaseDocuments.ts';
 import { trackEvent } from '../services/analytics.ts';
@@ -33,6 +35,8 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   const [acceptedChanges, setAcceptedChanges] = useState<Set<number>>(new Set());
   const [deniedChanges, setDeniedChanges] = useState<Set<number>>(new Set());
   const [viewingDocId, setViewingDocId] = useState<string | null>(null);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const [copiedCorrectedIdx, setCopiedCorrectedIdx] = useState<number | null>(null);
   const annotatedRef = useRef<HTMLDivElement>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -126,6 +130,35 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
       showToast('Could not copy — try selecting manually', 'error');
     }
   }, [showToast]);
+
+  const handleCopyCorrectedInline = useCallback(async (result: AnalyzedCitation, idx: number) => {
+    const corrected = result.verifiedCitation;
+    if (!corrected) return;
+
+    const htmlContent = corrected.replace(/\*([^*]+)\*/g, (_match: string, content: string) => {
+      return formatStyle === 'italics' ? `<em>${content}</em>` : `<u>${content}</u>`;
+    });
+    const plainText = corrected.replace(/\*([^*]+)\*/g, '$1');
+
+    try {
+      const blob = new Blob([`<html><body>${htmlContent}</body></html>`], { type: 'text/html' });
+      const textBlob = new Blob([plainText], { type: 'text/plain' });
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'text/html': blob, 'text/plain': textBlob }),
+      ]);
+    } catch {
+      try {
+        await navigator.clipboard.writeText(plainText);
+      } catch {
+        showToast('Could not copy — try selecting manually', 'error');
+        return;
+      }
+    }
+
+    setCopiedCorrectedIdx(idx);
+    showToast('Citation copied with formatting', 'success');
+    setTimeout(() => setCopiedCorrectedIdx(null), 2000);
+  }, [formatStyle, showToast]);
 
   const getSeverityColor = (result: AnalyzedCitation) => {
     const errors = result.issues.filter(i => i.severity === 'error').length;
@@ -342,52 +375,114 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
             {results.map((result, i) => {
               const colors = getSeverityColor(result);
               const matchingDoc = findMatchingDocument(result);
+              const isExpanded = expandedIdx === i;
               return (
-                <div
-                  key={i}
-                  className={`w-full text-left p-3 rounded-xl border transition-all duration-200 ${
-                    selectedIdx === i
-                      ? `border-primary-400 bg-primary-50 ring-1 ring-primary-200`
-                      : `border-surface-200 hover:border-surface-300 ${hoveredCitation === i ? colors.bg : ''}`
-                  }`}
-                >
-                  <button
-                    onClick={() => handleCitationClick(i)}
-                    onMouseEnter={() => handleCitationMouseEnter(i)}
-                    onMouseLeave={handleCitationMouseLeave}
-                    className="w-full text-left"
+                <div key={i}>
+                  <div
+                    className={`w-full text-left p-3 rounded-xl border transition-all duration-200 ${
+                      selectedIdx === i
+                        ? `border-primary-400 bg-primary-50 ring-1 ring-primary-200`
+                        : `border-surface-200 hover:border-surface-300 ${hoveredCitation === i ? colors.bg : ''}`
+                    }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${
-                          result.issues.filter(iss => iss.severity === 'error').length > 0 ? 'bg-error-500' :
-                          result.issues.filter(iss => iss.severity === 'warning').length > 0 ? 'bg-warning-500' :
-                          result.verificationStatus === 'verified' ? 'bg-verified-500' : 'bg-surface-300'
-                        }`} />
-                        <span className="text-xs font-mono truncate text-surface-700">
-                          {result.parsed?.rawText || 'Unknown citation'}
-                        </span>
+                    <button
+                      onClick={() => { handleCitationClick(i); setExpandedIdx(isExpanded ? null : i); }}
+                      onMouseEnter={() => handleCitationMouseEnter(i)}
+                      onMouseLeave={handleCitationMouseLeave}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {isExpanded ? (
+                            <ChevronDown className="w-3.5 h-3.5 text-surface-400 shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-3.5 h-3.5 text-surface-400 shrink-0" />
+                          )}
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${
+                            result.issues.filter(iss => iss.severity === 'error').length > 0 ? 'bg-error-500' :
+                            result.issues.filter(iss => iss.severity === 'warning').length > 0 ? 'bg-warning-500' :
+                            result.verificationStatus === 'verified' ? 'bg-verified-500' : 'bg-surface-300'
+                          }`} />
+                          <span className="text-xs font-mono truncate text-surface-700">
+                            {result.parsed?.rawText || 'Unknown citation'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {matchingDoc && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setViewingDocId(matchingDoc.id); }}
+                              className="flex items-center gap-1 text-[10px] font-medium text-primary-600 hover:text-primary-700 transition-colors"
+                              title="View source document"
+                            >
+                              <FileTextIcon className="w-3 h-3" />
+                              Source
+                            </button>
+                          )}
+                          <span className={`text-xs font-bold ${
+                            result.score >= 80 ? 'text-verified-600' :
+                            result.score >= 50 ? 'text-warning-600' : 'text-error-600'
+                          }`}>
+                            {result.score}%
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {matchingDoc && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setViewingDocId(matchingDoc.id); }}
-                            className="flex items-center gap-1 text-[10px] font-medium text-primary-600 hover:text-primary-700 transition-colors"
-                            title="View source document"
-                          >
-                            <FileTextIcon className="w-3 h-3" />
-                            Source
-                          </button>
-                        )}
-                        <span className={`text-xs font-bold ${
-                          result.score >= 80 ? 'text-verified-600' :
-                          result.score >= 50 ? 'text-warning-600' : 'text-error-600'
-                        }`}>
-                          {result.score}%
-                        </span>
-                      </div>
+                    </button>
+                  </div>
+
+                  {/* Inline expansion with corrected citation + short forms */}
+                  {isExpanded && (
+                    <div className="mt-2 mb-1 space-y-3 bg-surface-50 rounded-xl p-4 border border-surface-200 animate-fade-in">
+                      {/* Corrected citation */}
+                      {result.verifiedCitation && (
+                        <div className="bg-white rounded-lg border border-verified-200 p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-bold text-verified-700 uppercase tracking-wider">Correct Citation</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleCopyCorrectedInline(result, i); }}
+                              className="flex items-center gap-1 text-xs font-medium text-verified-600 hover:text-verified-700 transition-colors"
+                            >
+                              {copiedCorrectedIdx === i ? (
+                                <><Check className="w-3 h-3" /> Copied</>
+                              ) : (
+                                <><Copy className="w-3 h-3" /> Copy</>
+                              )}
+                            </button>
+                          </div>
+                          <div className="font-serif text-sm leading-relaxed">
+                            <FormattedCitation text={result.verifiedCitation} formatStyle={formatStyle} />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Short forms */}
+                      {result.shortForms && result.shortForms.length > 0 && (
+                        <ShortFormDisplay shortForms={result.shortForms} formatStyle={formatStyle} />
+                      )}
+
+                      {/* Issues summary */}
+                      {result.issues.length > 0 && (
+                        <div className="space-y-1.5">
+                          {result.issues.slice(0, 3).map((issue, j) => (
+                            <div key={j} className="flex items-start gap-2 text-xs">
+                              {issue.severity === 'error' ? (
+                                <XCircle className="w-3.5 h-3.5 text-error-500 shrink-0 mt-0.5" />
+                              ) : issue.severity === 'warning' ? (
+                                <AlertTriangle className="w-3.5 h-3.5 text-warning-500 shrink-0 mt-0.5" />
+                              ) : (
+                                <Check className="w-3.5 h-3.5 text-surface-400 shrink-0 mt-0.5" />
+                              )}
+                              <span className="text-surface-600">{issue.message}</span>
+                            </div>
+                          ))}
+                          {result.issues.length > 3 && (
+                            <div className="text-[10px] text-surface-400 ml-5">
+                              +{result.issues.length - 3} more issue{result.issues.length - 3 > 1 ? 's' : ''}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </button>
+                  )}
                 </div>
               );
             })}

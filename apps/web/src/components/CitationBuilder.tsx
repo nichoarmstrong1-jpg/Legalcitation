@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { BookOpen, ChevronRight, FileText } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { BookOpen, ChevronRight, FileText, Search } from 'lucide-react';
 import { searchCases, buildCitation, analyzeText, type AnalyzedCitation, type CaseSearchResult } from '../services/api.ts';
+import { JOURNAL_ABBREVIATIONS } from '@legalcitation/shared';
 import { FileUploader } from './FileUploader.tsx';
 import { CitationGeneratingView } from './CitationGeneratingView.tsx';
 import { CaseLibrary } from './CaseLibrary.tsx';
@@ -29,6 +30,32 @@ export function CitationBuilder({ onResult, formatStyle, restoredInput, onAuthOp
   const [extractedCitations, setExtractedCitations] = useState<AnalyzedCitation[]>([]);
   const [extracting, setExtracting] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [journalQuery, setJournalQuery] = useState('');
+  const [showJournalDropdown, setShowJournalDropdown] = useState(false);
+  const journalDropdownRef = useRef<HTMLDivElement>(null);
+
+  const journalEntries = useMemo(
+    () => Object.entries(JOURNAL_ABBREVIATIONS).map(([full, abbr]) => ({ full, abbr })),
+    []
+  );
+
+  const journalMatches = useMemo(() => {
+    if (journalQuery.length < 2) return [];
+    const lower = journalQuery.toLowerCase();
+    return journalEntries
+      .filter(({ full, abbr }) => full.toLowerCase().includes(lower) || abbr.toLowerCase().includes(lower))
+      .slice(0, 8);
+  }, [journalQuery, journalEntries]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (journalDropdownRef.current && !journalDropdownRef.current.contains(e.target as Node)) {
+        setShowJournalDropdown(false);
+      }
+    }
+    if (showJournalDropdown) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showJournalDropdown]);
 
   // Restore input from history
   useEffect(() => {
@@ -241,6 +268,40 @@ export function CitationBuilder({ onResult, formatStyle, restoredInput, onAuthOp
               Regulation: <span className="font-medium">"40 CFR 60"</span> or <span className="font-medium">"IRC 501(c)(3)"</span>
             </li>
           </ul>
+        </div>
+
+        {/* Journal Abbreviation Lookup */}
+        <div className="mb-5 relative" ref={journalDropdownRef}>
+          <div className="text-xs font-semibold text-surface-500 mb-2">Journal Abbreviation Lookup</div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
+            <input
+              type="text"
+              value={journalQuery}
+              onChange={(e) => { setJournalQuery(e.target.value); setShowJournalDropdown(true); }}
+              onFocus={() => { if (journalQuery.length >= 2) setShowJournalDropdown(true); }}
+              placeholder="Type a journal name or abbreviation..."
+              className="w-full pl-9 pr-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-300 transition-all"
+            />
+          </div>
+          {showJournalDropdown && journalMatches.length > 0 && (
+            <div className="absolute z-20 mt-1 w-full bg-white border border-surface-200 rounded-xl shadow-elevated max-h-[240px] overflow-y-auto">
+              {journalMatches.map(({ full, abbr }, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setInput(abbr);
+                    setJournalQuery('');
+                    setShowJournalDropdown(false);
+                  }}
+                  className="w-full text-left px-4 py-2.5 hover:bg-surface-50 transition-colors border-b border-surface-100 last:border-b-0"
+                >
+                  <div className="text-xs font-medium text-primary-900">{full}</div>
+                  <div className="text-[11px] text-surface-500 font-mono">{abbr}</div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="input-field h-24 overflow-y-auto" data-tour="builder-input">

@@ -1,11 +1,60 @@
-import type { FormatStyle } from '../types/citation.js';
+import type { FormatStyle, FormattingDirective } from '../types/citation.js';
 
 /**
  * Convert markdown-style *italic* markers to HTML tags
  */
 export function markdownToHtml(text: string, format: FormatStyle): string {
+  if (format === 'small_caps') {
+    return text.replace(/\*([^*]+)\*/g, '<span style="font-variant: small-caps">$1</span>');
+  }
   const tag = format === 'italics' ? 'i' : 'u';
   return text.replace(/\*([^*]+)\*/g, `<${tag}>$1</${tag}>`);
+}
+
+/**
+ * Convert FormattingDirective[] into an HTML string with appropriate tags.
+ *
+ * - 'italic' → <i>text</i>
+ * - 'small_caps' → <span style="font-variant: small-caps">text</span>
+ * - 'roman' → text (no wrapping)
+ */
+export function directivesToHtml(text: string, directives: FormattingDirective[]): string {
+  if (directives.length === 0) return text;
+
+  // Sort directives by start position
+  const sorted = [...directives].sort((a, b) => a.start - b.start);
+  let result = '';
+  let lastEnd = 0;
+
+  for (const directive of sorted) {
+    // Add any text before this directive
+    if (directive.start > lastEnd) {
+      result += text.slice(lastEnd, directive.start);
+    }
+
+    const segment = text.slice(directive.start, directive.end);
+
+    switch (directive.style) {
+      case 'italic':
+        result += `<i>${segment}</i>`;
+        break;
+      case 'small_caps':
+        result += `<span style="font-variant: small-caps">${segment}</span>`;
+        break;
+      case 'roman':
+        result += segment;
+        break;
+    }
+
+    lastEnd = directive.end;
+  }
+
+  // Add any remaining text
+  if (lastEnd < text.length) {
+    result += text.slice(lastEnd);
+  }
+
+  return result;
 }
 
 /**

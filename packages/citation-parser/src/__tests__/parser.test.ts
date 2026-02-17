@@ -92,6 +92,41 @@ describe('extractAndParseCitations — case citations', () => {
   });
 });
 
+describe('detectCitations — geographic case names with commas', () => {
+  it('captures full citation including first party for "Anderson v. Burke Cnty., Ga."', () => {
+    const spans = detectCitations('Anderson v. Burke Cnty., Ga., 239 F.3d 1216 (11th Cir. 2001).');
+    expect(spans.length).toBe(1);
+    expect(spans[0].text).toContain('Anderson v.');
+    expect(spans[0].text).toContain('Burke Cnty., Ga.');
+  });
+
+  it('handles city/state designations', () => {
+    const spans = detectCitations('Smith v. City of Chicago, Ill., 500 F.3d 100 (7th Cir. 2007).');
+    expect(spans.length).toBe(1);
+    expect(spans[0].text).toContain('Smith v.');
+  });
+
+  it('handles board/district designations', () => {
+    const spans = detectCitations('Johnson v. Bd. of Educ., Springfield, 400 F.3d 500 (7th Cir. 2005).');
+    expect(spans.length).toBe(1);
+    expect(spans[0].text).toContain('Johnson v.');
+  });
+});
+
+describe('extractAndParseCitations — geographic case names', () => {
+  it('parses Anderson v. Burke Cnty. with correct components', () => {
+    const results = extractAndParseCitations('Anderson v. Burke Cnty., Ga., 239 F.3d 1216 (11th Cir. 2001).');
+    expect(results.length).toBe(1);
+    const comp = results[0].components as CaseComponents;
+    expect(comp.partyOne).toContain('Anderson');
+    expect(comp.volume).toBe('239');
+    expect(comp.reporter).toBe('F.3d');
+    expect(comp.firstPage).toBe('1216');
+    expect(comp.court).toBe('11th Cir.');
+    expect(comp.year).toBe('2001');
+  });
+});
+
 describe('extractAndParseCitations — statute citations', () => {
   it('parses a federal statute', () => {
     const results = extractAndParseCitations('42 U.S.C. § 1983');

@@ -1,21 +1,26 @@
-import { useState } from 'react';
-import { Check, AlertTriangle, XCircle, Circle } from 'lucide-react';
+import { useState, Fragment } from 'react';
+import { Check, AlertTriangle, XCircle, Circle, Copy, ChevronDown, ChevronRight } from 'lucide-react';
 import { analyzeText, type AnalyzedCitation } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
 import { ScoreCounter } from './ui/ScoreCounter.tsx';
 import { AnalysisProgressBar } from './ui/AnalysisProgressBar.tsx';
 import { htmlToMarkedText } from '../hooks/useRichPaste.ts';
+import { FormattedCitation } from './FormattedCitation.tsx';
+import { ShortFormDisplay } from './ShortFormDisplay.tsx';
 
 interface BulkCheckProps {
   onResults: (results: AnalyzedCitation[], input: string) => void;
   onSelectCitation: (citation: AnalyzedCitation) => void;
   results: AnalyzedCitation[];
+  formatStyle?: 'italics' | 'underline';
 }
 
-export function BulkCheck({ onResults, onSelectCitation, results }: BulkCheckProps) {
+export function BulkCheck({ onResults, onSelectCitation, results, formatStyle = 'italics' }: BulkCheckProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const [copiedCorrectedIdx, setCopiedCorrectedIdx] = useState<number | null>(null);
 
   const handleAnalyze = async () => {
     if (!input.trim()) return;
@@ -43,6 +48,22 @@ export function BulkCheck({ onResults, onSelectCitation, results }: BulkCheckPro
       case 'not_found': return <XCircle className="w-4 h-4 text-error-500" />;
       default: return <Circle className="w-4 h-4 text-surface-400" />;
     }
+  };
+
+  const handleCopyCorrectedInline = (text: string, idx: number) => {
+    const plainText = text.replace(/\*/g, '');
+    const htmlText = text.replace(/\*([^*]+)\*/g, (_m, inner) =>
+      formatStyle === 'underline' ? `<u>${inner}</u>` : `<i>${inner}</i>`
+    );
+    navigator.clipboard.write([
+      new ClipboardItem({
+        'text/plain': new Blob([plainText], { type: 'text/plain' }),
+        'text/html': new Blob([htmlText], { type: 'text/html' }),
+      }),
+    ]).then(() => {
+      setCopiedCorrectedIdx(idx);
+      setTimeout(() => setCopiedCorrectedIdx(null), 2000);
+    });
   };
 
   const stats = {
@@ -136,26 +157,84 @@ export function BulkCheck({ onResults, onSelectCitation, results }: BulkCheckPro
               </tr>
             </thead>
             <tbody>
-              {results.map((result, i) => (
-                <tr
-                  key={i}
-                  onClick={() => onSelectCitation(result)}
-                  className="border-b border-surface-100 hover:bg-primary-50 cursor-pointer transition-all duration-200 animate-fade-in"
-                  style={{ animationDelay: `${i * 30}ms` }}
-                >
-                  <td className="py-3 px-4 text-surface-400 text-xs">{i + 1}</td>
-                  <td className="py-3 px-4 font-mono text-xs truncate max-w-md text-surface-700">
-                    {result.parsed?.rawText || 'Unknown'}
-                  </td>
-                  <td className="py-3 px-4 text-center">{getStatusIcon(result.verificationStatus)}</td>
-                  <td className={`py-3 px-4 text-center font-bold text-xs ${
-                    result.score >= 80 ? 'text-verified-600' :
-                    result.score >= 50 ? 'text-warning-600' : 'text-error-600'
-                  }`}>
-                    {result.score}
-                  </td>
-                </tr>
-              ))}
+              {results.map((result, i) => {
+                const isExpanded = expandedIdx === i;
+                return (
+                  <Fragment key={i}>
+                    <tr
+                      onClick={() => {
+                        setExpandedIdx(isExpanded ? null : i);
+                        onSelectCitation(result);
+                      }}
+                      className={`border-b border-surface-100 hover:bg-primary-50 cursor-pointer transition-all duration-200 animate-fade-in ${isExpanded ? 'bg-primary-50' : ''}`}
+                      style={{ animationDelay: `${i * 30}ms` }}
+                    >
+                      <td className="py-3 px-4 text-surface-400 text-xs">
+                        <span className="flex items-center gap-1">
+                          {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                          {i + 1}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-mono text-xs truncate max-w-md text-surface-700">
+                        {result.parsed?.rawText || 'Unknown'}
+                      </td>
+                      <td className="py-3 px-4 text-center">{getStatusIcon(result.verificationStatus)}</td>
+                      <td className={`py-3 px-4 text-center font-bold text-xs ${
+                        result.score >= 80 ? 'text-verified-600' :
+                        result.score >= 50 ? 'text-warning-600' : 'text-error-600'
+                      }`}>
+                        {result.score}
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="animate-fade-in">
+                        <td colSpan={4} className="p-0">
+                          <div className="mx-4 my-3 space-y-3 bg-surface-50 rounded-xl p-4 border border-surface-200">
+                            {result.verifiedCitation && (
+                              <div className="bg-white rounded-lg border border-verified-200 p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-[10px] font-bold text-verified-700 uppercase tracking-wider">Correct Citation</span>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleCopyCorrectedInline(result.verifiedCitation!, i); }}
+                                    className="flex items-center gap-1 text-[10px] font-medium text-surface-500 hover:text-primary-600 transition-colors"
+                                  >
+                                    {copiedCorrectedIdx === i ? <Check className="w-3 h-3 text-verified-500" /> : <Copy className="w-3 h-3" />}
+                                    {copiedCorrectedIdx === i ? 'Copied' : 'Copy'}
+                                  </button>
+                                </div>
+                                <div className="font-serif text-sm leading-relaxed">
+                                  <FormattedCitation text={result.verifiedCitation} formatStyle={formatStyle} />
+                                </div>
+                              </div>
+                            )}
+                            {result.shortForms && result.shortForms.length > 0 && (
+                              <ShortFormDisplay shortForms={result.shortForms} formatStyle={formatStyle} />
+                            )}
+                            {result.issues.length > 0 && (
+                              <div className="space-y-1.5">
+                                <span className="text-[10px] font-bold text-surface-500 uppercase tracking-wider">Issues</span>
+                                {result.issues.slice(0, 3).map((issue, j) => (
+                                  <div key={j} className="flex items-start gap-2 text-xs">
+                                    {issue.severity === 'error' ? (
+                                      <XCircle className="w-3 h-3 text-error-500 mt-0.5 shrink-0" />
+                                    ) : (
+                                      <AlertTriangle className="w-3 h-3 text-warning-500 mt-0.5 shrink-0" />
+                                    )}
+                                    <span className="text-surface-600">{issue.message}</span>
+                                  </div>
+                                ))}
+                                {result.issues.length > 3 && (
+                                  <span className="text-[10px] text-surface-400">+{result.issues.length - 3} more</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

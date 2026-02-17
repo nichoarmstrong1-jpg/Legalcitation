@@ -1,4 +1,5 @@
 import type { CaseComponents, VerificationStatus, CitationDiscrepancy, ReferenceExample } from '@legalcitation/shared';
+import { caseNamesOverlap } from '../utils.js';
 
 const COURTLISTENER_BASE = 'https://www.courtlistener.com/api/rest/v3';
 
@@ -107,8 +108,19 @@ export async function verifyWithCourtListener(
       };
     }
 
-    // Partial match — found the case but citation details differ
+    // Partial match — found cases but citation details differ
+    // Guard: only return partial match if case names have meaningful overlap
     const bestMatch = data.results[0];
+    if (bestMatch.caseName && !caseNamesOverlap(caseName, bestMatch.caseName)) {
+      trace.push('Cases found in CourtListener do not match the input case name.');
+      return {
+        status: 'not_found',
+        discrepancies: [],
+        referenceExamples: [],
+        logicTrace: trace,
+      };
+    }
+
     trace.push(`Partial match: ${bestMatch.caseName}`);
     trace.push('Citation details may differ from user input.');
 

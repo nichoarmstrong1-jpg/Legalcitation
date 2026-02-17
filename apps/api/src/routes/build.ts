@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { extractAndParseCitations, normalizeCitationInput } from '@legalcitation/citation-parser';
 import { runAllRules, calculateScore } from '@legalcitation/rule-engine';
 import { buildCitationWithClaude, searchCasesWithClaude } from '@legalcitation/verification';
-import type { AnalyzedCitation, CaseComponents, ValidationIssue } from '@legalcitation/shared';
+import type { AnalyzedCitation, CaseComponents, ValidationIssue, ShortFormEntry } from '@legalcitation/shared';
 import { validateSearch, validateBuild } from '../middleware/validation.js';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
 import { logCitationCheck } from '../services/citation-logger.js';
@@ -107,8 +107,9 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
       };
 
       if (target.type === 'case') {
+        const components = target.components as CaseComponents;
+
         try {
-          const components = target.components as CaseComponents;
           const verification = await cachedVerifyCaseCitation(components);
           analyzed.verificationStatus = verification.status;
           analyzed.discrepancies = verification.discrepancies;
@@ -118,6 +119,50 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
           console.error('Build verification error:', err);
           analyzed.logicTrace.push('External verification temporarily unavailable.');
         }
+
+        // Generate short form citations for case citations
+        const shortParty = components.partyOne;
+        const shortForms: ShortFormEntry[] = [
+          {
+            form: '*Id.*',
+            type: 'id',
+            label: 'Id. Citation',
+            whenToUse: 'Use when citing the EXACT same source as the immediately preceding citation, with no other citations in between. The preceding citation must cite only ONE authority (no semicolons).',
+            whereToPlace: `Use this immediately after the full citation of ${shortParty} appears, as long as no other source is cited between them.`,
+            warnings: [
+              'Never use Id. if the preceding citation contains multiple sources separated by semicolons.',
+              'Id. must be italicized, including the period.',
+              'Capitalize "Id." only when it begins a citation sentence.',
+            ],
+          },
+          {
+            form: '*Id.* at [pinpoint page]',
+            type: 'id_pinpoint',
+            label: 'Id. with Pinpoint',
+            whenToUse: 'Use when citing the same source as the immediately preceding citation but referencing a DIFFERENT specific page. Replace [pinpoint page] with the actual page number.',
+            whereToPlace: `Use after the full citation of ${shortParty} when you need to reference a specific page different from the one in the full citation.`,
+            warnings: [
+              'Use "at" before page numbers but NOT before § or ¶ symbols.',
+              'Do not create a double period: "Id. at 205." is correct, not "Id.. at 205."',
+            ],
+          },
+        ];
+
+        if (components.volume && components.reporter) {
+          shortForms.push({
+            form: `*${shortParty}*, ${components.volume} ${components.reporter} at [pinpoint page]`,
+            type: 'short_case',
+            label: 'Short Case Form',
+            whenToUse: 'Use after the full citation has been given once AND there are intervening citations to other sources (making Id. unavailable). Use only the first party name.',
+            whereToPlace: `Use for any subsequent reference to this case when other citations appear between this reference and the last citation to ${shortParty}.`,
+            warnings: [
+              'Only use after the full citation has appeared at least once in the same document.',
+              'The short form must appear within approximately 5 citations of the most recent full citation to this source.',
+            ],
+          });
+        }
+
+        analyzed.shortForms = shortForms;
       }
 
       logCitationCheck({

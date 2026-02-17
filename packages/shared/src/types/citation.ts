@@ -23,7 +23,7 @@ export type VerificationStatus =
 
 export type IssueSeverity = 'error' | 'warning' | 'suggestion';
 export type IssueSource = 'Bluebook' | 'Indigo' | 'Context' | 'Verification';
-export type FormatStyle = 'italics' | 'underline';
+export type FormatStyle = 'italics' | 'underline' | 'small_caps';
 
 export interface CaseComponents {
   partyOne: string;
@@ -151,6 +151,14 @@ export interface ShortFormSuggestion {
   contextSnippet: string;
 }
 
+export interface FormattingDirective {
+  start: number;
+  end: number;
+  style: 'italic' | 'roman' | 'small_caps';
+  /** Which part of the citation this directive applies to (e.g., 'case_name', 'journal_title', 'author') */
+  component: string;
+}
+
 export interface AnalyzedCitation {
   parsed: ParsedCitation;
   issues: ValidationIssue[];
@@ -164,6 +172,7 @@ export interface AnalyzedCitation {
   pinpointMatch?: PinpointMatchResult;
   shortForms?: (string | ShortFormEntry)[];
   shortFormSuggestions?: ShortFormSuggestion[];
+  formattingDirectives?: FormattingDirective[];
 }
 
 export interface HistoryEntry {

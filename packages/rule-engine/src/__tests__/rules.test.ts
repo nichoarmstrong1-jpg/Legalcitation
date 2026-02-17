@@ -535,6 +535,107 @@ describe('R. 14 — Administrative and Executive Materials', () => {
   });
 });
 
+// ── R. 2: Academic Typeface Rules ──────────────────────────────────
+
+import { validateAcademicTypeface } from '../bluebook/typeface-rules.js';
+import type { ArticleComponents } from '@legalcitation/shared';
+import { validateArticle } from '../bluebook/article-rules.js';
+
+describe('R. 2 — Academic Typeface', () => {
+  it('flags italic case name in a footnote citation (should be roman)', () => {
+    const citation = makeCitation({
+      rawText: '*Smith v. Jones*, 500 U.S. 100 (2020).',
+      context: 'citation_sentence',
+      components: {
+        partyOne: 'Smith',
+        partyTwo: 'Jones',
+        volume: '500',
+        reporter: 'U.S.',
+        firstPage: '100',
+        year: '2020',
+      },
+    });
+    const issues = validateAcademicTypeface(citation, citation.rawText);
+    const typefaceIssues = issues.filter(i => i.rule === 'R. 2.1' && i.message.includes('roman'));
+    expect(typefaceIssues.length).toBeGreaterThan(0);
+  });
+
+  it('warns when case name is not italic in a textual sentence', () => {
+    const citation = makeCitation({
+      rawText: 'Smith v. Jones, 500 U.S. 100 (2020)',
+      context: 'textual_sentence',
+      components: {
+        partyOne: 'Smith',
+        partyTwo: 'Jones',
+        volume: '500',
+        reporter: 'U.S.',
+        firstPage: '100',
+        year: '2020',
+      },
+    });
+    const issues = validateAcademicTypeface(citation, citation.rawText);
+    const typefaceIssues = issues.filter(i => i.rule === 'R. 2.1' && i.message.includes('italicized'));
+    expect(typefaceIssues.length).toBeGreaterThan(0);
+  });
+
+  it('flags ALL CAPS signal as typeface error', () => {
+    const citation = makeCitation({
+      rawText: 'SEE ALSO Smith v. Jones, 500 U.S. 100 (2020).',
+      context: 'citation_sentence',
+    });
+    const issues = validateAcademicTypeface(citation, citation.rawText);
+    const signalIssues = issues.filter(i => i.message.includes('SEE ALSO'));
+    expect(signalIssues.length).toBeGreaterThan(0);
+  });
+
+  it('flags ALL CAPS INFRA cross-reference', () => {
+    const citation = makeCitation({
+      rawText: 'INFRA note 5',
+      type: 'unknown',
+      context: 'citation_sentence',
+    });
+    const issues = validateAcademicTypeface(citation, citation.rawText);
+    const infraIssues = issues.filter(i => i.message.includes('INFRA'));
+    expect(infraIssues.length).toBeGreaterThan(0);
+  });
+});
+
+describe('R. 15 — Article Rules with Journal Lookup', () => {
+  function makeArticleComponents(overrides: Partial<ArticleComponents> = {}): ArticleComponents {
+    return {
+      authors: ['John Smith'],
+      title: 'A Theory of Everything',
+      journal: 'Harv. L. Rev.',
+      volume: '128',
+      firstPage: '1045',
+      year: '2024',
+      ...overrides,
+    };
+  }
+
+  it('flags a known full journal name that should be abbreviated', () => {
+    const components = makeArticleComponents({ journal: 'Harvard Law Review' });
+    const issues = validateArticle(components);
+    const journalIssues = issues.filter(i => i.message.includes('abbreviated'));
+    expect(journalIssues.length).toBeGreaterThan(0);
+    expect(journalIssues[0].suggestion).toContain('Harv. L. Rev.');
+  });
+
+  it('passes a correctly abbreviated journal name', () => {
+    const components = makeArticleComponents({ journal: 'Harv. L. Rev.' });
+    const issues = validateArticle(components);
+    const journalIssues = issues.filter(i => i.rule.includes('T13') && i.severity === 'error');
+    expect(journalIssues.length).toBe(0);
+  });
+
+  it('flags ALL CAPS author in article', () => {
+    const components = makeArticleComponents({ authors: ['JOHN SMITH'] });
+    const issues = validateArticle(components);
+    const capsIssues = issues.filter(i => i.message.includes('all caps'));
+    expect(capsIssues.length).toBeGreaterThan(0);
+  });
+});
+
 describe('end-to-end: parse → validate → score', () => {
   it('processes a citation through the full pipeline', () => {
     const citations = extractAndParseCitations('Miranda v. Arizona, 384 U.S. 436 (1966).');

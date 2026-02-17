@@ -59,6 +59,9 @@ export function validateCaseName(
   // R. 10.2.2: "United States" as named party (never abbreviate)
   checkUnitedStatesParty(components, issues);
 
+  // R. 2.1: Academic typeface — case name formatting depends on context
+  checkCaseNameTypeface(components, rawText, context, issues);
+
   return issues;
 }
 
@@ -541,6 +544,50 @@ function checkUnitedStatesParty(components: CaseComponents, issues: ValidationIs
           suggestion: 'Replace "U.S." with "United States".',
         });
       }
+    }
+  }
+}
+
+/**
+ * R. 2.1: In academic (Whitepages) citations, case name typeface depends on context.
+ * - Footnote/citation sentence: full case name uses roman type (not italic)
+ * - Textual sentence: case name should be italicized
+ */
+function checkCaseNameTypeface(
+  components: CaseComponents,
+  rawText: string,
+  context: CitationContext,
+  issues: ValidationIssue[]
+): void {
+  const caseName = components.partyTwo
+    ? `${components.partyOne} v. ${components.partyTwo}`
+    : components.partyOne;
+
+  const hasItalicMarkers = rawText.includes(`*${caseName}*`)
+    || rawText.includes(`*${components.partyOne}*`)
+    || /\*[^*]*\bv\.\s[^*]*\*/.test(rawText);
+
+  if (context === 'citation_sentence') {
+    if (hasItalicMarkers) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 2.1',
+        source: 'Bluebook',
+        severity: 'error',
+        message: 'In academic footnotes, full case citations use roman type, not italics (R. 2.1).',
+        suggestion: 'Remove italic formatting from the full case name in this footnote citation.',
+      });
+    }
+  } else if (context === 'textual_sentence') {
+    if (!hasItalicMarkers) {
+      issues.push({
+        id: uuid(),
+        rule: 'R. 2.1',
+        source: 'Bluebook',
+        severity: 'warning',
+        message: 'In academic text, the case name should be italicized (R. 2.1).',
+        suggestion: `Italicize the case name: *${caseName}*`,
+      });
     }
   }
 }
