@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { getDb, isDatabaseConfigured, schema } from '../db/index.js';
 import { optionalAuth, requireAuth } from '../middleware/auth.js';
 

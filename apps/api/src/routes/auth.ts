@@ -5,6 +5,9 @@ import { eq } from 'drizzle-orm';
 import { getDb, isDatabaseConfigured, schema } from '../db/index.js';
 import { generateAccessToken, generateRefreshToken, verifyToken, type TokenPayload } from '../services/jwt.js';
 import { requireAuth, COOKIE_NAME } from '../middleware/auth.js';
+import { validateEmail } from '../services/email-validator.js';
+import { verifyAppleToken } from '../services/apple-auth.js';
+import { verifyMicrosoftToken } from '../services/microsoft-auth.js';
 
 export const authRouter = Router();
 
@@ -34,6 +37,54 @@ const REFRESH_COOKIE_OPTIONS = {
 };
 
 /**
+ * Helper: create session tokens and set cookies
+ */
+async function createSession(
+  user: { id: string; email: string; name: string | null },
+  req: Request,
+  res: Response,
+  statusCode = 200
+) {
+  const db = getDb();
+  const payload: TokenPayload = { userId: user.id, email: user.email };
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload);
+
+  await db.insert(schema.sessions).values({
+    userId: user.id,
+    refreshToken,
+    userAgent: req.headers['user-agent'] || null,
+    ipAddress: req.ip || null,
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  });
+
+  res.cookie(COOKIE_NAME, accessToken, COOKIE_OPTIONS);
+  res.cookie(REFRESH_COOKIE, refreshToken, REFRESH_COOKIE_OPTIONS);
+
+  res.status(statusCode).json({
+    user: { id: user.id, email: user.email, name: user.name },
+  });
+}
+
+/**
+ * POST /api/auth/validate-email — Check email validity before registration
+ */
+authRouter.post('/validate-email', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body as { email: string };
+    if (!email) {
+      res.status(400).json({ error: 'Email is required' });
+      return;
+    }
+    const result = await validateEmail(email);
+    res.json(result);
+  } catch (error) {
+    console.error('Email validation error:', error);
+    res.status(500).json({ error: 'Email validation failed' });
+  }
+});
+
+/**
  * POST /api/auth/signup — Email + password registration
  */
 authRouter.post('/signup', async (req: Request, res: Response) => {
@@ -51,6 +102,13 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
 
     if (password.length < 8) {
       res.status(400).json({ error: 'Password must be at least 8 characters' });
+      return;
+    }
+
+    // Validate email format, domain, and disposable check
+    const emailValidation = await validateEmail(email);
+    if (!emailValidation.valid) {
+      res.status(400).json({ error: emailValidation.reason || 'Invalid email address' });
       return;
     }
 
@@ -73,25 +131,7 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
       emailVerified: false,
     }).returning();
 
-    const payload: TokenPayload = { userId: user.id, email: user.email };
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = generateRefreshToken(payload);
-
-    // Store refresh token
-    await db.insert(schema.sessions).values({
-      userId: user.id,
-      refreshToken,
-      userAgent: req.headers['user-agent'] || null,
-      ipAddress: req.ip || null,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    });
-
-    res.cookie(COOKIE_NAME, accessToken, COOKIE_OPTIONS);
-    res.cookie(REFRESH_COOKIE, refreshToken, REFRESH_COOKIE_OPTIONS);
-
-    res.status(201).json({
-      user: { id: user.id, email: user.email, name: user.name },
-    });
+    await createSession(user, req, res, 201);
   } catch (error) {
     console.error('Signup error:', error);
     res.status(500).json({ error: 'Signup failed' });
@@ -124,24 +164,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
-    const payload: TokenPayload = { userId: user.id, email: user.email };
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = generateRefreshToken(payload);
-
-    await db.insert(schema.sessions).values({
-      userId: user.id,
-      refreshToken,
-      userAgent: req.headers['user-agent'] || null,
-      ipAddress: req.ip || null,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    });
-
-    res.cookie(COOKIE_NAME, accessToken, COOKIE_OPTIONS);
-    res.cookie(REFRESH_COOKIE, refreshToken, REFRESH_COOKIE_OPTIONS);
-
-    res.json({
-      user: { id: user.id, email: user.email, name: user.name },
-    });
+    await createSession(user, req, res);
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
@@ -177,11 +200,9 @@ authRouter.post('/google', async (req: Request, res: Response) => {
 
     const db = getDb();
 
-    // Check if user exists
     let [user] = await db.select().from(schema.users).where(eq(schema.users.email, googlePayload.email.toLowerCase())).limit(1);
 
     if (!user) {
-      // Create new user
       [user] = await db.insert(schema.users).values({
         email: googlePayload.email.toLowerCase(),
         name: googlePayload.name || null,
@@ -191,27 +212,92 @@ authRouter.post('/google', async (req: Request, res: Response) => {
       }).returning();
     }
 
-    const payload: TokenPayload = { userId: user.id, email: user.email };
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = generateRefreshToken(payload);
-
-    await db.insert(schema.sessions).values({
-      userId: user.id,
-      refreshToken,
-      userAgent: req.headers['user-agent'] || null,
-      ipAddress: req.ip || null,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    });
-
-    res.cookie(COOKIE_NAME, accessToken, COOKIE_OPTIONS);
-    res.cookie(REFRESH_COOKIE, refreshToken, REFRESH_COOKIE_OPTIONS);
-
-    res.json({
-      user: { id: user.id, email: user.email, name: user.name },
-    });
+    await createSession(user, req, res);
   } catch (error) {
     console.error('Google auth error:', error);
     res.status(500).json({ error: 'Google authentication failed' });
+  }
+});
+
+/**
+ * POST /api/auth/apple — Apple Sign In login/signup
+ */
+authRouter.post('/apple', async (req: Request, res: Response) => {
+  try {
+    const { idToken, name } = req.body as { idToken: string; name?: string };
+
+    if (!idToken) {
+      res.status(400).json({ error: 'Apple ID token is required' });
+      return;
+    }
+
+    const clientId = process.env.APPLE_CLIENT_ID;
+    if (!clientId) {
+      res.status(500).json({ error: 'Apple Sign In not configured' });
+      return;
+    }
+
+    const applePayload = await verifyAppleToken(idToken, clientId);
+
+    const db = getDb();
+
+    let [user] = await db.select().from(schema.users).where(eq(schema.users.email, applePayload.email.toLowerCase())).limit(1);
+
+    if (!user) {
+      [user] = await db.insert(schema.users).values({
+        email: applePayload.email.toLowerCase(),
+        name: name || null,
+        oauthProvider: 'apple',
+        oauthId: applePayload.sub,
+        emailVerified: applePayload.emailVerified,
+      }).returning();
+    }
+
+    await createSession(user, req, res);
+  } catch (error) {
+    console.error('Apple auth error:', error);
+    res.status(500).json({ error: 'Apple authentication failed' });
+  }
+});
+
+/**
+ * POST /api/auth/microsoft — Microsoft login/signup
+ */
+authRouter.post('/microsoft', async (req: Request, res: Response) => {
+  try {
+    const { idToken } = req.body as { idToken: string };
+
+    if (!idToken) {
+      res.status(400).json({ error: 'Microsoft ID token is required' });
+      return;
+    }
+
+    const clientId = process.env.MICROSOFT_CLIENT_ID;
+    if (!clientId) {
+      res.status(500).json({ error: 'Microsoft login not configured' });
+      return;
+    }
+
+    const msPayload = await verifyMicrosoftToken(idToken, clientId);
+
+    const db = getDb();
+
+    let [user] = await db.select().from(schema.users).where(eq(schema.users.email, msPayload.email.toLowerCase())).limit(1);
+
+    if (!user) {
+      [user] = await db.insert(schema.users).values({
+        email: msPayload.email.toLowerCase(),
+        name: msPayload.name || null,
+        oauthProvider: 'microsoft',
+        oauthId: msPayload.sub,
+        emailVerified: true,
+      }).returning();
+    }
+
+    await createSession(user, req, res);
+  } catch (error) {
+    console.error('Microsoft auth error:', error);
+    res.status(500).json({ error: 'Microsoft authentication failed' });
   }
 });
 
@@ -238,7 +324,13 @@ authRouter.get('/me', requireAuth, async (req: Request, res: Response) => {
     }
 
     res.json({
-      user: { id: user.id, email: user.email, name: user.name, formatPreference: user.formatPreference },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        formatPreference: user.formatPreference,
+        isAdmin: user.isAdmin,
+      },
     });
   } catch (error) {
     console.error('Me error:', error);

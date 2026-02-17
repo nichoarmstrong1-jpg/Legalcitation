@@ -5,6 +5,7 @@ export interface User {
   email: string;
   name: string | null;
   formatPreference?: string;
+  isAdmin?: boolean;
 }
 
 interface AuthState {
@@ -13,8 +14,11 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name?: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
+  loginWithApple: (idToken: string, name?: string) => Promise<void>;
+  loginWithMicrosoft: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  validateEmail: (email: string) => Promise<{ valid: boolean; reason?: string }>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -32,7 +36,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         setUser(data.user);
       } else {
-        // Try refresh
         const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
           method: 'POST',
           credentials: 'include',
@@ -55,6 +58,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchUser().finally(() => setIsLoading(false));
   }, [fetchUser]);
+
+  // Clear user state when authenticatedFetch detects a permanently expired session
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setUser(null);
+    };
+    window.addEventListener('auth:session-expired', handleSessionExpired);
+    return () => window.removeEventListener('auth:session-expired', handleSessionExpired);
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await fetch(`${API_BASE}/auth/login`, {
@@ -101,6 +113,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   }, []);
 
+  const loginWithApple = useCallback(async (idToken: string, name?: string) => {
+    const res = await fetch(`${API_BASE}/auth/apple`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ idToken, name }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Apple login failed');
+    }
+    const data = await res.json();
+    setUser(data.user);
+  }, []);
+
+  const loginWithMicrosoft = useCallback(async (idToken: string) => {
+    const res = await fetch(`${API_BASE}/auth/microsoft`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ idToken }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Microsoft login failed');
+    }
+    const data = await res.json();
+    setUser(data.user);
+  }, []);
+
   const logout = useCallback(async () => {
     await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
     setUser(null);
@@ -110,8 +152,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetchUser();
   }, [fetchUser]);
 
+  const validateEmailFn = useCallback(async (email: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/validate-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) return { valid: false, reason: 'Validation failed' };
+      return await res.json();
+    } catch {
+      return { valid: true };
+    }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signup, loginWithGoogle, logout, refreshUser }}>
+    <AuthContext.Provider value={{
+      user,
+      isLoading,
+      login,
+      signup,
+      loginWithGoogle,
+      loginWithApple,
+      loginWithMicrosoft,
+      logout,
+      refreshUser,
+      validateEmail: validateEmailFn,
+    }}>
       {children}
     </AuthContext.Provider>
   );

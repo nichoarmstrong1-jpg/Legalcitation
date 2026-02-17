@@ -1,6 +1,6 @@
-import { pgTable, uuid, varchar, text, integer, timestamp, boolean, pgEnum, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, integer, timestamp, boolean, pgEnum, jsonb, index } from 'drizzle-orm/pg-core';
 
-export const oauthProviderEnum = pgEnum('oauth_provider', ['google', 'email']);
+export const oauthProviderEnum = pgEnum('oauth_provider', ['google', 'email', 'apple', 'microsoft']);
 export const planEnum = pgEnum('plan', ['free', 'student', 'professional']);
 
 // Users
@@ -12,6 +12,7 @@ export const users = pgTable('users', {
   oauthProvider: oauthProviderEnum('oauth_provider'),
   oauthId: varchar('oauth_id', { length: 255 }),
   emailVerified: boolean('email_verified').notNull().default(false),
+  isAdmin: boolean('is_admin').notNull().default(false),
   formatPreference: varchar('format_preference', { length: 20 }).default('italics'),
   plan: planEnum('plan').notNull().default('free'),
   referralCode: varchar('referral_code', { length: 50 }),
@@ -32,7 +33,10 @@ export const citationHistory = pgTable('citation_history', {
   citationCount: integer('citation_count').notNull().default(1),
   averageScore: integer('average_score'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+}, (table) => ([
+  index('citation_history_user_id_idx').on(table.userId),
+  index('citation_history_created_at_idx').on(table.createdAt),
+]));
 
 // Verification result cache (shared across all users)
 export const verificationCache = pgTable('verification_cache', {
@@ -54,7 +58,9 @@ export const feedback = pgTable('feedback', {
   citationText: text('citation_text'),
   expectedOutput: text('expected_output'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+}, (table) => ([
+  index('feedback_created_at_idx').on(table.createdAt),
+]));
 
 // Uploaded case documents
 export const caseDocuments = pgTable('case_documents', {
@@ -162,4 +168,57 @@ export const sessions = pgTable('sessions', {
   ipAddress: varchar('ip_address', { length: 45 }),
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ([
+  index('sessions_user_id_idx').on(table.userId),
+  index('sessions_expires_at_idx').on(table.expiresAt),
+]));
+
+// --- Analytics & Self-Improvement ---
+
+export const userEvents = pgTable('user_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  eventType: varchar('event_type', { length: 100 }).notNull(),
+  eventData: jsonb('event_data'),
+  sessionId: varchar('session_id', { length: 100 }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ([
+  index('user_events_user_id_idx').on(table.userId),
+  index('user_events_event_type_idx').on(table.eventType),
+  index('user_events_created_at_idx').on(table.createdAt),
+]));
+
+export const userSessionsAnalytics = pgTable('user_sessions_analytics', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  sessionId: varchar('session_id', { length: 100 }).notNull(),
+  startedAt: timestamp('started_at').notNull().defaultNow(),
+  endedAt: timestamp('ended_at'),
+  durationSeconds: integer('duration_seconds'),
+  featuresUsed: jsonb('features_used'),
+  pagesVisited: jsonb('pages_visited'),
+  eventCount: integer('event_count').default(0),
+});
+
+export const analyticsAggregates = pgTable('analytics_aggregates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  period: varchar('period', { length: 10 }).notNull(),
+  periodStart: timestamp('period_start').notNull(),
+  metricName: varchar('metric_name', { length: 100 }).notNull(),
+  metricValue: jsonb('metric_value').notNull(),
+  computedAt: timestamp('computed_at').notNull().defaultNow(),
+});
+
+export const insightStatusEnum = pgEnum('insight_status', ['new', 'reviewed', 'applied']);
+
+export const improvementInsights = pgTable('improvement_insights', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ruleId: varchar('rule_id', { length: 100 }),
+  pattern: varchar('pattern', { length: 500 }).notNull(),
+  occurrences: integer('occurrences').notNull().default(1),
+  negativeFeedbackRate: integer('negative_feedback_rate'),
+  sampleCitations: jsonb('sample_citations'),
+  status: insightStatusEnum('status').notNull().default('new'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Clock, Menu, X, Scale, Lightbulb, HelpCircle } from 'lucide-react';
+import { Clock, Menu, X, Scale, Lightbulb, HelpCircle, Shield } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 
 interface HeaderProps {
@@ -9,9 +9,10 @@ interface HeaderProps {
   onAuthOpen: () => void;
   onTipsOpen: () => void;
   onTourStart?: () => void;
+  onAdminOpen?: () => void;
 }
 
-export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpen, onTipsOpen, onTourStart }: HeaderProps) {
+export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpen, onTipsOpen, onTourStart, onAdminOpen }: HeaderProps) {
   const { user, logout, isLoading } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -129,6 +130,15 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpe
                     <p className="text-sm font-medium text-primary-900 truncate">{user.name || 'User'}</p>
                     <p className="text-xs text-surface-400 truncate">{user.email}</p>
                   </div>
+                  {user.isAdmin && onAdminOpen && (
+                    <button
+                      onClick={() => { setShowMenu(false); onAdminOpen(); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-surface-700 hover:bg-surface-50 transition-colors flex items-center gap-2"
+                    >
+                      <Shield className="w-3.5 h-3.5" />
+                      Admin Dashboard
+                    </button>
+                  )}
                   <button
                     onClick={() => { setShowMenu(false); logout(); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-error-600 hover:bg-error-50 transition-colors"
@@ -223,6 +233,15 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpe
                       </div>
                     </div>
                   </div>
+                  {user.isAdmin && onAdminOpen && (
+                    <button
+                      onClick={() => { setShowMobileMenu(false); onAdminOpen(); }}
+                      className="w-full text-left px-4 py-2 text-sm text-surface-700 hover:bg-surface-50 transition-colors flex items-center gap-2"
+                    >
+                      <Shield className="w-3.5 h-3.5" />
+                      Admin Dashboard
+                    </button>
+                  )}
                   <button
                     onClick={() => { setShowMobileMenu(false); logout(); }}
                     className="w-full text-left px-4 py-2 text-sm text-error-600 hover:bg-error-50 transition-colors"

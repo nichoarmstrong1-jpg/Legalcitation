@@ -1,4 +1,5 @@
 import { tryGetDb, schema } from '../db/index.js';
+import { trackEvent } from './analytics.js';
 
 /**
  * Fire-and-forget citation logging for data collection and accuracy monitoring.
@@ -26,4 +27,14 @@ export function logCitationCheck(params: {
       averageScore: params.averageScore ?? null,
     })
     .catch(err => console.error('Citation logging error:', err));
+
+  trackEvent({
+    userId: params.userId,
+    eventType: 'citation_check_server',
+    eventData: {
+      mode: params.mode,
+      citationCount: params.citationCount,
+      averageScore: params.averageScore,
+    },
+  });
 }

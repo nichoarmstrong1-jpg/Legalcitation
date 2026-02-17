@@ -18,7 +18,7 @@ const ALLOWED_TAGS = new Set(['B', 'STRONG', 'EM', 'I', 'U', 'BR', 'P', 'DIV', '
  */
 function sanitizePastedHtml(html: string): string {
   // Remove script, style, head blocks entirely
-  let cleaned = html
+  const cleaned = html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '')

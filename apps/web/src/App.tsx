@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Scale } from 'lucide-react';
+import { Scale, Lock } from 'lucide-react';
 import { Header } from './components/Header.tsx';
 import { NavigationTabs } from './components/NavigationTabs.tsx';
 import { CitationChecker } from './components/CitationChecker.tsx';
@@ -11,6 +11,7 @@ import { AuthModal } from './components/AuthModal.tsx';
 import { OnboardingFlow } from './components/OnboardingFlow.tsx';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal.tsx';
 import { TipsPage } from './components/TipsPage.tsx';
+import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { ToastProvider } from './context/ToastContext.tsx';
 import { ToastContainer } from './components/ui/Toast.tsx';
 import { AnalysisProgressBar } from './components/ui/AnalysisProgressBar.tsx';
@@ -19,6 +20,7 @@ import { useAuth } from './context/AuthContext.tsx';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.ts';
 import { GuidedTour } from './components/GuidedTour.tsx';
 import { useTour } from './hooks/useTour.ts';
+import { trackEvent } from './services/analytics.ts';
 import type { AnalyzedCitation } from './services/api.ts';
 
 type Mode = 'checker' | 'builder' | 'history' | 'spading';
@@ -26,7 +28,7 @@ type FormatStyle = 'italics' | 'underline';
 const MODES: Mode[] = ['checker', 'builder', 'history', 'spading'];
 
 function AppContent() {
-  useAuth();
+  const { user } = useAuth();
   const [mode, setMode] = useState<Mode>('builder');
   const [formatStyle, setFormatStyle] = useState<FormatStyle>(
     () => (localStorage.getItem('legalcitation-format') as FormatStyle) || 'italics'
@@ -43,9 +45,15 @@ function AppContent() {
     () => !localStorage.getItem('legalcitation-onboarded')
   );
   const [authMessage, setAuthMessage] = useState<string | undefined>();
+  const [showAdmin, setShowAdmin] = useState(false);
   const tour = useTour();
   const { history, saveToHistory, deleteEntry, clearHistory } = useHistory();
   const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Track page views on mode change
+  useEffect(() => {
+    trackEvent('page_view', { mode });
+  }, [mode]);
 
   // Auto-scroll to sidebar on mobile when a result is selected
   useEffect(() => {
@@ -119,6 +127,7 @@ function AppContent() {
         onAuthOpen={() => openAuth()}
         onTipsOpen={() => setShowTips(true)}
         onTourStart={tour.startTour}
+        onAdminOpen={() => setShowAdmin(true)}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -147,6 +156,7 @@ function AppContent() {
                   results={allResults}
                   formatStyle={formatStyle}
                   restoredInput={restoredInput}
+                  onAuthOpen={openAuth}
                 />
               )}
               {mode === 'builder' && (
@@ -154,16 +164,33 @@ function AppContent() {
                   onResult={handleSingleResult}
                   formatStyle={formatStyle}
                   restoredInput={restoredInput}
+                  onAuthOpen={openAuth}
                 />
               )}
               {mode === 'history' && (
-                <HistoryView
-                  history={history}
-                  onRestore={handleRestoreHistory}
-                  onDelete={deleteEntry}
-                  onClear={clearHistory}
-                  selectedEntryId={selectedHistoryId}
-                />
+                user ? (
+                  <HistoryView
+                    history={history}
+                    onRestore={handleRestoreHistory}
+                    onDelete={deleteEntry}
+                    onClear={clearHistory}
+                    selectedEntryId={selectedHistoryId}
+                  />
+                ) : (
+                  <div className="card text-center py-16">
+                    <Lock className="w-12 h-12 text-surface-300 mx-auto mb-4" />
+                    <h2 className="text-lg font-semibold text-primary-900 mb-2">Citation History</h2>
+                    <p className="text-sm text-surface-500 mb-6 max-w-md mx-auto">
+                      Sign in to access your full citation history across sessions. Your work is saved automatically when you have an account.
+                    </p>
+                    <button
+                      onClick={() => openAuth('Sign in to access your citation history')}
+                      className="px-6 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                    >
+                      Sign In to Access
+                    </button>
+                  </div>
+                )
               )}
             </div>
 
@@ -250,6 +277,11 @@ function AppContent() {
       {/* Tips / Quick Reference Modal */}
       {showTips && (
         <TipsPage onClose={() => setShowTips(false)} />
+      )}
+
+      {/* Admin Dashboard */}
+      {showAdmin && user?.isAdmin && (
+        <AdminDashboard onClose={() => setShowAdmin(false)} />
       )}
 
       <ToastContainer />

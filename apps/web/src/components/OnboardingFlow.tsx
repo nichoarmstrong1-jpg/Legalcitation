@@ -1,5 +1,5 @@
 import { useState, type ComponentType } from 'react';
-import { Scale, Search, Infinity } from 'lucide-react';
+import { Scale, Search, Infinity as InfinityIcon } from 'lucide-react';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -19,10 +19,10 @@ const steps: { title: string; subtitle: string; description: string; icon: Compo
     icon: Search,
   },
   {
-    title: 'Unlimited Checks',
-    subtitle: 'Full verification, completely free',
-    description: 'Every citation check includes full AI verification, formatting corrections, and detailed analysis. No limits, no sign-up required.',
-    icon: Infinity,
+    title: 'Free to Use, More with an Account',
+    subtitle: 'Sign up to unlock powerful features',
+    description: 'Citation checking and building are always free — no account needed. Create a free account to unlock your citation history, case document library, and journal spading. Sign in with Google, Apple, or Microsoft for one-click access.',
+    icon: InfinityIcon,
   },
 ];
 

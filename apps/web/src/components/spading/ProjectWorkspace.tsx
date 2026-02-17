@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { ArrowLeft, Play, Loader2 } from 'lucide-react';
+import { ArrowLeft, Play } from 'lucide-react';
 import type {
   SpadingProject,
   ProjectDocument,
@@ -55,12 +55,6 @@ export function ProjectWorkspace({
     },
     [onSelectAnnotation]
   );
-
-  const handleViewSource = useCallback((ann: SpadingAnnotation) => {
-    setViewingSourceAnnotation(ann);
-  }, []);
-
-  const journalDoc = documents.find(d => d.role === 'journal_entry');
   const isProcessing = project.status === 'processing';
   const isCompleted = project.status === 'completed';
   const canRun = project.journalDocumentId != null && !isProcessing;
@@ -112,11 +106,7 @@ export function ProjectWorkspace({
             onClick={() => onStartSpading(project.id)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg"
           >
-            {isProcessing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Play className="w-4 h-4" />
-            )}
+            <Play className="w-4 h-4" />
             {project.status === 'completed' ? 'Re-run Spading' : 'Run Spading'}
           </button>
         )}

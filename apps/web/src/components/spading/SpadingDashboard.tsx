@@ -5,6 +5,7 @@ import { useSpading } from '../../hooks/useSpading.ts';
 import { ProjectCard } from './ProjectCard.tsx';
 import { CreateProjectModal } from './CreateProjectModal.tsx';
 import { ProjectWorkspace } from './ProjectWorkspace.tsx';
+import { trackEvent } from '../../services/analytics.ts';
 
 interface SpadingDashboardProps {
   onAuthOpen: (message?: string) => void;
@@ -121,6 +122,7 @@ export function SpadingDashboard({ onAuthOpen }: SpadingDashboardProps) {
           onClose={() => setShowCreateModal(false)}
           onCreate={async (name, desc) => {
             const project = await spading.createProject(name, desc);
+            trackEvent('spading_project_create', { projectName: name });
             spading.openProject(project.id);
           }}
         />

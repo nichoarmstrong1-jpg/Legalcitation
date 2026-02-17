@@ -8,6 +8,56 @@ export type { ShortFormEntry, ShortFormSuggestion };
 
 export const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+// --- Authenticated Fetch with Automatic Token Refresh ---
+
+let refreshPromise: Promise<boolean> | null = null;
+
+async function attemptTokenRefresh(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Wrapper around fetch that automatically refreshes the access token
+ * when a 401 is returned. Deduplicates concurrent refresh attempts.
+ * On permanent auth failure, dispatches 'auth:session-expired' so
+ * the AuthContext can clear the user state.
+ */
+export async function authenticatedFetch(
+  url: string,
+  options?: RequestInit
+): Promise<Response> {
+  const mergedOptions: RequestInit = { ...options, credentials: 'include' };
+  const res = await fetch(url, mergedOptions);
+
+  if (res.status !== 401) return res;
+
+  // 401 — attempt a single token refresh, deduplicating concurrent calls
+  if (!refreshPromise) {
+    refreshPromise = attemptTokenRefresh().finally(() => {
+      refreshPromise = null;
+    });
+  }
+
+  const refreshed = await refreshPromise;
+
+  if (refreshed) {
+    // Retry the original request with the fresh cookie
+    return fetch(url, mergedOptions);
+  }
+
+  // Refresh also failed — session is dead
+  window.dispatchEvent(new CustomEvent('auth:session-expired'));
+  return res;
+}
+
 export interface AnalyzedCitation {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   parsed: any;
@@ -48,10 +98,9 @@ export async function analyzeText(
     body.documentIds = documentIds;
   }
 
-  const res = await fetch(`${API_BASE}/analyze`, {
+  const res = await authenticatedFetch(`${API_BASE}/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -76,10 +125,9 @@ export interface CaseSearchResponse {
 }
 
 export async function searchCases(query: string): Promise<CaseSearchResponse> {
-  const res = await fetch(`${API_BASE}/build/search`, {
+  const res = await authenticatedFetch(`${API_BASE}/build/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: JSON.stringify({ query }),
   });
   if (!res.ok) {
@@ -90,10 +138,9 @@ export async function searchCases(query: string): Promise<CaseSearchResponse> {
 }
 
 export async function buildCitation(input: string): Promise<AnalyzedCitation> {
-  const res = await fetch(`${API_BASE}/build`, {
+  const res = await authenticatedFetch(`${API_BASE}/build`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: JSON.stringify({ input }),
   });
   if (!res.ok) {
@@ -113,9 +160,8 @@ export async function uploadFile(file: File): Promise<{ extractedText: string; f
   const formData = new FormData();
   formData.append('file', file);
 
-  const res = await fetch(`${API_BASE}/upload`, {
+  const res = await authenticatedFetch(`${API_BASE}/upload`, {
     method: 'POST',
-    credentials: 'include',
     body: formData,
   });
   if (!res.ok) {
@@ -139,10 +185,9 @@ export async function submitFeedback(data: {
   citationText?: string;
   expectedOutput?: string;
 }): Promise<void> {
-  await fetch(`${API_BASE}/feedback`, {
+  await authenticatedFetch(`${API_BASE}/feedback`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: JSON.stringify(data),
   });
 }
@@ -170,9 +215,8 @@ export async function uploadCaseDocuments(files: File[]): Promise<{ documents: C
     formData.append('files', file);
   }
 
-  const res = await fetch(`${API_BASE}/case-documents`, {
+  const res = await authenticatedFetch(`${API_BASE}/case-documents`, {
     method: 'POST',
-    credentials: 'include',
     body: formData,
   });
   if (!res.ok) {
@@ -183,9 +227,7 @@ export async function uploadCaseDocuments(files: File[]): Promise<{ documents: C
 }
 
 export async function getCaseDocuments(): Promise<{ documents: CaseDocument[] }> {
-  const res = await fetch(`${API_BASE}/case-documents`, {
-    credentials: 'include',
-  });
+  const res = await authenticatedFetch(`${API_BASE}/case-documents`);
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.message || body?.error || `Failed to fetch documents: ${res.status}`);
@@ -194,9 +236,7 @@ export async function getCaseDocuments(): Promise<{ documents: CaseDocument[] }>
 }
 
 export async function getCaseDocument(id: string): Promise<CaseDocumentFull> {
-  const res = await fetch(`${API_BASE}/case-documents/${id}`, {
-    credentials: 'include',
-  });
+  const res = await authenticatedFetch(`${API_BASE}/case-documents/${id}`);
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.message || body?.error || `Failed to fetch document: ${res.status}`);
@@ -205,9 +245,8 @@ export async function getCaseDocument(id: string): Promise<CaseDocumentFull> {
 }
 
 export async function deleteCaseDocument(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/case-documents/${id}`, {
+  const res = await authenticatedFetch(`${API_BASE}/case-documents/${id}`, {
     method: 'DELETE',
-    credentials: 'include',
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
@@ -294,10 +333,9 @@ export async function createSpadingProject(
   name: string,
   description?: string
 ): Promise<SpadingProject> {
-  const res = await fetch(`${API_BASE}/spading/projects`, {
+  const res = await authenticatedFetch(`${API_BASE}/spading/projects`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: JSON.stringify({ name, description }),
   });
   if (!res.ok) {
@@ -308,9 +346,7 @@ export async function createSpadingProject(
 }
 
 export async function getSpadingProjects(): Promise<SpadingProject[]> {
-  const res = await fetch(`${API_BASE}/spading/projects`, {
-    credentials: 'include',
-  });
+  const res = await authenticatedFetch(`${API_BASE}/spading/projects`);
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.error || `Failed to list projects: ${res.status}`);
@@ -320,9 +356,7 @@ export async function getSpadingProjects(): Promise<SpadingProject[]> {
 }
 
 export async function getSpadingProject(id: string): Promise<SpadingProject> {
-  const res = await fetch(`${API_BASE}/spading/projects/${id}`, {
-    credentials: 'include',
-  });
+  const res = await authenticatedFetch(`${API_BASE}/spading/projects/${id}`);
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.error || `Failed to get project: ${res.status}`);
@@ -334,10 +368,9 @@ export async function updateSpadingProject(
   id: string,
   data: { name?: string; description?: string }
 ): Promise<SpadingProject> {
-  const res = await fetch(`${API_BASE}/spading/projects/${id}`, {
+  const res = await authenticatedFetch(`${API_BASE}/spading/projects/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -348,9 +381,8 @@ export async function updateSpadingProject(
 }
 
 export async function deleteSpadingProject(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/spading/projects/${id}`, {
+  const res = await authenticatedFetch(`${API_BASE}/spading/projects/${id}`, {
     method: 'DELETE',
-    credentials: 'include',
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
@@ -369,9 +401,8 @@ export async function uploadProjectDocuments(
     formData.append('files', file);
   }
 
-  const res = await fetch(`${API_BASE}/spading/projects/${projectId}/documents`, {
+  const res = await authenticatedFetch(`${API_BASE}/spading/projects/${projectId}/documents`, {
     method: 'POST',
-    credentials: 'include',
     body: formData,
   });
   if (!res.ok) {
@@ -384,9 +415,7 @@ export async function uploadProjectDocuments(
 export async function getProjectDocuments(
   projectId: string
 ): Promise<ProjectDocument[]> {
-  const res = await fetch(`${API_BASE}/spading/projects/${projectId}/documents`, {
-    credentials: 'include',
-  });
+  const res = await authenticatedFetch(`${API_BASE}/spading/projects/${projectId}/documents`);
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.error || `Failed to list documents: ${res.status}`);
@@ -399,9 +428,8 @@ export async function getProjectDocument(
   projectId: string,
   documentId: string
 ): Promise<ProjectDocument & { extractedText: string }> {
-  const res = await fetch(
-    `${API_BASE}/spading/projects/${projectId}/documents/${documentId}`,
-    { credentials: 'include' }
+  const res = await authenticatedFetch(
+    `${API_BASE}/spading/projects/${projectId}/documents/${documentId}`
   );
   if (!res.ok) {
     const body = await res.json().catch(() => null);
@@ -414,9 +442,9 @@ export async function deleteProjectDocument(
   projectId: string,
   documentId: string
 ): Promise<void> {
-  const res = await fetch(
+  const res = await authenticatedFetch(
     `${API_BASE}/spading/projects/${projectId}/documents/${documentId}`,
-    { method: 'DELETE', credentials: 'include' }
+    { method: 'DELETE' }
   );
   if (!res.ok) {
     const body = await res.json().catch(() => null);
@@ -432,9 +460,8 @@ export function getProjectDocumentFileUrl(
 }
 
 export async function runSpading(projectId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/spading/projects/${projectId}/run`, {
+  const res = await authenticatedFetch(`${API_BASE}/spading/projects/${projectId}/run`, {
     method: 'POST',
-    credentials: 'include',
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
@@ -445,9 +472,7 @@ export async function runSpading(projectId: string): Promise<void> {
 export async function getSpadingAnnotations(
   projectId: string
 ): Promise<SpadingAnnotation[]> {
-  const res = await fetch(`${API_BASE}/spading/projects/${projectId}/annotations`, {
-    credentials: 'include',
-  });
+  const res = await authenticatedFetch(`${API_BASE}/spading/projects/${projectId}/annotations`);
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.error || `Failed to get annotations: ${res.status}`);
@@ -461,12 +486,11 @@ export async function updateSpadingAnnotation(
   annotationId: string,
   data: { editorNote?: string; resolved?: boolean }
 ): Promise<SpadingAnnotation> {
-  const res = await fetch(
+  const res = await authenticatedFetch(
     `${API_BASE}/spading/projects/${projectId}/annotations/${annotationId}`,
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify(data),
     }
   );
@@ -486,8 +510,35 @@ export function subscribeSpadingProgress(
   let retryCount = 0;
   const MAX_RETRIES = 5;
 
-  function connect() {
+  async function ensureFreshAuth(): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
+      if (res.ok) return true;
+      // Access token expired — try refresh
+      const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      return refreshRes.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async function connect() {
     if (closed) return;
+
+    // On reconnections (retryCount > 0), refresh the token first
+    if (retryCount > 0) {
+      const authed = await ensureFreshAuth();
+      if (!authed && !closed) {
+        window.dispatchEvent(new CustomEvent('auth:session-expired'));
+        return;
+      }
+    }
+
+    if (closed) return;
+
     const url = `${API_BASE}/spading/projects/${projectId}/progress`;
     eventSource = new EventSource(url, { withCredentials: true });
 
@@ -511,7 +562,7 @@ export function subscribeSpadingProgress(
       if (!closed && retryCount < MAX_RETRIES) {
         retryCount++;
         const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-        setTimeout(connect, delay);
+        setTimeout(() => { connect(); }, delay);
       }
     };
   }

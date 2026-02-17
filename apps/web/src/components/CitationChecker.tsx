@@ -9,6 +9,7 @@ import { SourceViewer } from './SourceViewer.tsx';
 import { RichTextInput } from './RichTextInput.tsx';
 import { useToast } from '../context/ToastContext.tsx';
 import { useCaseDocuments } from '../hooks/useCaseDocuments.ts';
+import { trackEvent } from '../services/analytics.ts';
 
 type FormatStyle = 'italics' | 'underline';
 
@@ -18,9 +19,10 @@ interface CitationCheckerProps {
   results: AnalyzedCitation[];
   formatStyle: FormatStyle;
   restoredInput?: string;
+  onAuthOpen?: (message?: string) => void;
 }
 
-export function CitationChecker({ onResults, onSelectCitation, results, formatStyle, restoredInput }: CitationCheckerProps) {
+export function CitationChecker({ onResults, onSelectCitation, results, formatStyle, restoredInput, onAuthOpen: _onAuthOpen }: CitationCheckerProps) {
   const { showToast } = useToast();
   const { findMatchingDocument } = useCaseDocuments();
   const [input, setInput] = useState('');
@@ -65,6 +67,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
 
     try {
       const data = await analyzeText(input.trim());
+      trackEvent('citation_check', { citationCount: data.results.length });
       onResults(data.results, input.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');

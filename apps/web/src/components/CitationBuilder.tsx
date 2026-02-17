@@ -7,14 +7,16 @@ import { CaseLibrary } from './CaseLibrary.tsx';
 import { SourceViewer } from './SourceViewer.tsx';
 import { FormattedCitation } from './FormattedCitation.tsx';
 import { RichTextInput } from './RichTextInput.tsx';
+import { trackEvent } from '../services/analytics.ts';
 
 interface CitationBuilderProps {
   onResult: (result: AnalyzedCitation, input: string) => void;
   formatStyle: 'italics' | 'underline';
   restoredInput?: string;
+  onAuthOpen?: (message?: string) => void;
 }
 
-export function CitationBuilder({ onResult, formatStyle, restoredInput }: CitationBuilderProps) {
+export function CitationBuilder({ onResult, formatStyle, restoredInput, onAuthOpen }: CitationBuilderProps) {
   const [input, setInput] = useState('');
   const [searching, setSearching] = useState(false);
   const [building, setBuilding] = useState(false);
@@ -67,6 +69,7 @@ export function CitationBuilder({ onResult, formatStyle, restoredInput }: Citati
     try {
       const data = await buildCitation(result.citation.replace(/\*/g, ''));
       setBuiltCitation(data);
+      trackEvent('citation_build', { caseName: result.citation });
       onResult(data, result.citation);
       // Scroll to top so user sees the generated citation in the sidebar
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -377,6 +380,7 @@ export function CitationBuilder({ onResult, formatStyle, restoredInput }: Citati
           handleSearch(text);
         }}
         onViewSource={(docId) => setViewingDocId(docId)}
+        onAuthOpen={onAuthOpen}
       />
 
       {/* Source Viewer Modal */}

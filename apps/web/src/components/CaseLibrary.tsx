@@ -7,9 +7,10 @@ import { useToast } from '../context/ToastContext.tsx';
 interface CaseLibraryProps {
   onBuildCitation: (input: string) => void;
   onViewSource: (docId: string) => void;
+  onAuthOpen?: (message?: string) => void;
 }
 
-export function CaseLibrary({ onBuildCitation, onViewSource }: CaseLibraryProps) {
+export function CaseLibrary({ onBuildCitation, onViewSource, onAuthOpen }: CaseLibraryProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [documents, setDocuments] = useState<CaseDocument[]>([]);
@@ -90,7 +91,23 @@ export function CaseLibrary({ onBuildCitation, onViewSource }: CaseLibraryProps)
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="card border border-surface-200 mt-6 text-center py-8">
+        <FileText className="w-8 h-8 text-surface-300 mx-auto mb-3" />
+        <h3 className="text-sm font-semibold text-primary-900 mb-1">Case Library</h3>
+        <p className="text-xs text-surface-500 mb-4 max-w-xs mx-auto">
+          Sign in to upload and manage your case documents for quick citation building.
+        </p>
+        <button
+          onClick={() => onAuthOpen?.('Sign in to access your case library')}
+          className="px-4 py-2 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+        >
+          Sign In to Access
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="card border border-surface-200 mt-6">

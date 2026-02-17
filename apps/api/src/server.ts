@@ -10,6 +10,8 @@ import { authRouter } from './routes/auth.js';
 import { feedbackRouter } from './routes/feedback.js';
 import { caseDocumentsRouter } from './routes/case-documents.js';
 import { spadingRouter } from './routes/spading.js';
+import { analyticsRouter } from './routes/analytics.js';
+import { adminRouter } from './routes/admin.js';
 import { optionalAuth } from './middleware/auth.js';
 import { isDatabaseConfigured } from './db/index.js';
 import { runMigrations } from './db/migrate.js';
@@ -28,11 +30,27 @@ app.use(helmet({
   contentSecurityPolicy: isDev ? false : {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'"],
+      scriptSrc: [
+        "'self'",
+        'https://accounts.google.com',
+        'https://appleid.cdn-apple.com',
+        'https://alcdn.msauth.net',
+      ],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: [
+        "'self'",
+        'https://accounts.google.com',
+        'https://appleid.apple.com',
+        'https://login.microsoftonline.com',
+      ],
+      frameSrc: [
+        "'self'",
+        'https://accounts.google.com',
+        'https://appleid.apple.com',
+        'https://login.microsoftonline.com',
+      ],
     },
   },
 }));
@@ -79,6 +97,8 @@ app.use('/api/build', analysisLimiter);
 // Routes
 app.use('/api/auth', authRouter);
 app.use('/api/feedback', feedbackRouter);
+app.use('/api/analytics', analyticsRouter);
+app.use('/api/admin', adminRouter);
 // Analysis routes
 app.use('/api/analyze', optionalAuth, analyzeRouter);
 app.use('/api/build', optionalAuth, buildRouter);
@@ -95,6 +115,8 @@ app.get('/api/health', (_req, res) => {
       database: isDatabaseConfigured() ? 'configured' : 'not configured',
       anthropic: process.env.ANTHROPIC_API_KEY ? 'configured' : 'not configured',
       google_oauth: process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not configured',
+      apple_oauth: process.env.APPLE_CLIENT_ID ? 'configured' : 'not configured',
+      microsoft_oauth: process.env.MICROSOFT_CLIENT_ID ? 'configured' : 'not configured',
     },
   });
 });

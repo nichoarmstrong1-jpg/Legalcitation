@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2 } from 'lucide-react';
+import { authenticatedFetch } from '../../services/api.ts';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -21,7 +22,40 @@ export function PdfViewer({ url, highlightPage, highlightText }: PdfViewerProps)
   const [currentPage, setCurrentPage] = useState(highlightPage || 1);
   const [scale, setScale] = useState(1.0);
   const [loading, setLoading] = useState(true);
+  const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const pageRef = useRef<HTMLDivElement>(null);
+
+  // Fetch PDF with auth cookies (react-pdf's file={url} doesn't send credentials)
+  useEffect(() => {
+    if (!url) return;
+    let cancelled = false;
+    setPdfData(null);
+    setLoadError(false);
+    setLoading(true);
+
+    authenticatedFetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.arrayBuffer();
+      })
+      .then(buffer => {
+        if (!cancelled) setPdfData(buffer);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoadError(true);
+          setLoading(false);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [url]);
+
+  const pdfFile = useMemo(
+    () => pdfData ? { data: pdfData } : null,
+    [pdfData]
+  );
 
   useEffect(() => {
     if (highlightPage && highlightPage > 0) {
@@ -106,8 +140,13 @@ export function PdfViewer({ url, highlightPage, highlightText }: PdfViewerProps)
           </div>
         )}
 
+        {loadError ? (
+          <div className="text-sm text-error-600 text-center py-10">
+            Failed to load PDF. File storage may not be configured.
+          </div>
+        ) : !pdfFile ? null : (
         <Document
-          file={url}
+          file={pdfFile}
           onLoadSuccess={onDocumentLoadSuccess}
           loading={null}
           error={
@@ -125,6 +164,7 @@ export function PdfViewer({ url, highlightPage, highlightText }: PdfViewerProps)
             loading={null}
           />
         </Document>
+        )}
       </div>
     </div>
   );

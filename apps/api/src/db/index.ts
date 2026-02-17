@@ -15,6 +15,9 @@ function initDb() {
   if (!db && process.env.DATABASE_URL) {
     const pool = new pg.Pool({
       connectionString: process.env.DATABASE_URL,
+      max: parseInt(process.env.DB_POOL_MAX || '20', 10),
+      idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '30000', 10),
+      connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '5000', 10),
       ssl: process.env.DATABASE_URL?.includes('.railway.internal') ? false
         : process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     });
