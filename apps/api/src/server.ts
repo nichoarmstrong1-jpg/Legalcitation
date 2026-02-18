@@ -21,6 +21,30 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const isDev = process.env.NODE_ENV !== 'production';
 
+function parseCsvEnv(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function wildcardToRegex(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+  const regexSource = `^${escaped.replace(/\*/g, '.*')}$`;
+  return new RegExp(regexSource);
+}
+
+function isOriginAllowed(
+  origin: string | undefined,
+  exactOrigins: Set<string>,
+  wildcardOriginPatterns: RegExp[]
+): boolean {
+  if (!origin) return true;
+  if (exactOrigins.has(origin)) return true;
+  return wildcardOriginPatterns.some((pattern) => pattern.test(origin));
+}
+
 // Trust proxy — required behind Railway/Vercel reverse proxies for correct
 // client IP detection in rate limiting and secure cookies.
 app.set('trust proxy', 1);
@@ -55,13 +79,24 @@ app.use(helmet({
   },
 }));
 
-// CORS — allow Vercel frontend in production
-const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || [
+// CORS — explicit allow-list with optional wildcard patterns (e.g. https://legalcitation-*.vercel.app)
+const defaultOrigins = [
   'http://localhost:5173',
   'https://legalcitation.vercel.app',
 ];
+const configuredOrigins = parseCsvEnv(process.env.CORS_ORIGIN);
+const allowedOrigins = configuredOrigins.length > 0 ? configuredOrigins : defaultOrigins;
+const wildcardOriginPatterns = parseCsvEnv(process.env.CORS_ORIGIN_PATTERNS).map(wildcardToRegex);
+const allowedOriginSet = new Set(allowedOrigins);
+
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin, allowedOriginSet, wildcardOriginPatterns)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error(`CORS blocked for origin: ${origin ?? 'unknown'}`));
+  },
   credentials: true,
 }));
 
@@ -129,6 +164,9 @@ runMigrations()
       console.log(`LegalCitation API running on 0.0.0.0:${PORT}`);
       console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`  CORS origins: ${allowedOrigins.join(', ')}`);
+      if (wildcardOriginPatterns.length > 0) {
+        console.log(`  CORS wildcard patterns: ${parseCsvEnv(process.env.CORS_ORIGIN_PATTERNS).join(', ')}`);
+      }
       console.log(`  Database: ${isDatabaseConfigured() ? 'connected' : 'NOT configured (auth disabled)'}`);
       console.log(`  Anthropic: ${process.env.ANTHROPIC_API_KEY ? 'configured' : 'NOT configured (verification disabled)'}`);
     });

@@ -8,7 +8,9 @@
 
 set -e
 
-PROJECT_DIR="/Users/nichoarmstrong/bluebook-ai"
+# Resolve repo root from this script's location so it works in worktrees/clones
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR"
 export PATH="$HOME/local/node/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH"
 
 # Load .env file if it exists
