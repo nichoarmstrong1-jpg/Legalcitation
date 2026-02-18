@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { FileText as FileTextIcon, Copy, Check, AlertTriangle, XCircle, ChevronDown, ChevronRight, FileCheck, Undo2, CheckCheck, X } from 'lucide-react';
-import { analyzeText, type AnalyzedCitation } from '../services/api.ts';
+import { FileText as FileTextIcon, Copy, Check, AlertTriangle, XCircle, ChevronDown, ChevronRight, FileCheck, Undo2, CheckCheck, X, Link2, AlertOctagon } from 'lucide-react';
+import { analyzeText, analyzeFootnotes, type AnalyzedCitation, type FootnoteAnalyzeResponse, type DocumentIntegrityReport } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
 import { ScoreCounter } from './ui/ScoreCounter.tsx';
 import { AnalysisProgressBar } from './ui/AnalysisProgressBar.tsx';
@@ -14,6 +14,13 @@ import { useCaseDocuments } from '../hooks/useCaseDocuments.ts';
 import { trackEvent } from '../services/analytics.ts';
 
 type FormatStyle = 'italics' | 'underline';
+type AnalysisMode = 'in_text' | 'footnotes';
+
+interface FootnoteSummary {
+  number: number;
+  citationCount: number;
+  citationIds: string[];
+}
 
 interface CitationCheckerProps {
   onResults: (results: AnalyzedCitation[], input: string) => void;
@@ -26,10 +33,15 @@ interface CitationCheckerProps {
 
 export function CitationChecker({ onResults, onSelectCitation, results, formatStyle, restoredInput, onAuthOpen: _onAuthOpen }: CitationCheckerProps) {
   const { showToast } = useToast();
-  const { findMatchingDocument } = useCaseDocuments();
+  const { findMatchingDocument, documents } = useCaseDocuments();
+  const documentIds = documents.map(d => d.id);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('in_text');
+  const [footnoteSummary, setFootnoteSummary] = useState<FootnoteSummary[]>([]);
+  const [integrityReport, setIntegrityReport] = useState<DocumentIntegrityReport | null>(null);
+  const [integrityExpanded, setIntegrityExpanded] = useState(false);
   const [hoveredCitation, setHoveredCitation] = useState<number | null>(null);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [acceptedChanges, setAcceptedChanges] = useState<Set<number>>(new Set());
@@ -70,11 +82,21 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
     setSelectedIdx(null);
     setAcceptedChanges(new Set());
     setDeniedChanges(new Set());
+    setFootnoteSummary([]);
+    setIntegrityReport(null);
 
     try {
-      const data = await analyzeText(input.trim());
-      trackEvent('citation_check', { citationCount: data.results.length });
-      onResults(data.results, input.trim());
+      if (analysisMode === 'footnotes') {
+        const data = await analyzeFootnotes(input.trim(), documentIds.length > 0 ? documentIds : undefined) as FootnoteAnalyzeResponse;
+        trackEvent('citation_check', { citationCount: data.results.length, mode: 'footnotes' });
+        onResults(data.results, input.trim());
+        setFootnoteSummary(data.footnotes);
+        setIntegrityReport(data.integrityReport);
+      } else {
+        const data = await analyzeText(input.trim(), 'citation_sentence', documentIds.length > 0 ? documentIds : undefined);
+        trackEvent('citation_check', { citationCount: data.results.length });
+        onResults(data.results, input.trim());
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
     } finally {
@@ -85,17 +107,26 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   const handleFileText = async (text: string, fileName: string) => {
     setUploadedFileName(fileName);
     setInput(text);
-    // Auto-trigger analysis instead of showing raw text
     setLoading(true);
     setError(null);
     setSelectedIdx(null);
     setAcceptedChanges(new Set());
     setDeniedChanges(new Set());
+    setFootnoteSummary([]);
+    setIntegrityReport(null);
 
     try {
-      const data = await analyzeText(text.trim());
-      trackEvent('citation_check', { citationCount: data.results.length, source: 'file_upload' });
-      onResults(data.results, text.trim());
+      if (analysisMode === 'footnotes') {
+        const data = await analyzeFootnotes(text.trim(), documentIds.length > 0 ? documentIds : undefined) as FootnoteAnalyzeResponse;
+        trackEvent('citation_check', { citationCount: data.results.length, source: 'file_upload', mode: 'footnotes' });
+        onResults(data.results, text.trim());
+        setFootnoteSummary(data.footnotes);
+        setIntegrityReport(data.integrityReport);
+      } else {
+        const data = await analyzeText(text.trim(), 'citation_sentence', documentIds.length > 0 ? documentIds : undefined);
+        trackEvent('citation_check', { citationCount: data.results.length, source: 'file_upload' });
+        onResults(data.results, text.trim());
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
     } finally {
@@ -364,9 +395,35 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   return (
     <div className="space-y-5">
       <div className="card">
-        <h2 className="text-lg font-semibold text-primary-900 mb-1">Citation Checker</h2>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-lg font-semibold text-primary-900">Citation Checker</h2>
+          <div className="flex rounded-lg border border-surface-200 overflow-hidden">
+            <button
+              onClick={() => setAnalysisMode('in_text')}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                analysisMode === 'in_text'
+                  ? 'bg-primary-100 text-primary-800'
+                  : 'text-surface-400 hover:text-surface-600 hover:bg-surface-50'
+              }`}
+            >
+              In-Text
+            </button>
+            <button
+              onClick={() => setAnalysisMode('footnotes')}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-surface-200 ${
+                analysisMode === 'footnotes'
+                  ? 'bg-primary-100 text-primary-800'
+                  : 'text-surface-400 hover:text-surface-600 hover:bg-surface-50'
+              }`}
+            >
+              Footnotes
+            </button>
+          </div>
+        </div>
         <p className="text-sm text-surface-400 mb-5">
-          Upload a document or paste text below. We'll find every citation and check each one against Bluebook rules — hover over highlighted citations for instant feedback.
+          {analysisMode === 'footnotes'
+            ? 'Paste footnotes below (numbered 1, 2, 3...). We\'ll parse footnote boundaries, validate cross-references (Id., supra, infra), and check citation ordering within each footnote.'
+            : 'Upload a document or paste text below. We\'ll find every citation and check each one against Bluebook rules — hover over highlighted citations for instant feedback.'}
         </p>
 
         <FileUploader onTextExtracted={handleFileText} />
@@ -449,11 +506,81 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
               </div>
             )}
 
+            {/* Footnote summary & integrity report (footnote mode only) */}
+            {analysisMode === 'footnotes' && footnoteSummary.length > 0 && (
+              <div className="mb-4 space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {footnoteSummary.map(fn => {
+                    const fnCitations = results.filter(r => r.parsed?.footnoteContext?.footnoteNumber === fn.number);
+                    const fnErrors = fnCitations.reduce((sum, r) => sum + r.issues.filter(iss => iss.severity === 'error').length, 0);
+                    return (
+                      <span
+                        key={fn.number}
+                        className={`text-[11px] font-medium px-2 py-1 rounded-md border ${
+                          fnErrors > 0
+                            ? 'bg-error-50 border-error-200 text-error-700'
+                            : 'bg-surface-50 border-surface-200 text-surface-600'
+                        }`}
+                      >
+                        FN {fn.number}: {fn.citationCount} cit.{fnErrors > 0 ? `, ${fnErrors} err` : ''}
+                      </span>
+                    );
+                  })}
+                </div>
+
+                {integrityReport && integrityReport.crossReferenceIssues.length > 0 && (
+                  <div className="rounded-xl border border-warning-200 bg-warning-50/50">
+                    <button
+                      onClick={() => setIntegrityExpanded(!integrityExpanded)}
+                      className="w-full flex items-center justify-between p-3 text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Link2 className="w-4 h-4 text-warning-600" />
+                        <span className="text-xs font-semibold text-warning-800">
+                          Document Integrity Report
+                        </span>
+                        <span className="text-[11px] text-warning-600">
+                          {integrityReport.crossReferenceIssues.length} cross-reference issue{integrityReport.crossReferenceIssues.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      {integrityExpanded
+                        ? <ChevronDown className="w-4 h-4 text-warning-500" />
+                        : <ChevronRight className="w-4 h-4 text-warning-500" />}
+                    </button>
+                    {integrityExpanded && (
+                      <div className="px-3 pb-3 space-y-2">
+                        {integrityReport.crossReferenceIssues.map((issue, idx) => (
+                          <div key={idx} className="flex items-start gap-2 text-xs p-2 bg-white rounded-lg border border-warning-100">
+                            <AlertOctagon className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
+                              issue.severity === 'error' ? 'text-error-500' : 'text-warning-500'
+                            }`} />
+                            <div>
+                              <p className="text-surface-700">{issue.message}</p>
+                              <p className="text-surface-400 mt-0.5">{issue.suggestion}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {integrityReport && integrityReport.crossReferenceIssues.length === 0 && (
+                  <div className="flex items-center gap-2 p-3 rounded-xl border border-verified-200 bg-verified-50/50">
+                    <Check className="w-4 h-4 text-verified-600" />
+                    <span className="text-xs font-medium text-verified-700">
+                      All cross-references validated — no broken Id., supra, or infra chains found.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {renderAnnotatedText()}
 
             <div className="flex justify-between items-center mt-4">
               <button
-                onClick={() => { onResults([], ''); setInput(''); setSelectedIdx(null); setAcceptedChanges(new Set()); setDeniedChanges(new Set()); setUploadedFileName(null); }}
+                onClick={() => { onResults([], ''); setInput(''); setSelectedIdx(null); setAcceptedChanges(new Set()); setDeniedChanges(new Set()); setUploadedFileName(null); setFootnoteSummary([]); setIntegrityReport(null); }}
                 className="text-xs text-surface-400 hover:text-surface-600 transition-colors"
               >
                 Clear and start over
@@ -475,7 +602,9 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
               <RichTextInput
                 value={input}
                 onChange={setInput}
-                placeholder={`Paste your legal text here. For example:\n\nThe Supreme Court held in Engel v. Vitale, 370 U.S. 421 (1962), that state-sponsored prayer in public schools violated the Establishment Clause. See also Abington School District v. Schempp, 374 U.S. 203 (1963). Id. at 210.`}
+                placeholder={analysisMode === 'footnotes'
+                  ? `Paste your footnotes here. For example:\n\n1. Brown v. Bd. of Educ., 347 U.S. 483 (1954).\n2. Id. at 490.\n3. See Plessy v. Ferguson, 163 U.S. 537 (1896); Brown, 347 U.S. at 495.\n4. Id. at 500.`
+                  : `Paste your legal text here. For example:\n\nThe Supreme Court held in Engel v. Vitale, 370 U.S. 421 (1962), that state-sponsored prayer in public schools violated the Establishment Clause. See also Abington School District v. Schempp, 374 U.S. 203 (1963). Id. at 210.`}
                 minHeight="10rem"
               />
             </div>

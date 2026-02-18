@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 import { X, Check, Copy, ChevronRight, ChevronDown, AlertTriangle, Undo2 } from 'lucide-react';
 import type { AnalyzedCitation } from '../services/api.ts';
 
@@ -80,7 +80,30 @@ export function CitationTooltip({
   onMouseLeave,
 }: CitationTooltipProps) {
   const [expanded, setExpanded] = useState(false);
+  const [flipVertical, setFlipVertical] = useState(false);
+  const [flipHorizontal, setFlipHorizontal] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
+
+  // Detect viewport boundary clipping and reposition
+  useLayoutEffect(() => {
+    const el = tooltipRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    // If tooltip extends above viewport, flip to show below
+    if (rect.top < 0) {
+      setFlipVertical(true);
+    }
+    // If tooltip extends past right edge, align to right
+    if (rect.right > window.innerWidth) {
+      setFlipHorizontal(true);
+    }
+  }, []);
+
+  // Reset flip state when tooltip is re-shown for a different citation
+  useEffect(() => {
+    setFlipVertical(false);
+    setFlipHorizontal(false);
+  }, [citationIdx]);
 
   const errorCount = result.issues.filter(i => i.severity === 'error').length;
   const hasCorrection = result.verifiedCitation &&
@@ -104,7 +127,9 @@ export function CitationTooltip({
   return (
     <div
       ref={tooltipRef}
-      className="absolute z-20 left-0 bottom-full mb-2 w-[calc(100vw-3rem)] sm:w-80 p-3 sm:p-4 bg-white rounded-2xl shadow-modal border border-surface-200 text-left"
+      className={`absolute z-20 w-[calc(100vw-3rem)] sm:w-80 p-3 sm:p-4 bg-white rounded-2xl shadow-modal border border-surface-200 text-left ${
+        flipVertical ? 'top-full mt-2' : 'bottom-full mb-2'
+      } ${flipHorizontal ? 'right-0' : 'left-0'}`}
       onClick={e => e.stopPropagation()}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
