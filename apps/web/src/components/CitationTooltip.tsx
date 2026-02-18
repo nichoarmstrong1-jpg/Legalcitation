@@ -90,45 +90,30 @@ export function CitationTooltip({
   const hasCorrection = result.verifiedCitation &&
     result.verifiedCitation.replace(/\*/g, '') !== originalText;
 
-  // Filter logic trace to rule-related steps
-  const cleanTrace = (result.logicTrace || []).filter(step =>
-    !step.includes('http://') &&
-    !step.includes('https://') &&
-    !step.match(/\b(403|401|500)\b.*error/i) &&
-    !step.includes('ANTHROPIC_API_KEY') &&
-    !step.includes('API_KEY')
-  );
-  const traceIssueWithAntecedent = result.issues.find(iss => iss.antecedentText);
   const warningCount = result.issues.filter(i => i.severity === 'warning').length;
   const suggestionCount = result.issues.filter(i => i.severity === 'suggestion').length;
-  const isVerifiedUi = errorCount === 0 && warningCount === 0;
+  const hasSuggestionOnly = suggestionCount > 0 && errorCount === 0 && warningCount === 0;
+  const isVerifiedUi = errorCount === 0 && warningCount === 0 && suggestionCount === 0 && result.verificationStatus === 'verified';
   const statusLabel = errorCount > 0
     ? `${errorCount} Error${errorCount !== 1 ? 's' : ''}`
     : warningCount > 0
       ? `${warningCount} Warning${warningCount !== 1 ? 's' : ''}`
-      : isVerifiedUi
+      : hasSuggestionOnly
+        ? `${suggestionCount} Suggestion${suggestionCount !== 1 ? 's' : ''}`
+        : isVerifiedUi
         ? 'Verified'
-        : 'Needs Review';
+        : result.verificationStatus === 'pending'
+          ? 'Needs Review'
+          : 'Needs Review';
   const statusClass = errorCount > 0
     ? 'bg-error-100 text-error-700'
     : warningCount > 0
       ? 'bg-warning-100 text-warning-700'
+      : hasSuggestionOnly
+        ? 'bg-primary-100 text-primary-700'
       : isVerifiedUi
         ? 'bg-verified-100 text-verified-700'
         : 'bg-warning-100 text-warning-700';
-
-  useEffect(() => {
-    if (!traceIssueWithAntecedent) return;
-    // #region agent log
-    fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H2',location:'apps/web/src/components/CitationTooltip.tsx:136',message:'Tooltip antecedent reference available',data:{citationIdx,antecedentIndex:traceIssueWithAntecedent.antecedentIndex,antecedentText:traceIssueWithAntecedent.antecedentText?.slice(0,120),issueRule:traceIssueWithAntecedent.rule},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-  }, [traceIssueWithAntecedent, citationIdx]);
-
-  useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H13',location:'apps/web/src/components/CitationTooltip.tsx:161',message:'Tooltip status badge decision snapshot',data:{citationIdx,errorCount,warningCount,suggestionCount,verificationStatus:result.verificationStatus,score:result.score,statusLabel,isVerifiedUi},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-  }, [citationIdx, errorCount, warningCount, suggestionCount, result.verificationStatus, result.score, statusLabel, isVerifiedUi]);
 
   return (
     <div
@@ -216,9 +201,6 @@ export function CitationTooltip({
                 className={`text-left ${canJump ? 'hover:text-primary-700 transition-colors' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  // #region agent log
-                  fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H5',location:'apps/web/src/components/CitationTooltip.tsx:229',message:'Tooltip antecedent reference clicked',data:{citationIdx,targetIdx,canJump,hasJumpHandler:Boolean(onJumpToCitation)},timestamp:Date.now()})}).catch(()=>{});
-                  // #endregion
                   if (canJump && onJumpToCitation) {
                     onJumpToCitation(targetIdx);
                   }
@@ -298,9 +280,6 @@ export function CitationTooltip({
       <button
         onClick={(e) => {
           e.stopPropagation();
-          // #region agent log
-          fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H15',location:'apps/web/src/components/CitationTooltip.tsx:322',message:'Tooltip requested full analysis in sidebar',data:{citationIdx,hasHandler:Boolean(onOpenSidebarAnalysis),issueCount:result.issues.length,traceCount:cleanTrace.length},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           if (onOpenSidebarAnalysis) {
             onOpenSidebarAnalysis(citationIdx);
             return;

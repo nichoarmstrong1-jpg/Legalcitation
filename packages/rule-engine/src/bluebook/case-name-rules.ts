@@ -571,9 +571,6 @@ function checkCaseNameTypeface(
 
   if (context === 'citation_sentence' && hasFootnoteContext) {
     if (hasItalicMarkers) {
-      // #region agent log
-      fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H12',location:'packages/rule-engine/src/bluebook/case-name-rules.ts:573',message:'Emitting footnote roman-type warning',data:{context,hasFootnoteContext,rawText:rawText.slice(0,140)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       issues.push({
         id: uuid(),
         rule: 'R. 2.1',

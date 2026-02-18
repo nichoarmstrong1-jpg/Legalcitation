@@ -265,12 +265,6 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
       caseEnd++;
     }
 
-    if (caseEnd - caseStart > 220) {
-      // #region agent log
-      fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H3',location:'packages/citation-parser/src/detector.ts:255',message:'Potential over-captured full case span',data:{spanStart:caseStart,spanEnd:caseEnd,spanLength:caseEnd-caseStart,spanText:text.slice(caseStart,Math.min(caseEnd,caseStart+260))},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-    }
-
     pushTrimmedSpan(spans, text, caseStart, caseEnd, 'full_case');
   }
 }

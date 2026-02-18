@@ -69,9 +69,6 @@ export function validateCitationSentence(
 
   // B1.1: Citation sentence must end with a period
   if (!normalized.endsWith('.')) {
-    // #region agent log
-    fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H7',location:'packages/rule-engine/src/bluebook/citation-form-rules.ts:74',message:'Citation sentence flagged missing period',data:{citationType:citation.type,rawSentence:rawSentence.slice(0,140),normalized},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     issues.push({
       id: uuid(),
       rule: 'B1.1',

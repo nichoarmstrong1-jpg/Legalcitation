@@ -70,24 +70,13 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
               rawEnd += 1;
             }
             citation.rawText = text.slice(rawStart, rawEnd);
-            // #region agent log
-            if (rawStart !== mappedStart || rawEnd !== mappedEnd) {
-              fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H10',location:'apps/api/src/routes/analyze.ts:69',message:'Expanded mapped span to include boundary markers',data:{citationType:citation.type,mappedStart,mappedEnd,rawStart,rawEnd,rawText:citation.rawText.slice(0,140)},timestamp:Date.now()})}).catch(()=>{});
-            }
-            // #endregion
           }
         }
       }
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H1',location:'apps/api/src/routes/analyze.ts:57',message:'Parsed citations with positions after marker mapping',data:{citationCount:parsed.length,citations:parsed.slice(0,20).map((c,idx)=>({idx,id:c.id,type:c.type,start:c.position?.start,end:c.position?.end,rawText:c.rawText.slice(0,120)}))},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     // Run rules on all citations (including context rules)
     const issueMap = runFullAnalysis(parsed, text);
-    // #region agent log
-    fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H2',location:'apps/api/src/routes/analyze.ts:62',message:'Issue antecedent mapping emitted by rule engine',data:{antecedentIssues:parsed.map((c,idx)=>({idx,id:c.id,issueRefs:(issueMap.get(c.id)||[]).filter(iss=>typeof iss.antecedentIndex==='number').map(iss=>({rule:iss.rule,severity:iss.severity,antecedentIndex:iss.antecedentIndex,antecedentText:iss.antecedentText?.slice(0,120)}))})).filter(entry=>entry.issueRefs.length>0)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     // Build analyzed citation results
     const results: AnalyzedCitation[] = parsed.map(citation => {
@@ -251,11 +240,6 @@ analyzeRouter.post('/footnotes', validateAnalyzeText, async (req: Request, res: 
                 rawEnd += 1;
               }
               citation.rawText = text.slice(rawStart, rawEnd);
-              // #region agent log
-              if (rawStart !== mappedStart || rawEnd !== mappedEnd) {
-                fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H10',location:'apps/api/src/routes/analyze.ts:238',message:'Expanded mapped footnote span to include boundary markers',data:{citationType:citation.type,mappedStart,mappedEnd,rawStart,rawEnd,rawText:citation.rawText.slice(0,140)},timestamp:Date.now()})}).catch(()=>{});
-              }
-              // #endregion
             }
           }
         }
