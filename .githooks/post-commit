@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
 echo "Auto-pushing latest commit to origin/main..."
 
 # Allow temporary opt-out per command:
@@ -12,3 +14,6 @@ fi
 
 git push origin HEAD:main
 echo "Auto-push complete."
+echo "Checking live deployment status..."
+
+sh "$REPO_ROOT/scripts/confirm-live.sh"
