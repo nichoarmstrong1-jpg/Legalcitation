@@ -1,12 +1,18 @@
-import { Router } from 'express';
+import { Router, type NextFunction, type Request, type Response } from 'express';
 import multer from 'multer';
 import { extractTextFromFile, DocumentExtractionError } from '../services/document-processor.js';
+import {
+  MAX_UPLOAD_BYTES,
+  validateUploadedFile,
+  sendUploadError,
+  handleMulterRouteError,
+} from './upload-utils.js';
 
 export const uploadRouter = Router();
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  limits: { fileSize: MAX_UPLOAD_BYTES }, // 50MB
   // Accept all file types — document-processor will handle extraction
   // or gracefully fall back to plain text for unrecognized formats
 });
@@ -18,6 +24,12 @@ uploadRouter.post('/', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+
+    const validationError = validateUploadedFile(req.file);
+    if (validationError) {
+      sendUploadError(res, validationError);
       return;
     }
 
@@ -44,4 +56,11 @@ uploadRouter.post('/', upload.single('file'), async (req, res) => {
       code: 'UNKNOWN',
     });
   }
+});
+
+uploadRouter.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (handleMulterRouteError(err, res)) {
+    return;
+  }
+  next(err);
 });

@@ -29,7 +29,7 @@ function parsePinCitePages(pinCite: string, firstPage?: string): number[] {
     if (!trimmed) continue;
 
     // Check for range (en-dash or hyphen)
-    const rangeMatch = trimmed.match(/^(\d+)\s*[–\-]\s*(\d+)$/);
+    const rangeMatch = trimmed.match(/^(\d+)\s*[–-]\s*(\d+)$/);
     if (rangeMatch) {
       const start = parseInt(rangeMatch[1], 10);
       let endStr = rangeMatch[2];

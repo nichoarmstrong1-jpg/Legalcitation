@@ -16,7 +16,7 @@ export function parseIdCitation(
 ): ParsedCitation | null {
   const text = rawText.trim();
 
-  const idPattern = /^(Id\.)\s*(?:at\s+([\d–\-,\s]+(?:n\.\d+)?))?\.?$/i;
+  const idPattern = /^(Id\.)\s*(?:at\s+([\d–,\s-]+(?:n\.\d+)?))?\.?$/i;
   const match = text.match(idPattern);
   if (!match) return null;
 
@@ -47,7 +47,7 @@ export function parseSupraCitation(
 ): ParsedCitation | null {
   const text = rawText.trim();
 
-  const supraPattern = /^(.+?),?\s+supra\s*(?:note\s+(\d+))?\s*(?:,\s*at\s+([\d–\-,\s]+))?\.?$/i;
+  const supraPattern = /^(.+?),?\s+supra\s*(?:note\s+(\d+))?\s*(?:,\s*at\s+([\d–,\s-]+))?\.?$/i;
   const match = text.match(supraPattern);
   if (!match) return null;
 
@@ -85,7 +85,7 @@ export function parseInfraCitation(
   const match = text.match(infraPattern);
   if (!match) {
     // Try broader infra patterns (Part, Section, §)
-    const broadPattern = /^(?:see\s+)?infra\s+(?:Part\s+[IVX\d]+|Section\s+[IVX\d]+|§\s*[\d.]+|text\s+accompanying\s+notes?\s+\d+(?:\s*[–\-]\s*\d+)?)\.?$/i;
+    const broadPattern = /^(?:see\s+)?infra\s+(?:Part\s+[IVX\d]+|Section\s+[IVX\d]+|§\s*[\d.]+|text\s+accompanying\s+notes?\s+\d+(?:\s*[–-]\s*\d+)?)\.?$/i;
     if (!broadPattern.test(text)) return null;
 
     return {

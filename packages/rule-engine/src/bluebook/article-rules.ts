@@ -346,7 +346,7 @@ function checkPinCite(components: ArticleComponents, issues: ValidationIssue[]):
   if (!components.pinCite) return;
 
   const pinCite = components.pinCite.trim();
-  if (!/^\d+([–\-]\d+)?$/.test(pinCite)) {
+  if (!/^\d+([–-]\d+)?$/.test(pinCite)) {
     issues.push({
       id: uuid(),
       rule: 'R. 3.2(a)',

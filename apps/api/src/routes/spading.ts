@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type NextFunction, type Request, type Response } from 'express';
 import multer from 'multer';
 import { eq, desc, and, ne } from 'drizzle-orm';
 import { getDb, isDatabaseConfigured, schema } from '../db/index.js';
@@ -7,11 +7,20 @@ import {
   extractFromPdfWithPages,
   extractTextFromFile,
   DocumentExtractionError,
+  type PageMapping,
 } from '../services/document-processor.js';
 import { extractAndParseCitations } from '@legalcitation/citation-parser';
 import { saveFile, getFileStream, deleteFile, isFileStorageConfigured } from '../services/file-storage.js';
 import { subscribeProgress } from '../services/spading-progress.js';
 import { runSpadingPipeline } from '../services/spading-engine.js';
+import {
+  MAX_UPLOAD_BYTES,
+  validateUploadedFile,
+  sendUploadError,
+  SPADING_ALLOWED_MIMES,
+  SPADING_ALLOWED_EXTENSIONS,
+  handleMulterRouteError,
+} from './upload-utils.js';
 
 export const spadingRouter = Router();
 
@@ -20,7 +29,7 @@ spadingRouter.use(requireAuth);
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: MAX_UPLOAD_BYTES },
 });
 
 // --- Project CRUD ---
@@ -214,6 +223,8 @@ spadingRouter.post(
   '/projects/:id/documents',
   upload.array('files', 20),
   async (req: Request, res: Response) => {
+    const uploadedPaths: string[] = [];
+    let committed = false;
     try {
       if (!isDatabaseConfigured()) {
         res.status(503).json({ error: 'Database not configured' });
@@ -231,7 +242,11 @@ spadingRouter.post(
 
       // Verify project ownership
       const [project] = await db
-        .select({ id: schema.spadingProjects.id, userId: schema.spadingProjects.userId })
+        .select({
+          id: schema.spadingProjects.id,
+          userId: schema.spadingProjects.userId,
+          journalDocumentId: schema.spadingProjects.journalDocumentId,
+        })
         .from(schema.spadingProjects)
         .where(eq(schema.spadingProjects.id, projectId));
 
@@ -256,30 +271,45 @@ spadingRouter.post(
         return;
       }
 
-      // Validate file types server-side
-      const ALLOWED_MIMES = new Set([
-        'application/pdf',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/msword',
-      ]);
-      const ALLOWED_EXTS = new Set(['.pdf', '.docx', '.doc']);
+      if (role === 'journal_entry' && project.journalDocumentId) {
+        res.status(409).json({
+          error: 'A journal entry already exists for this project.',
+          suggestion: 'Remove the current journal entry before uploading a new one.',
+          code: 'JOURNAL_ENTRY_EXISTS',
+        });
+        return;
+      }
 
       for (const file of files) {
-        const ext = file.originalname.toLowerCase().match(/\.[^.]+$/)?.[0] || '';
-        if (!ALLOWED_MIMES.has(file.mimetype) && !ALLOWED_EXTS.has(ext)) {
-          res.status(400).json({ error: `Unsupported file type: ${file.originalname}. Only PDF and Word documents are accepted.` });
+        const validationError = validateUploadedFile(file, {
+          allowedMimes: SPADING_ALLOWED_MIMES,
+          allowedExtensions: SPADING_ALLOWED_EXTENSIONS,
+        });
+        if (validationError) {
+          sendUploadError(res, validationError);
           return;
         }
       }
 
-      const results = [];
+      const preparedDocuments: Array<{
+        role: 'journal_entry' | 'source';
+        fileName: string;
+        mimeType: string;
+        fileSize: number;
+        filePath: string | null;
+        extractedText: string;
+        pageMapping: PageMapping[] | null;
+        pageCount: number | null;
+        caseName: string | null;
+        citation: string | null;
+      }> = [];
 
       for (const file of files) {
         const { originalname, mimetype, buffer, size } = file;
         const isPdf = mimetype === 'application/pdf' || originalname.toLowerCase().endsWith('.pdf');
 
         let extractedText: string;
-        let pageMapping: unknown[] | null = null;
+        let pageMapping: PageMapping[] | null = null;
         let pageCount: number | null = null;
 
         if (isPdf) {
@@ -295,6 +325,7 @@ spadingRouter.post(
         let filePath: string | null = null;
         if (isFileStorageConfigured()) {
           filePath = await saveFile(projectId, originalname, buffer, mimetype);
+          uploadedPaths.push(filePath);
         }
 
         // Auto-detect case name and citation from source documents
@@ -307,9 +338,11 @@ spadingRouter.post(
             const first = parsed[0];
             citation = first.rawText;
             if (first.type === 'case') {
-              const components = first.components as unknown as Record<string, string>;
-              if (components.partyOne && components.partyTwo) {
-                caseName = `${components.partyOne} v. ${components.partyTwo}`;
+              const components = first.components as unknown as Record<string, unknown>;
+              const partyOne = components.partyOne;
+              const partyTwo = components.partyTwo;
+              if (typeof partyOne === 'string' && typeof partyTwo === 'string') {
+                caseName = `${partyOne} v. ${partyTwo}`;
               }
             }
           }
@@ -323,46 +356,81 @@ spadingRouter.post(
           }
         }
 
-        const [inserted] = await db
-          .insert(schema.projectDocuments)
-          .values({
-            projectId,
-            role,
-            fileName: originalname,
-            mimeType: mimetype,
-            fileSize: size,
-            filePath,
-            extractedText,
-            pageMapping,
-            pageCount,
-            caseName,
-            citation,
-          })
-          .returning({
-            id: schema.projectDocuments.id,
-            role: schema.projectDocuments.role,
-            fileName: schema.projectDocuments.fileName,
-            mimeType: schema.projectDocuments.mimeType,
-            fileSize: schema.projectDocuments.fileSize,
-            pageCount: schema.projectDocuments.pageCount,
-            caseName: schema.projectDocuments.caseName,
-            citation: schema.projectDocuments.citation,
-            uploadedAt: schema.projectDocuments.uploadedAt,
-          });
-
-        results.push(inserted);
-
-        // If this is a journal entry, set it on the project
-        if (role === 'journal_entry') {
-          await db
-            .update(schema.spadingProjects)
-            .set({ journalDocumentId: inserted.id, updatedAt: new Date() })
-            .where(eq(schema.spadingProjects.id, projectId));
-        }
+        preparedDocuments.push({
+          role,
+          fileName: originalname,
+          mimeType: mimetype,
+          fileSize: size,
+          filePath,
+          extractedText,
+          pageMapping,
+          pageCount,
+          caseName,
+          citation,
+        });
       }
 
+      const results = await db.transaction(async (tx) => {
+        const insertedDocs: Array<{
+          id: string;
+          role: 'journal_entry' | 'source';
+          fileName: string;
+          mimeType: string;
+          fileSize: number;
+          pageCount: number | null;
+          caseName: string | null;
+          citation: string | null;
+          uploadedAt: Date;
+        }> = [];
+
+        for (const doc of preparedDocuments) {
+          const [inserted] = await tx
+            .insert(schema.projectDocuments)
+            .values({
+              projectId,
+              role: doc.role,
+              fileName: doc.fileName,
+              mimeType: doc.mimeType,
+              fileSize: doc.fileSize,
+              filePath: doc.filePath,
+              extractedText: doc.extractedText,
+              pageMapping: doc.pageMapping,
+              pageCount: doc.pageCount,
+              caseName: doc.caseName,
+              citation: doc.citation,
+            })
+            .returning({
+              id: schema.projectDocuments.id,
+              role: schema.projectDocuments.role,
+              fileName: schema.projectDocuments.fileName,
+              mimeType: schema.projectDocuments.mimeType,
+              fileSize: schema.projectDocuments.fileSize,
+              pageCount: schema.projectDocuments.pageCount,
+              caseName: schema.projectDocuments.caseName,
+              citation: schema.projectDocuments.citation,
+              uploadedAt: schema.projectDocuments.uploadedAt,
+            });
+
+          insertedDocs.push(inserted);
+        }
+
+        if (role === 'journal_entry' && insertedDocs.length > 0) {
+          await tx
+            .update(schema.spadingProjects)
+            .set({ journalDocumentId: insertedDocs[0].id, updatedAt: new Date() })
+            .where(eq(schema.spadingProjects.id, projectId));
+        }
+
+        return insertedDocs;
+      });
+
+      committed = true;
       res.json({ documents: results });
     } catch (error) {
+      if (!committed && uploadedPaths.length > 0) {
+        await Promise.allSettled(uploadedPaths.map((path) => deleteFile(path)));
+      }
+
       console.error('Document upload error:', error);
       if (error instanceof DocumentExtractionError) {
         res.status(422).json(error.toJSON());
@@ -374,6 +442,13 @@ spadingRouter.post(
     }
   }
 );
+
+spadingRouter.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (handleMulterRouteError(err, res)) {
+    return;
+  }
+  next(err);
+});
 
 spadingRouter.get('/projects/:id/documents', async (req: Request, res: Response) => {
   try {

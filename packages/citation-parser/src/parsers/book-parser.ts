@@ -32,7 +32,7 @@ export function parseBookCitation(
 
 function parseBook(text: string): BookComponents | null {
   // Try multi-volume with section: "Vol Author, Title § section (parenthetical)"
-  const mvSectionPattern = /^(\d+)\s+(.+?),\s+(.+?)\s*§\s*([\d.]+(?:\([a-zA-Z0-9]+\))*)\s*(?:,\s*at\s+(\d[\d–\-,\s]*))?\s*\(([^)]+)\)$/;
+  const mvSectionPattern = /^(\d+)\s+(.+?),\s+(.+?)\s*§\s*([\d.]+(?:\([a-zA-Z0-9]+\))*)\s*(?:,\s*at\s+(\d[\d–,\s-]*))?\s*\(([^)]+)\)$/;
   let match = text.match(mvSectionPattern);
   if (match) {
     const parenthetical = parseParenthetical(match[6]);
@@ -47,7 +47,7 @@ function parseBook(text: string): BookComponents | null {
   }
 
   // Try single-author with section: "Author, Title § section (parenthetical)"
-  const sectionPattern = /^(.+?),\s+(.+?)\s*§\s*([\d.]+(?:\([a-zA-Z0-9]+\))*)\s*(?:,\s*at\s+(\d[\d–\-,\s]*))?\s*\(([^)]+)\)$/;
+  const sectionPattern = /^(.+?),\s+(.+?)\s*§\s*([\d.]+(?:\([a-zA-Z0-9]+\))*)\s*(?:,\s*at\s+(\d[\d–,\s-]*))?\s*\(([^)]+)\)$/;
   match = text.match(sectionPattern);
   if (match) {
     const parenthetical = parseParenthetical(match[5]);
@@ -61,7 +61,7 @@ function parseBook(text: string): BookComponents | null {
   }
 
   // Try multi-volume with page: "Vol Author, Title page (parenthetical)"
-  const mvPagePattern = /^(\d+)\s+(.+?),\s+(.+?)\s+(\d+(?:\s*[–\-]\s*\d+)?)\s*\(([^)]+)\)$/;
+  const mvPagePattern = /^(\d+)\s+(.+?),\s+(.+?)\s+(\d+(?:\s*[–-]\s*\d+)?)\s*\(([^)]+)\)$/;
   match = text.match(mvPagePattern);
   if (match) {
     const parenthetical = parseParenthetical(match[5]);
@@ -75,7 +75,7 @@ function parseBook(text: string): BookComponents | null {
   }
 
   // Try single-author with page: "Author, Title page (parenthetical)"
-  const pagePattern = /^(.+?),\s+(.+?)\s+(\d+(?:\s*[–\-]\s*\d+)?)\s*\(([^)]+)\)$/;
+  const pagePattern = /^(.+?),\s+(.+?)\s+(\d+(?:\s*[–-]\s*\d+)?)\s*\(([^)]+)\)$/;
   match = text.match(pagePattern);
   if (match) {
     // Distinguish from articles: articles have a volume number before journal abbreviation

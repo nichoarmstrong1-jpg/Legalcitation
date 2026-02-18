@@ -73,7 +73,7 @@ export function detectCitations(text: string): DetectedSpan[] {
 function detectIdCitations(text: string, spans: DetectedSpan[]): void {
   // Match Id. or id. with optional pincite
   // Also handle *Id.* with formatting markers (stripped at API level, but also handle standalone)
-  const idPattern = /\*?Id\.\*?\s*(?:at\s+\d[\d,\s–\-n.]*|[§¶]\s*[\d.]+(?:\([a-zA-Z0-9]+\))*)?/gi;
+  const idPattern = /\*?Id\.\*?\s*(?:at\s+\d[\d,\s–n.-]*|[§¶]\s*[\d.]+(?:\([a-zA-Z0-9]+\))*)?/gi;
   let match;
   while ((match = idPattern.exec(text)) !== null) {
     const trimmed = match[0].trim();
@@ -89,7 +89,7 @@ function detectIdCitations(text: string, spans: DetectedSpan[]): void {
 
 function detectSupraCitations(text: string, spans: DetectedSpan[]): void {
   // Match "Author, supra note X, at Y"
-  const supraPattern = /\b([A-Z][a-zA-Z']+),?\s+supra\s+(?:note\s+\d+)?(?:,\s*at\s+\d[\d–\-]*)?/g;
+  const supraPattern = /\b([A-Z][a-zA-Z']+),?\s+supra\s+(?:note\s+\d+)?(?:,\s*at\s+\d[\d–-]*)?/g;
   let match;
   while ((match = supraPattern.exec(text)) !== null) {
     spans.push({
@@ -103,7 +103,7 @@ function detectSupraCitations(text: string, spans: DetectedSpan[]): void {
 
 function detectInfraCitations(text: string, spans: DetectedSpan[]): void {
   // Match "infra note X", "see infra note X", "infra Part III", "infra Section IV"
-  const infraPattern = /\b(?:see\s+)?infra\s+(?:note\s+\d+(?:\s+and\s+accompanying\s+text)?|Part\s+[IVX\d]+|Section\s+[IVX\d]+|§\s*[\d.]+|text\s+accompanying\s+note(?:s)?\s+\d+(?:\s*[–\-]\s*\d+)?)/gi;
+  const infraPattern = /\b(?:see\s+)?infra\s+(?:note\s+\d+(?:\s+and\s+accompanying\s+text)?|Part\s+[IVX\d]+|Section\s+[IVX\d]+|§\s*[\d.]+|text\s+accompanying\s+note(?:s)?\s+\d+(?:\s*[–-]\s*\d+)?)/gi;
   let match;
   while ((match = infraPattern.exec(text)) !== null) {
     spans.push({
@@ -187,7 +187,7 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
     const textAfter = text.slice(reporterEnd, reporterEnd + 500);
 
     // Look for optional pincite, then date parenthetical
-    const afterPattern = /^(?:,\s*\d[\d–\-,\s]*)?(?:\s*n\.\d+)?\s*\([^)]+\)(?:\s*\([^)]+\))*(?:\s*,\s*(?:aff'd|rev'd|cert\.\s*denied|vacated|modified|reh'g\s*denied|reh'g\s*en\s*banc\s*denied|aff'g|rev'g|remanded|aff'd\s*in\s*part|rev'd\s*in\s*part|overruled\s*by|aff'd\s*sub\s*nom\.|rev'd\s*sub\s*nom\.|cert\.\s*dismissed)[^.;]*)*/;
+    const afterPattern = /^(?:,\s*\d[\d–,\s-]*)?(?:\s*n\.\d+)?\s*\([^)]+\)(?:\s*\([^)]+\))*(?:\s*,\s*(?:aff'd|rev'd|cert\.\s*denied|vacated|modified|reh'g\s*denied|reh'g\s*en\s*banc\s*denied|aff'g|rev'g|remanded|aff'd\s*in\s*part|rev'd\s*in\s*part|overruled\s*by|aff'd\s*sub\s*nom\.|rev'd\s*sub\s*nom\.|cert\.\s*dismissed)[^.;]*)*/;
     const afterMatch = textAfter.match(afterPattern);
     if (afterMatch) {
       caseEnd = reporterEnd + afterMatch[0].length;
@@ -216,7 +216,7 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
 function detectShortCaseCitations(text: string, spans: DetectedSpan[]): void {
   // Pattern 1: Party, Vol Rep at Page (standard)
   const shortPattern = new RegExp(
-    `([A-Z][a-zA-Z']+),?\\s*(\\d{1,4})\\s+(${REPORTER_ALT})\\s+at\\s+(\\d[\\d–\\-,\\s]*)`,
+    `([A-Z][a-zA-Z']+),?\\s*(\\d{1,4})\\s+(${REPORTER_ALT})\\s+at\\s+(\\d[\\d–,\\s-]*)`,
     'g'
   );
   let match;
@@ -234,7 +234,7 @@ function detectShortCaseCitations(text: string, spans: DetectedSpan[]): void {
 
 function detectStatuteCitations(text: string, spans: DetectedSpan[]): void {
   // Federal statutes: title U.S.C. § section or §§ section range
-  const uscPattern = /\b(\d{1,2})\s+U\.S\.C\.?\s*§{1,2}\s*([\d\w]+(?:\([a-zA-Z0-9]+\))*)(?:\s*[–\-]\s*\d+)?(?:\s*\([^)]+\))?/g;
+  const uscPattern = /\b(\d{1,2})\s+U\.S\.C\.?\s*§{1,2}\s*([\d\w]+(?:\([a-zA-Z0-9]+\))*)(?:\s*[–-]\s*\d+)?(?:\s*\([^)]+\))?/g;
   let match;
   while ((match = uscPattern.exec(text)) !== null) {
     spans.push({
@@ -246,7 +246,7 @@ function detectStatuteCitations(text: string, spans: DetectedSpan[]): void {
   }
 
   // State codes (common pattern: State Code Ann. § section)
-  const stateCodePattern = /\b([A-Z][a-z.]+(?:\s+[A-Z][a-z.]+)*)\s+(?:Code|Stat\.|Laws?)\s+(?:Ann\.\s+)?§{1,2}\s*[\d\w:.-]+(?:\s*[–\-]\s*[\d\w]+)?(?:\s*\([^)]+\))?/g;
+  const stateCodePattern = /\b([A-Z][a-z.]+(?:\s+[A-Z][a-z.]+)*)\s+(?:Code|Stat\.|Laws?)\s+(?:Ann\.\s+)?§{1,2}\s*[\d\w:.-]+(?:\s*[–-]\s*[\d\w]+)?(?:\s*\([^)]+\))?/g;
   while ((match = stateCodePattern.exec(text)) !== null) {
     spans.push({
       text: match[0].trim(),
@@ -392,7 +392,7 @@ function detectBookCitations(text: string, spans: DetectedSpan[]): void {
     // Must have "Author, Title" pattern (comma separating author from title)
     // and a page number or section before the parenthetical
     const hasAuthorTitle = /[A-Z][a-zA-Z.'\s&]+,\s+[A-Z]/.test(candidate);
-    const hasPageOrSection = /(?:§\s*[\dA-Za-z.]+|\d+(?:\s*[–\-]\s*\d+)?)\s*$/.test(candidate);
+    const hasPageOrSection = /(?:§\s*[\dA-Za-z.]+|\d+(?:\s*[–-]\s*\d+)?)\s*$/.test(candidate);
 
     if (!hasAuthorTitle || !hasPageOrSection) continue;
 
@@ -595,7 +595,7 @@ function detectUnpublishedCitations(text: string, spans: DetectedSpan[]): void {
     // Find the closing parenthesis after "Working Paper No. N"
     const afterAnchor = text.slice(anchorPos, anchorPos + 200);
     const closeParen = afterAnchor.indexOf(')');
-    let citEnd = closeParen >= 0 ? anchorPos + closeParen + 1 : anchorPos + match[0].length;
+    const citEnd = closeParen >= 0 ? anchorPos + closeParen + 1 : anchorPos + match[0].length;
     // Expand backward to sentence start
     const lookback = text.slice(Math.max(0, anchorPos - 500), anchorPos);
     const sentenceStarts = [...lookback.matchAll(/(?:^|(?<=[a-z]{4})[.]\s+|;\s+)(?=[A-Z])/g)];

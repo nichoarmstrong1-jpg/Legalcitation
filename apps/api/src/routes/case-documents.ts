@@ -1,16 +1,27 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type NextFunction, type Request, type Response } from 'express';
 import multer from 'multer';
 import { eq, desc } from 'drizzle-orm';
 import { getDb, isDatabaseConfigured, schema } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
-import { extractFromPdfWithPages, extractTextFromFile, DocumentExtractionError } from '../services/document-processor.js';
+import {
+  extractFromPdfWithPages,
+  extractTextFromFile,
+  DocumentExtractionError,
+  type PageMapping,
+} from '../services/document-processor.js';
 import { extractAndParseCitations } from '@legalcitation/citation-parser';
+import {
+  MAX_UPLOAD_BYTES,
+  validateUploadedFile,
+  sendUploadError,
+  handleMulterRouteError,
+} from './upload-utils.js';
 
 export const caseDocumentsRouter = Router();
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per file
+  limits: { fileSize: MAX_UPLOAD_BYTES }, // 50MB per file
 });
 
 /**
@@ -37,14 +48,30 @@ caseDocumentsRouter.post(
 
       const db = getDb();
       const userId = req.user!.userId;
-      const results = [];
+      const preparedDocuments: Array<{
+        fileName: string;
+        fileSize: number;
+        extractedText: string;
+        pageMapping: PageMapping[] | null;
+        pageCount: number | null;
+        caseName: string | null;
+        citation: string | null;
+      }> = [];
+
+      for (const file of files) {
+        const validationError = validateUploadedFile(file);
+        if (validationError) {
+          sendUploadError(res, validationError);
+          return;
+        }
+      }
 
       for (const file of files) {
         const { originalname, mimetype, buffer, size } = file;
         const isPdf = mimetype === 'application/pdf' || originalname.toLowerCase().endsWith('.pdf');
 
         let extractedText: string;
-        let pageMapping: any[] | null = null;
+        let pageMapping: PageMapping[] | null = null;
         let pageCount: number | null = null;
 
         if (isPdf) {
@@ -65,9 +92,11 @@ caseDocumentsRouter.post(
           const first = parsed[0];
           citation = first.rawText;
           if (first.type === 'case' || (first.type as string) === 'full_case') {
-            const components = first.components as any;
-            if (components.partyOne && components.partyTwo) {
-              caseName = `${components.partyOne} v. ${components.partyTwo}`;
+            const components = first.components as unknown as Record<string, unknown>;
+            const partyOne = components.partyOne;
+            const partyTwo = components.partyTwo;
+            if (typeof partyOne === 'string' && typeof partyTwo === 'string') {
+              caseName = `${partyOne} v. ${partyTwo}`;
             }
           }
         }
@@ -80,30 +109,56 @@ caseDocumentsRouter.post(
           }
         }
 
-        const [inserted] = await db
-          .insert(schema.caseDocuments)
-          .values({
-            userId,
-            fileName: originalname,
-            caseName,
-            citation,
-            extractedText,
-            pageMapping,
-            fileSize: size,
-            pageCount,
-          })
-          .returning({
-            id: schema.caseDocuments.id,
-            fileName: schema.caseDocuments.fileName,
-            caseName: schema.caseDocuments.caseName,
-            citation: schema.caseDocuments.citation,
-            fileSize: schema.caseDocuments.fileSize,
-            pageCount: schema.caseDocuments.pageCount,
-            uploadedAt: schema.caseDocuments.uploadedAt,
-          });
-
-        results.push(inserted);
+        preparedDocuments.push({
+          fileName: originalname,
+          fileSize: size,
+          extractedText,
+          pageMapping,
+          pageCount,
+          caseName,
+          citation,
+        });
       }
+
+      const results = await db.transaction(async (tx) => {
+        const insertedDocs: Array<{
+          id: string;
+          fileName: string;
+          caseName: string | null;
+          citation: string | null;
+          fileSize: number;
+          pageCount: number | null;
+          uploadedAt: Date;
+        }> = [];
+
+        for (const doc of preparedDocuments) {
+          const [inserted] = await tx
+            .insert(schema.caseDocuments)
+            .values({
+              userId,
+              fileName: doc.fileName,
+              caseName: doc.caseName,
+              citation: doc.citation,
+              extractedText: doc.extractedText,
+              pageMapping: doc.pageMapping,
+              fileSize: doc.fileSize,
+              pageCount: doc.pageCount,
+            })
+            .returning({
+              id: schema.caseDocuments.id,
+              fileName: schema.caseDocuments.fileName,
+              caseName: schema.caseDocuments.caseName,
+              citation: schema.caseDocuments.citation,
+              fileSize: schema.caseDocuments.fileSize,
+              pageCount: schema.caseDocuments.pageCount,
+              uploadedAt: schema.caseDocuments.uploadedAt,
+            });
+
+          insertedDocs.push(inserted);
+        }
+
+        return insertedDocs;
+      });
 
       res.json({ documents: results });
     } catch (error) {
@@ -120,6 +175,13 @@ caseDocumentsRouter.post(
     }
   }
 );
+
+caseDocumentsRouter.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (handleMulterRouteError(err, res)) {
+    return;
+  }
+  next(err);
+});
 
 /**
  * GET /api/case-documents — List user's uploaded case documents.

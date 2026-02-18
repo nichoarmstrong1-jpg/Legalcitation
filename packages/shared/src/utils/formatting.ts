@@ -5,7 +5,7 @@ import type { FormatStyle, FormattingDirective } from '../types/citation.js';
  */
 export function markdownToHtml(text: string, format: FormatStyle): string {
   // Handle _underline_ markers (always underline, regardless of format preference)
-  let result = text.replace(/_([^_]+)_/g, '<u>$1</u>');
+  const result = text.replace(/_([^_]+)_/g, '<u>$1</u>');
   if (format === 'small_caps') {
     return result.replace(/\*([^*]+)\*/g, '<span style="font-variant: small-caps">$1</span>');
   }

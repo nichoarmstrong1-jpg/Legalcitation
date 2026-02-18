@@ -10,6 +10,7 @@ import type {
 export type { AnalyzedCitation, ValidationIssue, DocumentIntegrityReport, ShortFormEntry, ShortFormSuggestion };
 
 export const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const DEFAULT_UPLOAD_TIMEOUT_MS = 120000;
 
 // --- Authenticated Fetch with Automatic Token Refresh ---
 
@@ -38,7 +39,13 @@ export async function authenticatedFetch(
   options?: RequestInit
 ): Promise<Response> {
   const mergedOptions: RequestInit = { ...options, credentials: 'include' };
-  const res = await fetch(url, mergedOptions);
+  let res: Response;
+  try {
+    res = await fetch(url, mergedOptions);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Network request failed';
+    throw new Error(message);
+  }
 
   if (res.status !== 401) return res;
 
@@ -59,6 +66,25 @@ export async function authenticatedFetch(
   // Refresh also failed — session is dead
   window.dispatchEvent(new CustomEvent('auth:session-expired'));
   return res;
+}
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await authenticatedFetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Upload timed out. Please try again.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 export interface AnalyzeResponse {
@@ -171,10 +197,10 @@ export async function uploadFile(file: File): Promise<{ extractedText: string; f
   const formData = new FormData();
   formData.append('file', file);
 
-  const res = await authenticatedFetch(`${API_BASE}/upload`, {
+  const res = await fetchWithTimeout(`${API_BASE}/upload`, {
     method: 'POST',
     body: formData,
-  });
+  }, DEFAULT_UPLOAD_TIMEOUT_MS);
   if (!res.ok) {
     const body = await res.json().catch(() => null) as UploadError | null;
     const err = new Error(body?.error || `Upload failed: ${res.status}`);
@@ -226,10 +252,10 @@ export async function uploadCaseDocuments(files: File[]): Promise<{ documents: C
     formData.append('files', file);
   }
 
-  const res = await authenticatedFetch(`${API_BASE}/case-documents`, {
+  const res = await fetchWithTimeout(`${API_BASE}/case-documents`, {
     method: 'POST',
     body: formData,
-  });
+  }, DEFAULT_UPLOAD_TIMEOUT_MS);
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.message || body?.error || `Upload failed: ${res.status}`);
@@ -411,10 +437,10 @@ export async function uploadProjectDocuments(
     formData.append('files', file);
   }
 
-  const res = await authenticatedFetch(`${API_BASE}/spading/projects/${projectId}/documents`, {
+  const res = await fetchWithTimeout(`${API_BASE}/spading/projects/${projectId}/documents`, {
     method: 'POST',
     body: formData,
-  });
+  }, DEFAULT_UPLOAD_TIMEOUT_MS);
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.error || `Failed to upload documents: ${res.status}`);

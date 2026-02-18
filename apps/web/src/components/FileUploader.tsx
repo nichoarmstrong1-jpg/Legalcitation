@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { FileText, AlertTriangle } from 'lucide-react';
 import { uploadFile, type UploadErrorWithSuggestion } from '../services/api.ts';
+import { validateFileForGenericUpload } from '../services/upload-validation.ts';
 
 interface FileUploaderProps {
   onTextExtracted: (text: string, fileName: string) => void;
@@ -19,6 +20,15 @@ export function FileUploader({ onTextExtracted, compact = false }: FileUploaderP
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(async (file: File) => {
+    const validationError = validateFileForGenericUpload(file);
+    if (validationError) {
+      setError({ message: validationError });
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
+      return;
+    }
+
     setError(null);
     setIsProcessing(true);
 
@@ -33,6 +43,9 @@ export function FileUploader({ onTextExtracted, compact = false }: FileUploaderP
       });
     } finally {
       setIsProcessing(false);
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
     }
   }, [onTextExtracted]);
 

@@ -3,6 +3,7 @@ import { Upload, FileText, Trash2, Hammer, ChevronDown, ChevronUp } from 'lucide
 import { uploadCaseDocuments, getCaseDocuments, deleteCaseDocument, type CaseDocument } from '../services/api.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useToast } from '../context/ToastContext.tsx';
+import { validateCaseLibraryUpload } from '../services/upload-validation.ts';
 
 interface CaseLibraryProps {
   onBuildCitation: (input: string) => void;
@@ -46,6 +47,11 @@ export function CaseLibrary({ onBuildCitation, onViewSource, onAuthOpen }: CaseL
     setIsUploading(true);
     try {
       const fileArray = Array.from(files);
+      const validationError = validateCaseLibraryUpload(fileArray);
+      if (validationError) {
+        showToast(validationError, 'error');
+        return;
+      }
       const data = await uploadCaseDocuments(fileArray);
       setDocuments(prev => [...data.documents, ...prev]);
       showToast(`${data.documents.length} document(s) uploaded`, 'success');
@@ -53,6 +59,9 @@ export function CaseLibrary({ onBuildCitation, onViewSource, onAuthOpen }: CaseL
       showToast(err instanceof Error ? err.message : 'Upload failed', 'error');
     } finally {
       setIsUploading(false);
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
     }
   }, [user, showToast]);
 

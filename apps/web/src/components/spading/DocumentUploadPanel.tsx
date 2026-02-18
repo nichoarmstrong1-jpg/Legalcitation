@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
-import { Upload, FileText, X, Loader2 } from 'lucide-react';
+import { Upload, FileText, X, Loader2, AlertTriangle } from 'lucide-react';
 import type { ProjectDocument } from '../../services/api.ts';
+import { validateSpadingUpload } from '../../services/upload-validation.ts';
 
 interface DocumentUploadPanelProps {
   projectId: string;
@@ -91,30 +92,62 @@ export function DocumentUploadPanel({
 }: DocumentUploadPanelProps) {
   const [uploadingJournal, setUploadingJournal] = useState(false);
   const [uploadingSource, setUploadingSource] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const journalDocs = documents.filter(d => d.role === 'journal_entry');
   const sourceDocs = documents.filter(d => d.role === 'source');
 
   const handleJournalUpload = async (files: File[]) => {
+    const validationError = validateSpadingUpload(files, 'journal_entry');
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    if (hasJournalEntry) {
+      setError('A journal entry already exists. Remove it before uploading another one.');
+      return;
+    }
+
+    setError(null);
     setUploadingJournal(true);
     try {
       await onUpload(projectId, [files[0]], 'journal_entry');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload journal entry.');
     } finally {
       setUploadingJournal(false);
     }
   };
 
   const handleSourceUpload = async (files: File[]) => {
+    const validationError = validateSpadingUpload(files, 'source');
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setError(null);
     setUploadingSource(true);
     try {
       await onUpload(projectId, files, 'source');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload source documents.');
     } finally {
       setUploadingSource(false);
     }
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="space-y-4">
+      {error && (
+        <div className="p-3 rounded-lg border border-warning-200 bg-warning-50 text-warning-800 text-sm flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Journal Entry Section */}
       <div>
         <h3 className="text-sm font-semibold text-primary-900 mb-3">Journal Entry</h3>
@@ -192,6 +225,7 @@ export function DocumentUploadPanel({
             onFiles={handleSourceUpload}
           />
         </div>
+      </div>
       </div>
     </div>
   );
