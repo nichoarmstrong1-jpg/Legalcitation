@@ -173,7 +173,7 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
     const vMatch = textBefore.match(vPattern);
     const crossesPriorSentence =
       vMatch && vMatch.index !== undefined
-        ? /\)\.\s+[A-Z][^,;]{1,120}\s+v\.?\s+/.test(textBefore.slice(vMatch.index))
+        ? /\)\.\s+[\s\S]{0,500}\s+v\.?\s+/.test(textBefore.slice(vMatch.index))
         : false;
 
     if (vMatch && vMatch.index !== undefined && !crossesPriorSentence) {
