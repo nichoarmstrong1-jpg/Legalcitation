@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
-import { X, Check, Copy, ChevronRight, ChevronDown, AlertTriangle, Undo2 } from 'lucide-react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { X, Check, Copy, AlertTriangle, Undo2 } from 'lucide-react';
 import type { AnalyzedCitation } from '../services/api.ts';
 
 type FormatStyle = 'italics' | 'underline';
@@ -20,10 +20,14 @@ interface CitationTooltipProps {
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   onJumpToCitation?: (citationIdx: number) => void;
+  onOpenSidebarAnalysis?: (citationIdx: number) => void;
 }
 
 function renderFormattedText(text: string, formatStyle: FormatStyle) {
-  const parts = text.split(/(\*[^*]+\*|_[^_]+_)/);
+  const normalizedText = text
+    .replace(/(\*Id\.\*|_Id\._)(?=[A-Za-z0-9])/g, '$1 ')
+    .replace(/(\*Id\.\*|_Id\._)\s+(?=\.)/g, '$1');
+  const parts = normalizedText.split(/(\*[^*]+\*|_[^_]+_)/);
   return parts.map((part, i) => {
     if (part.startsWith('*') && part.endsWith('*')) {
       const content = part.slice(1, -1);
@@ -35,33 +39,8 @@ function renderFormattedText(text: string, formatStyle: FormatStyle) {
       const content = part.slice(1, -1);
       return <u key={i}>{content}</u>;
     }
-    return <span key={i}>{part}</span>;
+    return <span key={i}>{part.replace(/[*_]/g, '')}</span>;
   });
-}
-
-function isRuleStep(step: string): boolean {
-  return /[RBT]\.\s*[\d]/.test(step) ||
-    /verified|accurate|correct|confirmed|abbreviat|format|court|reporter|case name|year|page|pinpoint|italic|underlin|spacing|signal/i.test(step);
-}
-
-function getStepIcon(step: string) {
-  if (/verified|Verified|accurate|correct|confirmed/.test(step)) {
-    return <Check className="w-3 h-3 text-verified-500" />;
-  }
-  if (/issue|could not|discrepan|correction/.test(step)) {
-    return <AlertTriangle className="w-3 h-3 text-warning-500" />;
-  }
-  return <span className="w-1.5 h-1.5 rounded-full bg-surface-300 inline-block" />;
-}
-
-function getStepTextColor(step: string): string {
-  if (/verified|Verified|accurate|confirmed/.test(step)) {
-    return 'text-verified-700 font-medium';
-  }
-  if (/issue|could not|correction/.test(step)) {
-    return 'text-warning-700';
-  }
-  return 'text-surface-600';
 }
 
 export function CitationTooltip({
@@ -80,8 +59,8 @@ export function CitationTooltip({
   onMouseEnter,
   onMouseLeave,
   onJumpToCitation,
+  onOpenSidebarAnalysis,
 }: CitationTooltipProps) {
-  const [expanded, setExpanded] = useState(false);
   const [flipVertical, setFlipVertical] = useState(false);
   const [flipHorizontal, setFlipHorizontal] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -111,11 +90,6 @@ export function CitationTooltip({
   const hasCorrection = result.verifiedCitation &&
     result.verifiedCitation.replace(/\*/g, '') !== originalText;
 
-  const handleExpandToggle = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpanded(prev => !prev);
-  }, []);
-
   // Filter logic trace to rule-related steps
   const cleanTrace = (result.logicTrace || []).filter(step =>
     !step.includes('http://') &&
@@ -124,7 +98,37 @@ export function CitationTooltip({
     !step.includes('ANTHROPIC_API_KEY') &&
     !step.includes('API_KEY')
   );
-  const ruleSteps = cleanTrace.filter(isRuleStep);
+  const traceIssueWithAntecedent = result.issues.find(iss => iss.antecedentText);
+  const warningCount = result.issues.filter(i => i.severity === 'warning').length;
+  const suggestionCount = result.issues.filter(i => i.severity === 'suggestion').length;
+  const isVerifiedUi = errorCount === 0 && warningCount === 0;
+  const statusLabel = errorCount > 0
+    ? `${errorCount} Error${errorCount !== 1 ? 's' : ''}`
+    : warningCount > 0
+      ? `${warningCount} Warning${warningCount !== 1 ? 's' : ''}`
+      : isVerifiedUi
+        ? 'Verified'
+        : 'Needs Review';
+  const statusClass = errorCount > 0
+    ? 'bg-error-100 text-error-700'
+    : warningCount > 0
+      ? 'bg-warning-100 text-warning-700'
+      : isVerifiedUi
+        ? 'bg-verified-100 text-verified-700'
+        : 'bg-warning-100 text-warning-700';
+
+  useEffect(() => {
+    if (!traceIssueWithAntecedent) return;
+    // #region agent log
+    fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H2',location:'apps/web/src/components/CitationTooltip.tsx:136',message:'Tooltip antecedent reference available',data:{citationIdx,antecedentIndex:traceIssueWithAntecedent.antecedentIndex,antecedentText:traceIssueWithAntecedent.antecedentText?.slice(0,120),issueRule:traceIssueWithAntecedent.rule},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [traceIssueWithAntecedent, citationIdx]);
+
+  useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H13',location:'apps/web/src/components/CitationTooltip.tsx:161',message:'Tooltip status badge decision snapshot',data:{citationIdx,errorCount,warningCount,suggestionCount,verificationStatus:result.verificationStatus,score:result.score,statusLabel,isVerifiedUi},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [citationIdx, errorCount, warningCount, suggestionCount, result.verificationStatus, result.score, statusLabel, isVerifiedUi]);
 
   return (
     <div
@@ -140,17 +144,9 @@ export function CitationTooltip({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className={`text-xs px-2 py-0.5 rounded-lg font-semibold ${
-            errorCount > 0
-              ? 'bg-error-100 text-error-700'
-              : result.verificationStatus === 'verified'
-              ? 'bg-verified-100 text-verified-700'
-              : 'bg-warning-100 text-warning-700'
+            statusClass
           }`}>
-            {errorCount > 0
-              ? `${errorCount} Error${errorCount !== 1 ? 's' : ''}`
-              : result.verificationStatus === 'verified'
-              ? 'Verified'
-              : 'Needs Review'}
+            {statusLabel}
           </span>
           <span className={`text-xs font-bold ${
             result.score >= 80 ? 'text-verified-600' :
@@ -220,6 +216,9 @@ export function CitationTooltip({
                 className={`text-left ${canJump ? 'hover:text-primary-700 transition-colors' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
+                  // #region agent log
+                  fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H5',location:'apps/web/src/components/CitationTooltip.tsx:229',message:'Tooltip antecedent reference clicked',data:{citationIdx,targetIdx,canJump,hasJumpHandler:Boolean(onJumpToCitation)},timestamp:Date.now()})}).catch(()=>{});
+                  // #endregion
                   if (canJump && onJumpToCitation) {
                     onJumpToCitation(targetIdx);
                   }
@@ -296,78 +295,23 @@ export function CitationTooltip({
         </div>
       )}
 
-      {/* Expandable analysis */}
       <button
-        onClick={handleExpandToggle}
-        className="flex items-center gap-1 text-[10px] text-surface-400 hover:text-surface-600 transition-colors w-full"
+        onClick={(e) => {
+          e.stopPropagation();
+          // #region agent log
+          fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H15',location:'apps/web/src/components/CitationTooltip.tsx:322',message:'Tooltip requested full analysis in sidebar',data:{citationIdx,hasHandler:Boolean(onOpenSidebarAnalysis),issueCount:result.issues.length,traceCount:cleanTrace.length},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
+          if (onOpenSidebarAnalysis) {
+            onOpenSidebarAnalysis(citationIdx);
+            return;
+          }
+          onSelect(citationIdx);
+        }}
+        className="flex items-center gap-1 text-[10px] text-surface-400 hover:text-primary-600 transition-colors w-full mt-1"
       >
-        {expanded ? (
-          <ChevronDown className="w-3 h-3 shrink-0" />
-        ) : (
-          <ChevronRight className="w-3 h-3 shrink-0" />
-        )}
-        {expanded ? 'Hide analysis' : 'View analysis'}
-        {!expanded && result.issues.length > 0 && (
-          <span className="text-surface-300 ml-auto">{result.issues.length} rule{result.issues.length !== 1 ? 's' : ''} checked</span>
-        )}
+        View full analysis in sidebar
+        <span className="text-surface-300 ml-auto">{result.issues.length} issue{result.issues.length !== 1 ? 's' : ''} checked</span>
       </button>
-
-      {expanded && (
-        <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
-          {/* Per-issue breakdown */}
-          {result.issues.map((issue, i) => (
-            <div key={issue.id || i} className="flex items-start gap-2 text-[11px]">
-              <div className="mt-0.5 shrink-0">
-                {issue.severity === 'error' ? (
-                  <AlertTriangle className="w-3 h-3 text-error-500" />
-                ) : issue.severity === 'warning' ? (
-                  <AlertTriangle className="w-3 h-3 text-warning-500" />
-                ) : (
-                  <Check className="w-3 h-3 text-surface-400" />
-                )}
-              </div>
-              <div>
-                <span className={`font-medium ${
-                  issue.severity === 'error' ? 'text-error-700' :
-                  issue.severity === 'warning' ? 'text-warning-700' : 'text-surface-600'
-                }`}>
-                  {issue.rule && <span className="text-surface-400 mr-1">{issue.rule}</span>}
-                  {issue.message}
-                </span>
-                {issue.suggestion && (
-                  <span className="block text-surface-400 mt-0.5">{issue.suggestion}</span>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {/* Logic trace steps */}
-          {ruleSteps.length > 0 && (
-            <div className="pt-1.5 mt-1.5 border-t border-surface-100 space-y-1">
-              {ruleSteps.map((step, i) => (
-                <div key={i} className="flex items-start gap-2 text-[11px]">
-                  <div className="mt-0.5 shrink-0">{getStepIcon(step)}</div>
-                  <span className={`leading-relaxed ${getStepTextColor(step)}`}>{step}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {result.issues.length === 0 && ruleSteps.length === 0 && (
-            <div className="text-[11px] text-surface-400">No issues found for this citation.</div>
-          )}
-        </div>
-      )}
-
-      {/* Click to select for full sidebar analysis */}
-      {!isSelected && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onSelect(citationIdx); }}
-          className="block text-[10px] text-surface-400 hover:text-primary-600 mt-1.5 transition-colors"
-        >
-          Click for full sidebar analysis
-        </button>
-      )}
     </div>
   );
 }

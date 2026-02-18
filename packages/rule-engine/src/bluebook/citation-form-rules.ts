@@ -46,14 +46,14 @@ export function validateCitationSentence(
 
   if (citation.context !== 'citation_sentence') return issues;
 
-  const trimmed = rawSentence.trim();
-  if (!trimmed) return issues;
+  const normalized = normalizeForFormChecks(rawSentence);
+  if (!normalized) return issues;
 
   // B1.1: Citation sentence must begin with a capital letter
-  const firstChar = trimmed.charAt(0);
+  const firstChar = normalized.charAt(0);
   if (firstChar !== firstChar.toUpperCase() || !isLetter(firstChar)) {
     // Check if it starts with a signal that is inherently lowercase (e.g., "see")
-    const startsWithSignal = signalAtStart(trimmed);
+    const startsWithSignal = signalAtStart(normalized);
     if (!startsWithSignal) {
       issues.push({
         id: uuid(),
@@ -62,13 +62,16 @@ export function validateCitationSentence(
         severity: 'error',
         message:
           'A citation sentence must begin with a capital letter (B1.1). Citation sentences are standalone sentences that cite authority for the entire preceding proposition.',
-        suggestion: `Capitalize the first letter: "${firstChar.toUpperCase()}${trimmed.slice(1, 20)}…"`,
+        suggestion: `Capitalize the first letter: "${firstChar.toUpperCase()}${normalized.slice(1, 20)}…"`,
       });
     }
   }
 
   // B1.1: Citation sentence must end with a period
-  if (!trimmed.endsWith('.')) {
+  if (!normalized.endsWith('.')) {
+    // #region agent log
+    fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H7',location:'packages/rule-engine/src/bluebook/citation-form-rules.ts:74',message:'Citation sentence flagged missing period',data:{citationType:citation.type,rawSentence:rawSentence.slice(0,140),normalized},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     issues.push({
       id: uuid(),
       rule: 'B1.1',
@@ -100,16 +103,16 @@ export function validateCitationClause(
 
   if (citation.context !== 'citation_clause') return issues;
 
-  const trimmed = rawClause.trim();
-  if (!trimmed) return issues;
+  const normalized = normalizeForFormChecks(rawClause);
+  if (!normalized) return issues;
 
   // B1.1: Citation clause should NOT begin with a capital letter
   // (unless the source is inherently capitalized, e.g., a case name or "Id.")
-  const firstChar = trimmed.charAt(0);
+  const firstChar = normalized.charAt(0);
   if (isLetter(firstChar) && firstChar === firstChar.toUpperCase()) {
     // Allow if starts with an inherently capitalized term
     const startsCapitalized = [...INHERENTLY_CAPITALIZED_STARTS].some(term =>
-      trimmed.startsWith(term)
+      normalized.startsWith(term)
     );
     // Allow if starts with a case name (party name — always capitalized)
     const startsWithCaseName =
@@ -117,7 +120,7 @@ export function validateCitationClause(
 
     if (!startsCapitalized && !startsWithCaseName) {
       // Check if it's a signal that should be lowercase in a clause
-      const signalMatch = signalAtStart(trimmed);
+      const signalMatch = signalAtStart(normalized);
       if (signalMatch) {
         issues.push({
           id: uuid(),
@@ -132,7 +135,7 @@ export function validateCitationClause(
   }
 
   // B1.1: Citation clause should NOT end with a period (unless last clause in sentence)
-  if (trimmed.endsWith('.') && !isLastClauseInSentence) {
+  if (normalized.endsWith('.') && !isLastClauseInSentence) {
     issues.push({
       id: uuid(),
       rule: 'B1.1',
@@ -217,4 +220,11 @@ function signalAtStart(text: string): string | null {
     }
   }
   return null;
+}
+
+function normalizeForFormChecks(text: string): string {
+  return text
+    .replace(/<[^>]+>/g, '')
+    .replace(/[*_]/g, '')
+    .trim();
 }

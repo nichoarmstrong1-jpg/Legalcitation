@@ -125,7 +125,7 @@ export function runBluebookRules(citation: ParsedCitation): ValidationIssue[] {
   switch (citation.type) {
     case 'case': {
       const components = citation.components as CaseComponents;
-      issues.push(...validateCaseName(components, citation.rawText, citation.context));
+      issues.push(...validateCaseName(components, citation.rawText, citation.context, citation.footnoteContext));
       issues.push(...validateReporter(components));
       issues.push(...validateCourtDesignation(components));
       issues.push(...validateDate(components, citation.rawText));

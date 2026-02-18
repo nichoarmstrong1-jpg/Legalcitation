@@ -88,9 +88,14 @@ const configuredOrigins = parseCsvEnv(process.env.CORS_ORIGIN);
 const allowedOrigins = configuredOrigins.length > 0 ? configuredOrigins : defaultOrigins;
 const wildcardOriginPatterns = parseCsvEnv(process.env.CORS_ORIGIN_PATTERNS).map(wildcardToRegex);
 const allowedOriginSet = new Set(allowedOrigins);
+const devLocalhostPattern = /^https?:\/\/(?:localhost|127\.0\.0\.1):\d+$/;
 
 app.use(cors({
   origin: (origin, callback) => {
+    if (isDev && origin && devLocalhostPattern.test(origin)) {
+      callback(null, true);
+      return;
+    }
     if (isOriginAllowed(origin, allowedOriginSet, wildcardOriginPatterns)) {
       callback(null, true);
       return;

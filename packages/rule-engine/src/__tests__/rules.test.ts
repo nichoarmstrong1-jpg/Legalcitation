@@ -139,6 +139,17 @@ describe('B1.1 — Citation Sentences', () => {
     expect(periodIssues[0].rule).toBe('B1.1');
   });
 
+  it('treats marker-wrapped ending punctuation as a valid period', () => {
+    const citation = makeCitation({
+      rawText: '*Id.*',
+      type: 'id',
+      context: 'citation_sentence',
+    });
+    const issues = validateCitationSentence(citation, citation.rawText);
+    const periodIssues = issues.filter(i => i.message.includes('period'));
+    expect(periodIssues.length).toBe(0);
+  });
+
   it('does not flag citation clauses', () => {
     const citation = makeCitation({
       rawText: 'see Marbury v. Madison, 5 U.S. 137 (1803)',
@@ -547,6 +558,11 @@ describe('R. 2 — Academic Typeface', () => {
     const citation = makeCitation({
       rawText: '*Smith v. Jones*, 500 U.S. 100 (2020).',
       context: 'citation_sentence',
+      footnoteContext: {
+        footnoteNumber: 1,
+        positionInFootnote: 0,
+        totalInFootnote: 1,
+      },
       components: {
         partyOne: 'Smith',
         partyTwo: 'Jones',
@@ -598,6 +614,19 @@ describe('R. 2 — Academic Typeface', () => {
     const issues = validateAcademicTypeface(citation, citation.rawText);
     const infraIssues = issues.filter(i => i.message.includes('INFRA'));
     expect(infraIssues.length).toBeGreaterThan(0);
+  });
+
+  it('does not warn when Id. has boundary markers from span clipping', () => {
+    const citation = makeCitation({
+      rawText: 'Id.*at 1509.',
+      type: 'id',
+      context: 'citation_sentence',
+    });
+    const issues = validateAcademicTypeface(citation, citation.rawText);
+    const idTypefaceIssues = issues.filter(
+      i => i.rule === 'R. 2.1' && i.message.includes('"Id." should be italicized')
+    );
+    expect(idTypefaceIssues.length).toBe(0);
   });
 });
 

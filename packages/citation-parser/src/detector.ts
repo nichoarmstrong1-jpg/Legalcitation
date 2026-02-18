@@ -222,6 +222,23 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
       }
     }
 
+    // If a sentence boundary appears before the "v." token, prefer the
+    // nearest segment after that boundary to avoid swallowing explanatory prose.
+    detectedText = text.slice(caseStart, reporterStart);
+    const vTokenIndex = detectedText.search(/\sv\.?\s+/i);
+    if (vTokenIndex > 0) {
+      const beforeV = detectedText.slice(0, vTokenIndex);
+      const boundaryPattern = /(?:[.?!]["'”’)]*\s+)(?=[A-Z])/g;
+      let lastBoundaryEnd = -1;
+      let boundaryMatch;
+      while ((boundaryMatch = boundaryPattern.exec(beforeV)) !== null) {
+        lastBoundaryEnd = boundaryMatch.index + boundaryMatch[0].length;
+      }
+      if (lastBoundaryEnd > 0) {
+        caseStart += lastBoundaryEnd;
+      }
+    }
+
     // Expand forward to find date parenthetical and any subsequent history
     let caseEnd = reporterEnd;
     const textAfter = text.slice(reporterEnd, reporterEnd + 500);
@@ -246,6 +263,12 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
     const charBeforePeriod = text[caseEnd - 1] || '';
     if (text[caseEnd] === '.' && (charBeforePeriod === ')' || /\d/.test(charBeforePeriod))) {
       caseEnd++;
+    }
+
+    if (caseEnd - caseStart > 220) {
+      // #region agent log
+      fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H3',location:'packages/citation-parser/src/detector.ts:255',message:'Potential over-captured full case span',data:{spanStart:caseStart,spanEnd:caseEnd,spanLength:caseEnd-caseStart,spanText:text.slice(caseStart,Math.min(caseEnd,caseStart+260))},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
     }
 
     pushTrimmedSpan(spans, text, caseStart, caseEnd, 'full_case');

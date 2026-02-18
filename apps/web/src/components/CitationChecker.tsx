@@ -118,6 +118,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   const annotatedRef = useRef<HTMLDivElement>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const citationRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
+  const formattingDebugCountRef = useRef(0);
 
   // Restore input from history
   useEffect(() => {
@@ -211,12 +212,28 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   }, [results, onSelectCitation]);
 
   const handleJumpToCitation = useCallback((idx: number) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H5',location:'apps/web/src/components/CitationChecker.tsx:216',message:'Jump-to-citation requested',data:{requestedIdx:idx,totalResults:results.length,targetExists:citationRefs.current.has(idx),targetRawText:results[idx]?.parsed?.rawText?.slice(0,120)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (idx < 0 || idx >= results.length) return;
     const target = citationRefs.current.get(idx);
     if (!target) return;
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setSelectedIdx(idx);
     onSelectCitation(results[idx]);
+  }, [results, onSelectCitation]);
+
+  const handleOpenSidebarAnalysis = useCallback((idx: number) => {
+    if (idx < 0 || idx >= results.length) return;
+    setSelectedIdx(idx);
+    onSelectCitation(results[idx]);
+    const sidebar = document.querySelector('[data-tour="sidebar"]');
+    if (sidebar instanceof HTMLElement) {
+      sidebar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H15',location:'apps/web/src/components/CitationChecker.tsx:236',message:'Requested sidebar analysis focus from tooltip',data:{idx,hasSidebar:Boolean(sidebar)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
   }, [results, onSelectCitation]);
 
   const handleAcceptChange = useCallback((idx: number) => {
@@ -287,6 +304,9 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
     for (const replacement of [...safeReplacements].sort((a, b) => b.start - a.start)) {
       correctedText = correctedText.slice(0, replacement.start) + replacement.replacement + correctedText.slice(replacement.end);
     }
+    // #region agent log
+    fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H9',location:'apps/web/src/components/CitationChecker.tsx:291',message:'Copy all corrected text prepared',data:{acceptedCount:acceptedChanges.size,markerCount:(correctedText.match(/[*_]/g)||[]).length,sample:correctedText.slice(0,180)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     try {
       await navigator.clipboard.writeText(correctedText);
@@ -308,6 +328,29 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
     return () => window.removeEventListener('keydown', handler);
   }, [handleUndo, undoStack.length, results.length]);
 
+  useEffect(() => {
+    if (results.length === 0) return;
+    const sourceText = analysisText || input.trim();
+    const mapped = results.slice(0, 25).map((result, idx) => {
+      const start = result.parsed?.position?.start;
+      const end = result.parsed?.position?.end;
+      const textAtSpan =
+        typeof start === 'number' && typeof end === 'number' && start >= 0 && end > start && end <= sourceText.length
+          ? sourceText.slice(start, end)
+          : null;
+      return {
+        idx,
+        start,
+        end,
+        rawText: result.parsed?.rawText?.slice(0, 120),
+        textAtSpan: textAtSpan?.slice(0, 120),
+      };
+    });
+    // #region agent log
+    fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H4',location:'apps/web/src/components/CitationChecker.tsx:334',message:'UI citation span mapping snapshot',data:{sourceLength:sourceText.length,mapped},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [results, analysisText, input]);
+
   const handleCopyCorrection = useCallback(async (result: AnalyzedCitation) => {
     const corrected = result.verifiedCitation;
     if (!corrected) return;
@@ -328,6 +371,9 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
       return formatStyle === 'italics' ? `<em>${content}</em>` : `<u>${content}</u>`;
     });
     const plainText = corrected.replace(/\*([^*]+)\*/g, '$1');
+    // #region agent log
+    fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H9',location:'apps/web/src/components/CitationChecker.tsx:335',message:'Copy corrected inline content prepared',data:{idx,formatStyle,markerCount:(corrected.match(/[*_]/g)||[]).length,htmlHasEm:htmlContent.includes('<em>'),htmlHasUnderline:htmlContent.includes('<u>'),plainSample:plainText.slice(0,120)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     try {
       const blob = new Blob([`<html><body>${htmlContent}</body></html>`], { type: 'text/html' });
@@ -370,8 +416,39 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
       if (token.type === 'underscore') {
         return <u key={i}>{token.text}</u>;
       }
-      return <span key={i}>{token.text}</span>;
+      return <span key={i}>{token.text.replace(/[*_]/g, '')}</span>;
     });
+  };
+
+  const markerCount = (text: string): number => (text.match(/[*_]/g) || []).length;
+
+  const normalizeCitationSpacing = (text: string): string =>
+    text
+      .replace(/(\*Id\.\*|_Id\._)(?=[A-Za-z0-9])/g, '$1 ')
+      .replace(/(\*Id\.\*|_Id\._)\s+(?=\.)/g, '$1');
+
+  const applyShortFormStyleFallback = (text: string, result: AnalyzedCitation): string => {
+    if (markerCount(text) > 0) return text;
+    const citationType = result.parsed?.type;
+    if (citationType === 'id') {
+      return text.replace(/\bId\./i, '*Id.*');
+    }
+    if (citationType === 'supra') {
+      return text.replace(/\bsupra\b/i, '*supra*');
+    }
+    if (citationType === 'infra') {
+      return text.replace(/\binfra\b/i, '*infra*');
+    }
+    if (citationType === 'short_form') {
+      const shortComp = result.parsed?.components as { type?: string; partyName?: string } | undefined;
+      if (shortComp?.type === 'short_case') {
+        if (shortComp.partyName && text.startsWith(`${shortComp.partyName},`)) {
+          return text.replace(shortComp.partyName, `*${shortComp.partyName}*`);
+        }
+        return text.replace(/^([^,]+),/, '*$1*,');
+      }
+    }
+    return text;
   };
 
   // Build annotated text with inline highlights (Grammarly-style)
@@ -417,6 +494,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
           const colors = getSeverityColor(result);
           const isHovered = hoveredCitation === seg.citationIdx;
           const isSelected = selectedIdx === seg.citationIdx;
+          const citationDisplayText = result.parsed?.rawText || seg.text;
 
           return (
             <span
@@ -436,11 +514,44 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
               onMouseLeave={handleCitationMouseLeave}
               onClick={() => handleCitationClick(seg.citationIdx!)}
             >
-              {renderFormattedInline(
-                acceptedChanges.has(seg.citationIdx) && result.verifiedCitation
-                  ? result.verifiedCitation
-                  : seg.text
-              )}
+              {(() => {
+                const displayText =
+                  acceptedChanges.has(seg.citationIdx) && result.verifiedCitation
+                    ? result.verifiedCitation
+                    : citationDisplayText;
+                const styledDisplayText = applyShortFormStyleFallback(displayText, result);
+                const normalizedDisplayText = normalizeCitationSpacing(styledDisplayText);
+                const tokens = tokenizeMarkedText(normalizedDisplayText);
+                const styledTokenCount = tokens.filter(t => t.type !== 'plain').length;
+                if (formattingDebugCountRef.current < 25 && /[*_]/.test(displayText)) {
+                  formattingDebugCountRef.current += 1;
+                  // #region agent log
+                  fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H8',location:'apps/web/src/components/CitationChecker.tsx:462',message:'Rendering citation segment with markers',data:{citationIdx:seg.citationIdx,styledTokenCount,markerCount:(normalizedDisplayText.match(/[*_]/g)||[]).length,displaySample:normalizedDisplayText.slice(0,140),tokens:tokens.slice(0,6)},timestamp:Date.now()})}).catch(()=>{});
+                  // #endregion
+                }
+                if (formattingDebugCountRef.current < 25 && normalizedDisplayText !== styledDisplayText) {
+                  formattingDebugCountRef.current += 1;
+                  // #region agent log
+                  fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H14',location:'apps/web/src/components/CitationChecker.tsx:520',message:'Normalized spacing around Id. marker boundaries',data:{citationIdx:seg.citationIdx,before:styledDisplayText.slice(0,120),after:normalizedDisplayText.slice(0,120)},timestamp:Date.now()})}).catch(()=>{});
+                  // #endregion
+                }
+                if (formattingDebugCountRef.current < 25 && markerCount(displayText) === 0 && markerCount(styledDisplayText) > 0) {
+                  formattingDebugCountRef.current += 1;
+                  // #region agent log
+                  fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H11',location:'apps/web/src/components/CitationChecker.tsx:470',message:'Applied short-form style fallback',data:{citationIdx:seg.citationIdx,citationType:result.parsed?.type,before:displayText.slice(0,120),after:styledDisplayText.slice(0,120),formatStyle},timestamp:Date.now()})}).catch(()=>{});
+                  // #endregion
+                }
+                if (formattingDebugCountRef.current < 25 && seg.citationIdx === 0) {
+                  formattingDebugCountRef.current += 1;
+                  const errors = result.issues.filter((issue) => issue.severity === 'error').length;
+                  const warnings = result.issues.filter((issue) => issue.severity === 'warning').length;
+                  const suggestions = result.issues.filter((issue) => issue.severity === 'suggestion').length;
+                  // #region agent log
+                  fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H16',location:'apps/web/src/components/CitationChecker.tsx:533',message:'First citation UI color decision snapshot',data:{citationIdx:seg.citationIdx,errors,warnings,suggestions,verificationStatus:result.verificationStatus,score:result.score,underlineClass:colors.underline},timestamp:Date.now()})}).catch(()=>{});
+                  // #endregion
+                }
+                return renderFormattedInline(normalizedDisplayText);
+              })()}
               {/* Shared tooltip popover */}
               {(isHovered || isSelected) && (
                 <CitationTooltip
@@ -449,7 +560,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
                   isSelected={isSelected}
                   isAccepted={acceptedChanges.has(seg.citationIdx!)}
                   isDenied={deniedChanges.has(seg.citationIdx!)}
-                  originalText={seg.text}
+                  originalText={citationDisplayText}
                   formatStyle={formatStyle}
                   onAccept={handleAcceptChange}
                   onDeny={handleDenyChange}
@@ -459,6 +570,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
                   onMouseEnter={() => handleCitationMouseEnter(seg.citationIdx!)}
                   onMouseLeave={handleCitationMouseLeave}
                   onJumpToCitation={handleJumpToCitation}
+                  onOpenSidebarAnalysis={handleOpenSidebarAnalysis}
                 />
               )}
             </span>

@@ -268,7 +268,7 @@ function checkAcademicCaseTypeface(
     || rawText.includes(`*${components.partyOne}*`)
     || /\*[^*]*\bv\.\s[^*]*\*/.test(rawText);
 
-  if (citation.context === 'citation_sentence') {
+  if (citation.context === 'citation_sentence' && citation.footnoteContext) {
     // Footnote/citation sentence: full case name should be ROMAN (not italic)
     if (hasItalicMarkers) {
       issues.push({
@@ -280,6 +280,10 @@ function checkAcademicCaseTypeface(
         suggestion: 'Remove italic formatting from the full case name in this footnote citation.',
       });
     }
+  } else if (citation.context === 'citation_sentence' && !citation.footnoteContext) {
+    // In in-text mode, citation_sentence does not imply a footnote context.
+    // Skip the footnote-specific R. 2.1 roman-type warning here.
+    return;
   } else if (citation.context === 'textual_sentence') {
     // Textual sentence: case name should be ITALIC
     if (!hasItalicMarkers) {
@@ -348,7 +352,12 @@ function checkAcademicShortFormTypeface(
 ): void {
   if (citation.type === 'id') {
     // "Id." should be italicized — check for non-italicized "Id."
-    if (rawText.includes('Id.') && !rawText.includes('*Id.*') && !rawText.includes('_Id._')) {
+    const containsId = /\bId\./.test(rawText);
+    const hasIdItalicMarkers = /(?:\*Id\.\*|\*Id\.|Id\.\*|_Id\._|_Id\.|Id\._)/.test(rawText);
+    if (containsId && !hasIdItalicMarkers) {
+      // #region agent log
+      fetch('http://127.0.0.1:7472/ingest/c1a4ccbe-c7b9-4841-b61e-69a7587183b0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9e31dc'},body:JSON.stringify({sessionId:'9e31dc',runId:'pre-fix',hypothesisId:'H6',location:'packages/rule-engine/src/bluebook/typeface-rules.ts:355',message:'Id italic warning emitted',data:{rawText:rawText.slice(0,140),containsId,hasIdItalicMarkers},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       issues.push({
         id: uuid(),
         rule: 'R. 2.1',
@@ -361,7 +370,9 @@ function checkAcademicShortFormTypeface(
   }
 
   if (citation.type === 'supra') {
-    if (rawText.includes('supra') && !rawText.includes('*supra*') && !rawText.includes('_supra_')) {
+    const containsSupra = /\bsupra\b/i.test(rawText);
+    const hasSupraItalicMarkers = /(?:\*supra\*|\*supra|supra\*|_supra_|_supra|supra_)/i.test(rawText);
+    if (containsSupra && !hasSupraItalicMarkers) {
       issues.push({
         id: uuid(),
         rule: 'R. 2.1',
