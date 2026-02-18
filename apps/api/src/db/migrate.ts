@@ -13,7 +13,9 @@ export async function runMigrations(): Promise<void> {
     ssl: process.env.DATABASE_URL.includes('.railway.internal')
       ? false
       : process.env.NODE_ENV === 'production'
-        ? { rejectUnauthorized: false }
+        ? (process.env.DATABASE_CA_CERT
+          ? { ca: process.env.DATABASE_CA_CERT, rejectUnauthorized: true }
+          : { rejectUnauthorized: false })
         : false,
   });
 

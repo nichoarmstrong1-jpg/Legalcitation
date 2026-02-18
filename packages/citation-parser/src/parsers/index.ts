@@ -8,4 +8,4 @@ export { parseRestatementCitation } from './restatement-parser.js';
 export { parseInternetCitation } from './internet-parser.js';
 export { parseAiSourceCitation } from './ai-source-parser.js';
 export { parseUnpublishedCitation } from './unpublished-parser.js';
-export { parseIdCitation, parseSupraCitation } from './short-form-parser.js';
+export { parseIdCitation, parseSupraCitation, parseInfraCitation } from './short-form-parser.js';

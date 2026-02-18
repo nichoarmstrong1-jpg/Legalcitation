@@ -17,7 +17,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -b packages/shared packages/citation-parser packages/rule-engine packages/verification apps/api apps/web",
     "precommit": "npm run typecheck",
-    "start": "node ./node_modules/.bin/drizzle-kit migrate && node apps/api/dist/server.js",
+    "start": "node apps/api/dist/server.js",
     "prepare": "git rev-parse --is-inside-work-tree > /dev/null 2>&1 && git config core.hooksPath .githooks || true"
   },
   "devDependencies": {

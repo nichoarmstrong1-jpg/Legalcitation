@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { BookOpen, ChevronRight, FileText, Search } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { BookOpen, ChevronRight, FileText, Search, Copy, Check } from 'lucide-react';
 import { searchCases, buildCitation, analyzeText, type AnalyzedCitation, type CaseSearchResult } from '../services/api.ts';
 import { JOURNAL_ABBREVIATIONS } from '@legalcitation/shared';
 import { FileUploader } from './FileUploader.tsx';
@@ -32,7 +32,11 @@ export function CitationBuilder({ onResult, formatStyle, restoredInput, onAuthOp
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [journalQuery, setJournalQuery] = useState('');
   const [showJournalDropdown, setShowJournalDropdown] = useState(false);
+  const [journalHighlightIdx, setJournalHighlightIdx] = useState(0);
+  const [copiedAbbrIdx, setCopiedAbbrIdx] = useState<number | null>(null);
   const journalDropdownRef = useRef<HTMLDivElement>(null);
+  const journalDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [debouncedJournalQuery, setDebouncedJournalQuery] = useState('');
 
   const journalEntries = useMemo(
     () => Object.entries(JOURNAL_ABBREVIATIONS).map(([full, abbr]) => ({ full, abbr })),
@@ -40,12 +44,31 @@ export function CitationBuilder({ onResult, formatStyle, restoredInput, onAuthOp
   );
 
   const journalMatches = useMemo(() => {
-    if (journalQuery.length < 2) return [];
-    const lower = journalQuery.toLowerCase();
+    if (debouncedJournalQuery.length < 1) return [];
+    const lower = debouncedJournalQuery.toLowerCase();
     return journalEntries
       .filter(({ full, abbr }) => full.toLowerCase().includes(lower) || abbr.toLowerCase().includes(lower))
-      .slice(0, 8);
-  }, [journalQuery, journalEntries]);
+      .slice(0, 12);
+  }, [debouncedJournalQuery, journalEntries]);
+
+  // Debounce journal query for smoother typing
+  const handleJournalQueryChange = useCallback((value: string) => {
+    setJournalQuery(value);
+    setShowJournalDropdown(true);
+    setJournalHighlightIdx(0);
+    if (journalDebounceRef.current) clearTimeout(journalDebounceRef.current);
+    journalDebounceRef.current = setTimeout(() => setDebouncedJournalQuery(value), 150);
+  }, []);
+
+  const handleCopyAbbr = useCallback(async (abbr: string, idx: number) => {
+    try {
+      await navigator.clipboard.writeText(abbr);
+      setCopiedAbbrIdx(idx);
+      setTimeout(() => setCopiedAbbrIdx(null), 1500);
+    } catch {
+      // Silently fail
+    }
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -278,28 +301,88 @@ export function CitationBuilder({ onResult, formatStyle, restoredInput, onAuthOp
             <input
               type="text"
               value={journalQuery}
-              onChange={(e) => { setJournalQuery(e.target.value); setShowJournalDropdown(true); }}
-              onFocus={() => { if (journalQuery.length >= 2) setShowJournalDropdown(true); }}
+              onChange={(e) => handleJournalQueryChange(e.target.value)}
+              onFocus={() => { if (journalQuery.length >= 1) setShowJournalDropdown(true); }}
+              onKeyDown={(e) => {
+                if (!showJournalDropdown || journalMatches.length === 0) return;
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setJournalHighlightIdx(prev => Math.min(prev + 1, journalMatches.length - 1));
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setJournalHighlightIdx(prev => Math.max(prev - 1, 0));
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const selected = journalMatches[journalHighlightIdx];
+                  if (selected) {
+                    setInput(selected.abbr);
+                    setJournalQuery('');
+                    setDebouncedJournalQuery('');
+                    setShowJournalDropdown(false);
+                  }
+                } else if (e.key === 'Escape') {
+                  setShowJournalDropdown(false);
+                }
+              }}
               placeholder="Type a journal name or abbreviation..."
               className="w-full pl-9 pr-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-300 transition-all"
             />
           </div>
-          {showJournalDropdown && journalMatches.length > 0 && (
-            <div className="absolute z-20 mt-1 w-full bg-white border border-surface-200 rounded-xl shadow-elevated max-h-[240px] overflow-y-auto">
-              {journalMatches.map(({ full, abbr }, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    setInput(abbr);
-                    setJournalQuery('');
-                    setShowJournalDropdown(false);
-                  }}
-                  className="w-full text-left px-4 py-2.5 hover:bg-surface-50 transition-colors border-b border-surface-100 last:border-b-0"
-                >
-                  <div className="text-xs font-medium text-primary-900">{full}</div>
-                  <div className="text-[11px] text-surface-500 font-mono">{abbr}</div>
-                </button>
-              ))}
+          {showJournalDropdown && debouncedJournalQuery.length >= 1 && (
+            <div className="absolute z-20 mt-1 w-full bg-white border border-surface-200 rounded-xl shadow-elevated max-h-[300px] overflow-y-auto">
+              {journalMatches.length > 0 ? (
+                journalMatches.map(({ full, abbr }, i) => {
+                  const lower = debouncedJournalQuery.toLowerCase();
+                  const highlightMatch = (text: string) => {
+                    const idx = text.toLowerCase().indexOf(lower);
+                    if (idx < 0) return text;
+                    return (
+                      <>
+                        {text.slice(0, idx)}
+                        <span className="font-bold text-primary-700">{text.slice(idx, idx + lower.length)}</span>
+                        {text.slice(idx + lower.length)}
+                      </>
+                    );
+                  };
+
+                  return (
+                    <div
+                      key={i}
+                      className={`flex items-center justify-between px-4 py-2.5 border-b border-surface-100 last:border-b-0 transition-colors ${
+                        journalHighlightIdx === i ? 'bg-primary-50' : 'hover:bg-surface-50'
+                      }`}
+                    >
+                      <button
+                        onClick={() => {
+                          setInput(abbr);
+                          setJournalQuery('');
+                          setDebouncedJournalQuery('');
+                          setShowJournalDropdown(false);
+                        }}
+                        className="flex-1 text-left min-w-0"
+                      >
+                        <div className="text-xs font-medium text-primary-900">{highlightMatch(full)}</div>
+                        <div className="text-[11px] text-surface-500 font-mono">{highlightMatch(abbr)}</div>
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleCopyAbbr(abbr, i); }}
+                        className="shrink-0 ml-2 p-1 text-surface-400 hover:text-primary-600 transition-colors"
+                        title="Copy abbreviation"
+                      >
+                        {copiedAbbrIdx === i ? (
+                          <Check className="w-3.5 h-3.5 text-verified-500" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="px-4 py-3 text-xs text-surface-400 text-center">
+                  No matching journals found
+                </div>
+              )}
             </div>
           )}
         </div>

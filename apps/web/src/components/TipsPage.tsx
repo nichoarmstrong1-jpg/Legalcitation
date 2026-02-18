@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { X, BookOpen, Scale, FileText, Hash, Bookmark, AlertCircle, Search } from 'lucide-react';
+import { X, BookOpen, Scale, FileText, Hash, Bookmark, AlertCircle, Search, ListOrdered } from 'lucide-react';
 import { lookupJournal, JOURNAL_ABBREVIATIONS } from '@legalcitation/shared';
 
 interface TipsPageProps {
@@ -181,6 +181,40 @@ const SECTIONS: TipSection[] = [
         title: 'Journal Abbreviation Lookup',
         content:
           'Use the search tool below to look up the correct Bluebook abbreviation for any law journal, review, or periodical. Enter the full journal name or its abbreviation to find the match. Abbreviations follow Tables T13 (institutional names) and T6 (word-level abbreviations).',
+      },
+    ],
+  },
+  {
+    id: 'citation-order',
+    title: 'Citation Order (R. 1.4)',
+    icon: <ListOrdered className="w-4 h-4" />,
+    tips: [
+      {
+        rule: 'R. 1.4',
+        title: 'Authority Hierarchy',
+        content:
+          'Within a single signal, authorities must be ordered by type: (1) Constitutions, (2) Statutes, (3) Treaties, (4) Cases, (5) Legislative materials, (6) Administrative materials, (7) Secondary sources. A statute cited after a case within the same signal is out of order.',
+        example: 'U.S. Const. amend. XIV, § 1; 42 U.S.C. § 1983 (2018); Brown v. Bd. of Educ., 347 U.S. 483 (1954).',
+      },
+      {
+        rule: 'R. 1.4(d)',
+        title: 'Federal Court Hierarchy',
+        content:
+          'Within cases, federal courts are cited before state courts. Federal cases follow the court hierarchy: Supreme Court first, then Courts of Appeals (by circuit number), then District Courts. Within the same court level, use reverse chronological order (newest case first).',
+        example: 'Marbury v. Madison, 5 U.S. (1 Cranch) 137 (1803); Smith v. Jones, 600 F.3d 100 (2d Cir. 2010); Doe v. Roe, 500 F. Supp. 3d 200 (S.D.N.Y. 2020).',
+      },
+      {
+        rule: 'R. 1.4(d)',
+        title: 'State Cases',
+        content:
+          'State cases are listed after all federal cases and ordered alphabetically by state. Within the same state, higher courts come first, then lower courts. Within the same court, use reverse chronological order.',
+      },
+      {
+        rule: 'R. 1.4(a)-(b)',
+        title: 'Constitutions & Statutes',
+        content:
+          'The U.S. Constitution comes before state constitutions (alphabetical by state). Federal statutes come before state statutes. Federal statutes are ordered by title number in the U.S.C., then by section number.',
+        example: 'U.S. Const. art. I, § 8; Cal. Const. art. I, § 7; 28 U.S.C. § 1331 (2018); 42 U.S.C. § 1983 (2018).',
       },
     ],
   },

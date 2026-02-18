@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Copy, ShieldCheck, ThumbsUp, ThumbsDown, Check, AlertTriangle, Info } from 'lucide-react';
 import type { AnalyzedCitation } from '../services/api.ts';
+import type { ArticleComponents } from '@legalcitation/shared';
 import { submitFeedback } from '../services/api.ts';
 import { ShortFormDisplay } from './ShortFormDisplay.tsx';
 import { CitationBreakdown } from './CitationBreakdown.tsx';
@@ -149,7 +150,7 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
           </div>
 
           {/* Article pinpoint page warning */}
-          {citation.parsed?.type === 'article' && citation.parsed.components?.pinCite && (
+          {citation.parsed?.type === 'article' && (citation.parsed.components as ArticleComponents)?.pinCite && (
             <div className="mt-3 flex items-start gap-2 px-3 py-2 bg-warning-50 border border-warning-200 rounded-lg">
               <Info className="w-3.5 h-3.5 text-warning-600 shrink-0 mt-0.5" />
               <p className="text-[11px] text-warning-700 leading-relaxed">

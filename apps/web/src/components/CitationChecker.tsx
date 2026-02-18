@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { FileText as FileTextIcon, Copy, Check, AlertTriangle, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { FileText as FileTextIcon, Copy, Check, AlertTriangle, XCircle, ChevronDown, ChevronRight, FileCheck, Undo2, CheckCheck, X } from 'lucide-react';
 import { analyzeText, type AnalyzedCitation } from '../services/api.ts';
 import { FileUploader } from './FileUploader.tsx';
 import { ScoreCounter } from './ui/ScoreCounter.tsx';
@@ -37,6 +37,8 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   const [viewingDocId, setViewingDocId] = useState<string | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [copiedCorrectedIdx, setCopiedCorrectedIdx] = useState<number | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [undoStack, setUndoStack] = useState<Array<{ type: 'accept' | 'deny'; citationIdx: number; prevAccepted: Set<number>; prevDenied: Set<number> }>>([]);
   const annotatedRef = useRef<HTMLDivElement>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -80,8 +82,25 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
     }
   };
 
-  const handleFileText = (text: string, _fileName: string) => {
+  const handleFileText = async (text: string, fileName: string) => {
+    setUploadedFileName(fileName);
     setInput(text);
+    // Auto-trigger analysis instead of showing raw text
+    setLoading(true);
+    setError(null);
+    setSelectedIdx(null);
+    setAcceptedChanges(new Set());
+    setDeniedChanges(new Set());
+
+    try {
+      const data = await analyzeText(text.trim());
+      trackEvent('citation_check', { citationCount: data.results.length, source: 'file_upload' });
+      onResults(data.results, text.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Analysis failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCitationClick = useCallback((idx: number) => {
@@ -92,6 +111,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   const handleAcceptChange = useCallback((idx: number) => {
     const result = results[idx];
     if (!result.verifiedCitation) return;
+    setUndoStack(prev => [...prev, { type: 'accept', citationIdx: idx, prevAccepted: new Set(acceptedChanges), prevDenied: new Set(deniedChanges) }]);
     setAcceptedChanges(prev => new Set(prev).add(idx));
     setDeniedChanges(prev => {
       const next = new Set(prev);
@@ -99,11 +119,11 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
       return next;
     });
     showToast('Citation corrected', 'success');
-  }, [results, showToast]);
+  }, [results, showToast, acceptedChanges, deniedChanges]);
 
   const handleDenyChange = useCallback((idx: number) => {
+    setUndoStack(prev => [...prev, { type: 'deny', citationIdx: idx, prevAccepted: new Set(acceptedChanges), prevDenied: new Set(deniedChanges) }]);
     if (deniedChanges.has(idx)) {
-      // Undo deny
       setDeniedChanges(prev => {
         const next = new Set(prev);
         next.delete(idx);
@@ -117,7 +137,71 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
         return next;
       });
     }
-  }, [deniedChanges]);
+  }, [deniedChanges, acceptedChanges]);
+
+  const handleUndo = useCallback(() => {
+    setUndoStack(prev => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      setAcceptedChanges(last.prevAccepted);
+      setDeniedChanges(last.prevDenied);
+      showToast('Change undone', 'info');
+      return prev.slice(0, -1);
+    });
+  }, [showToast]);
+
+  const handleAcceptAll = useCallback(() => {
+    const correctable = results
+      .map((r, i) => ({ r, i }))
+      .filter(({ r }) => r.verifiedCitation && r.issues.some(iss => iss.severity === 'error' || iss.severity === 'warning'));
+    if (correctable.length === 0) return;
+    setUndoStack(prev => [...prev, { type: 'accept', citationIdx: -1, prevAccepted: new Set(acceptedChanges), prevDenied: new Set(deniedChanges) }]);
+    setAcceptedChanges(new Set(correctable.map(({ i }) => i)));
+    setDeniedChanges(new Set());
+    showToast(`${correctable.length} correction${correctable.length !== 1 ? 's' : ''} accepted`, 'success');
+  }, [results, acceptedChanges, deniedChanges, showToast]);
+
+  const handleDismissAll = useCallback(() => {
+    setUndoStack(prev => [...prev, { type: 'deny', citationIdx: -1, prevAccepted: new Set(acceptedChanges), prevDenied: new Set(deniedChanges) }]);
+    setDeniedChanges(new Set(results.map((_, i) => i)));
+    setAcceptedChanges(new Set());
+    showToast('All changes dismissed', 'info');
+  }, [results, acceptedChanges, deniedChanges, showToast]);
+
+  const handleCopyAllCorrected = useCallback(async () => {
+    const trimmedInput = input.trim();
+    let correctedText = trimmedInput;
+    const sorted = results
+      .map((r, i) => ({ result: r, idx: i }))
+      .filter(r => r.result.parsed?.position && acceptedChanges.has(r.idx) && r.result.verifiedCitation)
+      .sort((a, b) => (b.result.parsed.position.start) - (a.result.parsed.position.start));
+
+    for (const { result } of sorted) {
+      const pos = result.parsed?.position;
+      if (!pos || !result.verifiedCitation) continue;
+      const plain = result.verifiedCitation.replace(/\*([^*]+)\*/g, '$1').replace(/_([^_]+)_/g, '$1');
+      correctedText = correctedText.slice(0, pos.start) + plain + correctedText.slice(pos.end);
+    }
+
+    try {
+      await navigator.clipboard.writeText(correctedText);
+      showToast('Corrected text copied to clipboard', 'success');
+    } catch {
+      showToast('Could not copy — try selecting manually', 'error');
+    }
+  }, [input, results, acceptedChanges, showToast]);
+
+  // Keyboard shortcut: Ctrl/Cmd+Z for undo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && undoStack.length > 0 && results.length > 0) {
+        e.preventDefault();
+        handleUndo();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleUndo, undoStack.length, results.length]);
 
   const handleCopyCorrection = useCallback(async (result: AnalyzedCitation) => {
     const corrected = result.verifiedCitation;
@@ -287,6 +371,22 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
 
         <FileUploader onTextExtracted={handleFileText} />
 
+        {/* Uploaded file badge */}
+        {uploadedFileName && loading && (
+          <div className="mt-4 flex items-center gap-2 p-3 bg-primary-50 border border-primary-100 rounded-xl">
+            <FileCheck className="w-4 h-4 text-primary-600 shrink-0" />
+            <span className="text-sm text-primary-800 font-medium truncate">{uploadedFileName}</span>
+            <span className="text-xs text-primary-500">uploaded — analyzing...</span>
+          </div>
+        )}
+        {uploadedFileName && results.length > 0 && !loading && (
+          <div className="mt-4 flex items-center gap-2 p-3 bg-verified-50 border border-verified-100 rounded-xl">
+            <FileCheck className="w-4 h-4 text-verified-600 shrink-0" />
+            <span className="text-sm text-verified-800 font-medium truncate">{uploadedFileName}</span>
+            <span className="text-xs text-verified-500">analyzed successfully</span>
+          </div>
+        )}
+
         {/* Show annotated view after analysis, otherwise show textarea */}
         {results.length > 0 ? (
           <>
@@ -310,11 +410,50 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
               </div>
             </div>
 
+            {/* Action buttons toolbar */}
+            {results.some(r => r.verifiedCitation) && (
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <button
+                  onClick={handleAcceptAll}
+                  className="flex items-center gap-1.5 text-xs font-medium text-verified-700 bg-verified-50 hover:bg-verified-100 border border-verified-200 rounded-lg px-3 py-1.5 transition-colors"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  Accept All
+                </button>
+                <button
+                  onClick={handleDismissAll}
+                  className="flex items-center gap-1.5 text-xs font-medium text-surface-600 bg-surface-50 hover:bg-surface-100 border border-surface-200 rounded-lg px-3 py-1.5 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Dismiss All
+                </button>
+                {acceptedChanges.size > 0 && (
+                  <button
+                    onClick={handleCopyAllCorrected}
+                    className="flex items-center gap-1.5 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg px-3 py-1.5 transition-colors"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Copy All Corrected
+                  </button>
+                )}
+                {undoStack.length > 0 && (
+                  <button
+                    onClick={handleUndo}
+                    className="flex items-center gap-1.5 text-xs font-medium text-surface-500 hover:text-surface-700 transition-colors ml-auto"
+                    title="Undo (Ctrl+Z)"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    Undo
+                  </button>
+                )}
+              </div>
+            )}
+
             {renderAnnotatedText()}
 
             <div className="flex justify-between items-center mt-4">
               <button
-                onClick={() => { onResults([], ''); setInput(''); setSelectedIdx(null); setAcceptedChanges(new Set()); setDeniedChanges(new Set()); }}
+                onClick={() => { onResults([], ''); setInput(''); setSelectedIdx(null); setAcceptedChanges(new Set()); setDeniedChanges(new Set()); setUploadedFileName(null); }}
                 className="text-xs text-surface-400 hover:text-surface-600 transition-colors"
               >
                 Clear and start over

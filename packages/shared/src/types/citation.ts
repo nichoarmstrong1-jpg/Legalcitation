@@ -12,6 +12,7 @@ export type CitationType =
   | 'short_form'
   | 'id'
   | 'supra'
+  | 'infra'
   | 'unknown';
 
 export type CitationContext =
@@ -162,6 +163,10 @@ export interface ShortFormComponents {
   precedingCitationCount?: number;
   /** Whether a hereinafter designation was established in the first citation to the source. */
   hereinafterEstablished?: boolean;
+  /** The note number referenced by supra (e.g., "supra note 5" → 5). */
+  supraNoteNumber?: number;
+  /** The note number referenced by infra (e.g., "infra note 12" → 12). */
+  infraNoteNumber?: number;
 }
 
 export type CitationComponents =
@@ -177,6 +182,14 @@ export type CitationComponents =
   | UnpublishedComponents
   | ShortFormComponents;
 
+export interface FootnoteContext {
+  footnoteNumber: number;
+  /** 0-based index of this citation within its footnote. */
+  positionInFootnote: number;
+  /** Total number of citations in this footnote. */
+  totalInFootnote: number;
+}
+
 export interface ParsedCitation {
   id: string;
   rawText: string;
@@ -184,6 +197,7 @@ export interface ParsedCitation {
   context: CitationContext;
   position: { start: number; end: number };
   components: CitationComponents;
+  footnoteContext?: FootnoteContext;
 }
 
 export interface ValidationIssue {
@@ -259,8 +273,32 @@ export interface AnalyzedCitation {
 
 export interface HistoryEntry {
   id: string;
-  mode: 'in_text' | 'individual' | 'builder' | 'bulk';
+  mode: 'in_text' | 'individual' | 'builder' | 'bulk' | 'footnote';
   input: string;
   results: AnalyzedCitation[];
   timestamp: string;
+}
+
+export interface DocumentCitationMap {
+  footnotes: Map<number, ParsedCitation[]>;
+  allCitations: ParsedCitation[];
+  footnoteCount: number;
+}
+
+export interface CrossReferenceIssue {
+  type: 'orphaned_supra' | 'orphaned_infra' | 'broken_id_chain'
+    | 'cross_footnote_id_ambiguous' | 'unused_hereinafter' | 'unestablished_hereinafter';
+  citationId: string;
+  footnoteNumber?: number;
+  message: string;
+  suggestion: string;
+  severity: IssueSeverity;
+  referencedFootnote?: number;
+}
+
+export interface DocumentIntegrityReport {
+  totalCitations: number;
+  totalFootnotes: number;
+  crossReferenceIssues: CrossReferenceIssue[];
+  citationOrderIssues: ValidationIssue[];
 }

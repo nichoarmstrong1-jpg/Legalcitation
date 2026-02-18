@@ -7,7 +7,7 @@ export interface DetectedSpan {
   text: string;
   start: number;
   end: number;
-  type: 'full_case' | 'short_case' | 'id' | 'supra' | 'statute' | 'constitution' | 'regulation' | 'article' | 'book' | 'restatement' | 'internet' | 'ai_source' | 'unpublished' | 'unknown';
+  type: 'full_case' | 'short_case' | 'id' | 'supra' | 'infra' | 'statute' | 'constitution' | 'regulation' | 'article' | 'book' | 'restatement' | 'internet' | 'ai_source' | 'unpublished' | 'unknown';
 }
 
 // Build regex alternation from reporter abbreviations (escape dots)
@@ -30,6 +30,9 @@ export function detectCitations(text: string): DetectedSpan[] {
   // 2. Detect supra citations
   detectSupraCitations(text, spans);
 
+  // 2b. Detect infra citations
+  detectInfraCitations(text, spans);
+
   // 3. Detect full case citations (anchored on reporter abbreviation)
   detectFullCaseCitations(text, spans);
 
@@ -48,16 +51,19 @@ export function detectCitations(text: string): DetectedSpan[] {
   // 8. Detect restatement citations
   detectRestatementCitations(text, spans);
 
-  // 9. Detect book/treatise citations
+  // 9. Detect article/journal citations
+  detectArticleCitations(text, spans);
+
+  // 10. Detect book/treatise citations
   detectBookCitations(text, spans);
 
-  // 10. Detect internet/electronic source citations
+  // 11. Detect internet/electronic source citations
   detectInternetCitations(text, spans);
 
-  // 11. Detect AI-generated content citations
+  // 12. Detect AI-generated content citations
   detectAiCitations(text, spans);
 
-  // 12. Detect unpublished/forthcoming citations
+  // 13. Detect unpublished/forthcoming citations
   detectUnpublishedCitations(text, spans);
 
   // Remove overlapping spans (keep the longer/first one)
@@ -66,13 +72,16 @@ export function detectCitations(text: string): DetectedSpan[] {
 
 function detectIdCitations(text: string, spans: DetectedSpan[]): void {
   // Match Id. or id. with optional pincite
-  const idPattern = /\b(Id\.\s*(?:at\s+\d[\d,\s–\-n.]*|[§¶]\s*[\d.]+(?:\([a-zA-Z0-9]+\))*)?)/gi;
+  // Also handle *Id.* with formatting markers (stripped at API level, but also handle standalone)
+  const idPattern = /\*?Id\.\*?\s*(?:at\s+\d[\d,\s–\-n.]*|[§¶]\s*[\d.]+(?:\([a-zA-Z0-9]+\))*)?/gi;
   let match;
   while ((match = idPattern.exec(text)) !== null) {
+    const trimmed = match[0].trim();
+    if (!trimmed) continue;
     spans.push({
-      text: match[0].trim(),
+      text: trimmed,
       start: match.index,
-      end: match.index + match[0].trim().length,
+      end: match.index + trimmed.length,
       type: 'id',
     });
   }
@@ -88,6 +97,20 @@ function detectSupraCitations(text: string, spans: DetectedSpan[]): void {
       start: match.index,
       end: match.index + match[0].trim().length,
       type: 'supra',
+    });
+  }
+}
+
+function detectInfraCitations(text: string, spans: DetectedSpan[]): void {
+  // Match "infra note X", "see infra note X", "infra Part III", "infra Section IV"
+  const infraPattern = /\b(?:see\s+)?infra\s+(?:note\s+\d+(?:\s+and\s+accompanying\s+text)?|Part\s+[IVX\d]+|Section\s+[IVX\d]+|§\s*[\d.]+|text\s+accompanying\s+note(?:s)?\s+\d+(?:\s*[–\-]\s*\d+)?)/gi;
+  let match;
+  while ((match = infraPattern.exec(text)) !== null) {
+    spans.push({
+      text: match[0].trim(),
+      start: match.index,
+      end: match.index + match[0].trim().length,
+      type: 'infra',
     });
   }
 }
@@ -191,14 +214,13 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
 }
 
 function detectShortCaseCitations(text: string, spans: DetectedSpan[]): void {
-  // Pattern: Party, Vol Rep at Page
+  // Pattern 1: Party, Vol Rep at Page (standard)
   const shortPattern = new RegExp(
-    `([A-Z][a-zA-Z']+),\\s*(\\d{1,4})\\s+(${REPORTER_ALT})\\s+at\\s+(\\d[\\d–\\-,\\s]*)`,
+    `([A-Z][a-zA-Z']+),?\\s*(\\d{1,4})\\s+(${REPORTER_ALT})\\s+at\\s+(\\d[\\d–\\-,\\s]*)`,
     'g'
   );
   let match;
   while ((match = shortPattern.exec(text)) !== null) {
-    // Check if this overlaps with an already detected full case citation
     const start = match.index;
     const end = match.index + match[0].length;
     spans.push({
@@ -211,8 +233,8 @@ function detectShortCaseCitations(text: string, spans: DetectedSpan[]): void {
 }
 
 function detectStatuteCitations(text: string, spans: DetectedSpan[]): void {
-  // Federal statutes: title U.S.C. § section
-  const uscPattern = /\b(\d{1,2})\s+U\.S\.C\.?\s*§+\s*([\d\w]+(?:\([a-zA-Z0-9]+\))*)\s*(?:\(([^)]+)\))?/g;
+  // Federal statutes: title U.S.C. § section or §§ section range
+  const uscPattern = /\b(\d{1,2})\s+U\.S\.C\.?\s*§{1,2}\s*([\d\w]+(?:\([a-zA-Z0-9]+\))*)(?:\s*[–\-]\s*\d+)?(?:\s*\([^)]+\))?/g;
   let match;
   while ((match = uscPattern.exec(text)) !== null) {
     spans.push({
@@ -224,7 +246,7 @@ function detectStatuteCitations(text: string, spans: DetectedSpan[]): void {
   }
 
   // State codes (common pattern: State Code Ann. § section)
-  const stateCodePattern = /\b([A-Z][a-z.]+(?:\s+[A-Z][a-z.]+)*)\s+(?:Code|Stat\.|Laws?)\s+(?:Ann\.\s+)?§+\s*[\d\w:.-]+(?:\s*\([^)]+\))?/g;
+  const stateCodePattern = /\b([A-Z][a-z.]+(?:\s+[A-Z][a-z.]+)*)\s+(?:Code|Stat\.|Laws?)\s+(?:Ann\.\s+)?§{1,2}\s*[\d\w:.-]+(?:\s*[–\-]\s*[\d\w]+)?(?:\s*\([^)]+\))?/g;
   while ((match = stateCodePattern.exec(text)) !== null) {
     spans.push({
       text: match[0].trim(),
@@ -298,6 +320,48 @@ function detectRestatementCitations(text: string, spans: DetectedSpan[]): void {
       start: match.index,
       end,
       type: 'restatement',
+    });
+  }
+}
+
+function detectArticleCitations(text: string, spans: DetectedSpan[]): void {
+  // Anchor on journal abbreviation patterns: "L. Rev.", "L.J.", "J.L.", etc.
+  const journalAbbrevPattern = /\d{1,4}\s+[A-Z][a-zA-Z.]+(?:\s+[A-Z][a-zA-Z.]+)*\s+(?:L\.\s*(?:Rev|J|F|Q)|J\.\s*L|L\.\s*&\s*[A-Z]|Yale\s+L\.J\.|Harv\.\s+L\.\s*Rev\.|Stan\.\s+L\.\s*Rev\.|Colum\.\s+L\.\s*Rev\.)\.?\s+\d+/g;
+  let match;
+  while ((match = journalAbbrevPattern.exec(text)) !== null) {
+    const anchorStart = match.index;
+    const anchorEnd = match.index + match[0].length;
+
+    // Expand backward to find author name
+    const lookback = text.slice(Math.max(0, anchorStart - 300), anchorStart);
+    const sentenceStarts = [...lookback.matchAll(/(?:^|(?<=[a-z]{4})[.]\s+|;\s+)(?=[A-Z])/g)];
+    let citStart: number;
+    if (sentenceStarts.length > 0) {
+      const lastStart = sentenceStarts[sentenceStarts.length - 1];
+      citStart = Math.max(0, anchorStart - 300) + (lastStart.index ?? 0) + lastStart[0].length;
+    } else {
+      citStart = Math.max(0, anchorStart - 200);
+    }
+
+    // Skip if it looks like a case citation (has "v.")
+    const candidate = text.slice(citStart, anchorEnd);
+    if (/\bv\.\s/.test(candidate)) continue;
+
+    // Expand forward to find optional parenthetical (year)
+    let citEnd = anchorEnd;
+    const afterText = text.slice(anchorEnd, anchorEnd + 100);
+    const yearParenMatch = afterText.match(/^\s*\(\d{4}\)/);
+    if (yearParenMatch) {
+      citEnd += yearParenMatch[0].length;
+    }
+
+    if (text[citEnd] === '.') citEnd++;
+
+    spans.push({
+      text: text.slice(citStart, citEnd).trim(),
+      start: citStart,
+      end: citEnd,
+      type: 'article',
     });
   }
 }

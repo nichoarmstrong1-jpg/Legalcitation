@@ -19,7 +19,11 @@ function initDb() {
       idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '30000', 10),
       connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '5000', 10),
       ssl: process.env.DATABASE_URL?.includes('.railway.internal') ? false
-        : process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        : process.env.NODE_ENV === 'production'
+          ? (process.env.DATABASE_CA_CERT
+            ? { ca: process.env.DATABASE_CA_CERT, rejectUnauthorized: true }
+            : { rejectUnauthorized: false })
+          : false,
     });
     db = drizzle(pool, { schema });
   }

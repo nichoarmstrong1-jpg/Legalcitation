@@ -19,23 +19,36 @@ interface GuidedTourProps {
 
 export function GuidedTour({ step, currentStep, totalSteps, onNext, onPrev, onExit }: GuidedTourProps) {
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0, height: 0 });
+  const [targetFound, setTargetFound] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const target = document.querySelector(step.targetSelector);
-    if (!target) return;
+    // Wait a frame for DOM to settle, then find target
+    const raf = requestAnimationFrame(() => {
+      const target = document.querySelector(step.targetSelector);
+      if (!target) {
+        setTargetFound(false);
+        // If target not found, auto-advance to next step after a short delay
+        const timer = setTimeout(() => onNext(), 300);
+        return () => clearTimeout(timer);
+      }
 
-    const rect = target.getBoundingClientRect();
-    setPosition({
-      top: rect.top + window.scrollY,
-      left: rect.left + window.scrollX,
-      width: rect.width,
-      height: rect.height,
+      setTargetFound(true);
+      const rect = target.getBoundingClientRect();
+      setPosition({
+        top: rect.top + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+        height: rect.height,
+      });
+
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
-    // Scroll target into view
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [step.targetSelector]);
+    return () => cancelAnimationFrame(raf);
+  }, [step.targetSelector, onNext]);
+
+  if (!targetFound) return null;
 
   const getTooltipStyle = (): React.CSSProperties => {
     const padding = 12;
@@ -73,8 +86,8 @@ export function GuidedTour({ step, currentStep, totalSteps, onNext, onPrev, onEx
 
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Feature tour">
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/40 transition-opacity" onClick={onExit} />
+      {/* Overlay — blocks interaction but does NOT dismiss on click */}
+      <div className="absolute inset-0 bg-black/40 transition-opacity" />
 
       {/* Highlight cutout */}
       <div

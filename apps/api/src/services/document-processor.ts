@@ -203,13 +203,15 @@ async function extractFromDocx(buffer: Buffer): Promise<string> {
   try {
     const mammoth = await import('mammoth');
 
-    // Convert to HTML to preserve formatting
-    const htmlResult = await mammoth.convertToHtml({ buffer });
+    // Convert to HTML with options to preserve footnotes and headings
+    const htmlResult = await mammoth.convertToHtml({
+      buffer,
+    }, {
+      includeDefaultStyleMap: true,
+      convertImage: mammoth.images.imgElement(() => Promise.resolve({ src: '' })),
+    });
     const html = htmlResult.value;
 
-    // Convert HTML formatting to our marker format:
-    // <em>text</em> or <i>text</i> → *text*
-    // <u>text</u> → _text_
     let text = html;
 
     // Remove <style> and <script> blocks entirely (content + tags)
@@ -217,6 +219,18 @@ async function extractFromDocx(buffer: Buffer): Promise<string> {
     text = text.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
     text = text.replace(/<!--[\s\S]*?-->/g, '');
     text = text.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '');
+
+    // Preserve heading hierarchy with newlines
+    text = text.replace(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/gi, '\n\n$1\n\n');
+
+    // Preserve list structure
+    text = text.replace(/<li\b[^>]*>([\s\S]*?)<\/li>/gi, '\n  - $1');
+    text = text.replace(/<\/[ou]l>/gi, '\n');
+    text = text.replace(/<[ou]l\b[^>]*>/gi, '');
+
+    // Preserve footnote references (mammoth renders as <sup><a>)
+    text = text.replace(/<sup\b[^>]*><a[^>]*>([\s\S]*?)<\/a><\/sup>/gi, '[$1]');
+    text = text.replace(/<sup\b[^>]*>([\s\S]*?)<\/sup>/gi, '[$1]');
 
     text = text
       // Replace italic tags with asterisk markers
@@ -226,11 +240,13 @@ async function extractFromDocx(buffer: Buffer): Promise<string> {
       // Handle spans with font-style: italic or text-decoration: underline
       .replace(/<span\b[^>]*style="[^"]*font-style:\s*italic[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '*$1*')
       .replace(/<span\b[^>]*style="[^"]*text-decoration:\s*underline[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '_$1_')
-      // Replace strong/bold (useful context)
+      // Replace strong/bold (preserve as-is, no markers for bold)
       .replace(/<(?:strong|b)\b[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, '$1')
       // Convert paragraphs and line breaks to newlines
       .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
       .replace(/<br\s*\/?>/gi, '\n')
+      // Strip image tags (already handled by convertImage)
+      .replace(/<img[^>]*>/gi, '')
       // Remove all remaining HTML tags
       .replace(/<[^>]+>/g, '')
       // Decode HTML entities
@@ -273,28 +289,76 @@ export async function extractFromPdfWithPages(buffer: Buffer): Promise<Extracted
     const pageTexts: string[] = [];
 
     // Use pdf-parse's pagerender to extract text page by page with font metadata
+    interface PdfTextItem {
+      str: string;
+      transform: number[];
+      fontName?: string;
+      width?: number;
+    }
+    interface PdfTextContent {
+      items: PdfTextItem[];
+    }
+    interface PdfPageData {
+      getTextContent(): Promise<PdfTextContent>;
+    }
+
     const options = {
-      pagerender: (pageData: any) => {
-        return pageData.getTextContent().then((textContent: any) => {
+      pagerender: (pageData: PdfPageData) => {
+        return pageData.getTextContent().then((textContent: PdfTextContent) => {
           let lastY: number | null = null;
+          let lastX: number | null = null;
           let pageText = '';
           let italicCount = 0;
           let totalCount = 0;
 
+          // Collect line height stats for paragraph detection
+          const yGaps: number[] = [];
+          let prevY: number | null = null;
           for (const item of textContent.items) {
-            if (lastY !== null && Math.abs(item.transform[5] - lastY) > 2) {
-              pageText += '\n';
+            const y = item.transform[5];
+            if (prevY !== null) {
+              const gap = Math.abs(y - prevY);
+              if (gap > 1) yGaps.push(gap);
+            }
+            prevY = y;
+          }
+
+          // Calculate median line gap to distinguish line breaks from paragraph breaks
+          yGaps.sort((a, b) => a - b);
+          const medianGap = yGaps.length > 0 ? yGaps[Math.floor(yGaps.length / 2)] : 12;
+          // A gap >1.8x the median line spacing indicates a paragraph break
+          const paragraphThreshold = medianGap * 1.8;
+
+          for (const item of textContent.items) {
+            const y = item.transform[5];
+            const x = item.transform[4];
+
+            if (lastY !== null) {
+              const yDelta = Math.abs(y - lastY);
+              if (yDelta > 1) {
+                if (yDelta > paragraphThreshold) {
+                  // Paragraph break — double newline
+                  pageText += '\n\n';
+                } else {
+                  // Line break within paragraph
+                  pageText += '\n';
+                }
+              } else if (lastX !== null && x - lastX > 20) {
+                // Large horizontal jump may indicate column break
+                pageText += '  ';
+              }
             }
 
-            const str = item.str as string;
+            const str = item.str;
             if (!str.trim()) {
               pageText += str;
-              lastY = item.transform[5];
+              lastY = y;
+              lastX = x + (item.width || 0);
               continue;
             }
 
             totalCount++;
-            const fontName = (item.fontName || '') as string;
+            const fontName = item.fontName || '';
             const isItalic = /italic|oblique|(?:^|-)i$/i.test(fontName);
 
             if (isItalic) {
@@ -303,7 +367,8 @@ export async function extractFromPdfWithPages(buffer: Buffer): Promise<Extracted
             } else {
               pageText += str;
             }
-            lastY = item.transform[5];
+            lastY = y;
+            lastX = x + (item.width || 0);
           }
 
           // If >80% of items are italic, font metadata is unreliable — strip markers
@@ -320,7 +385,7 @@ export async function extractFromPdfWithPages(buffer: Buffer): Promise<Extracted
       },
     };
 
-    const data = await (pdfParse as any)(buffer, options);
+    await pdfParse(buffer, options);
 
     // Build page mapping with character offsets
     const pageMapping: PageMapping[] = [];
@@ -419,7 +484,9 @@ function extractFromRtf(buffer: Buffer): string {
   let result = '';
   let inItalic = false;
   let inUnderline = false;
-  const stateStack: Array<{ italic: boolean; underline: boolean }> = [];
+  let inFootnote = false;
+  let footnoteCount = 0;
+  const stateStack: Array<{ italic: boolean; underline: boolean; footnote: boolean }> = [];
   let pos = 0;
 
   while (pos < rtf.length) {
@@ -427,7 +494,7 @@ function extractFromRtf(buffer: Buffer): string {
 
     if (ch === '{') {
       // Push current formatting state before entering group
-      stateStack.push({ italic: inItalic, underline: inUnderline });
+      stateStack.push({ italic: inItalic, underline: inUnderline, footnote: inFootnote });
       pos++;
       continue;
     }
@@ -439,8 +506,13 @@ function extractFromRtf(buffer: Buffer): string {
       // Restore state from before this group
       const prev = stateStack.pop();
       if (prev) {
+        if (inFootnote && !prev.footnote) {
+          // Exiting footnote group
+          inFootnote = false;
+        }
         inItalic = prev.italic;
         inUnderline = prev.underline;
+        inFootnote = prev.footnote;
         if (inItalic) result += '*';
         if (inUnderline) result += '_';
       }
@@ -499,6 +571,15 @@ function extractFromRtf(buffer: Buffer): string {
           break;
         case 'ulnone':
           if (inUnderline) { result += '_'; inUnderline = false; }
+          break;
+        case 'b':
+          // Bold — no markers, but track for completeness
+          break;
+        case 'footnote':
+          // Footnote group — add footnote marker
+          inFootnote = true;
+          footnoteCount++;
+          result += `[${footnoteCount}] `;
           break;
         case 'par':
         case 'line':

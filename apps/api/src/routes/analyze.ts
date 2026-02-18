@@ -1,11 +1,13 @@
 import { Router, type Request, type Response } from 'express';
-import { extractAndParseCitations, normalizeCitationInput } from '@legalcitation/citation-parser';
-import { runFullAnalysis, calculateScore } from '@legalcitation/rule-engine';
-import type { AnalyzedCitation, CaseComponents, StatuteComponents, BookComponents, ArticleComponents, CitationContext, ValidationIssue, ShortFormEntry, ShortFormSuggestion } from '@legalcitation/shared';
+import { extractAndParseCitations, normalizeCitationInput, extractFootnoteCitations } from '@legalcitation/citation-parser';
+import { runFullAnalysis, runFootnoteAnalysis, calculateScore } from '@legalcitation/rule-engine';
+import type { AnalyzedCitation, CaseComponents, CitationContext, ValidationIssue, DocumentCitationMap, ParsedCitation } from '@legalcitation/shared';
+import { stripMarkersWithOffsetMap } from '@legalcitation/shared';
 import { validateAnalyzeText } from '../middleware/validation.js';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
 import { logCitationCheck } from '../services/citation-logger.js';
 import { matchPinpointToDocument } from '../services/pinpoint-matcher.js';
+import { generateShortForms, generateShortFormSuggestions } from '../services/short-form-generator.js';
 
 export const analyzeRouter = Router();
 
@@ -26,12 +28,29 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
       return;
     }
 
+    // Strip formatting markers before detection so positions are clean,
+    // then translate positions back to the original marker-inclusive text
+    const { stripped, toOriginal } = stripMarkersWithOffsetMap(text);
+    const hasMarkers = stripped.length !== text.length;
+
     // Try standard extraction first, then normalized
-    let parsed = extractAndParseCitations(text, context);
+    let parsed = extractAndParseCitations(stripped, context);
     if (parsed.length === 0) {
-      const normalized = normalizeCitationInput(text);
-      if (normalized !== text) {
+      const normalized = normalizeCitationInput(stripped);
+      if (normalized !== stripped) {
         parsed = extractAndParseCitations(normalized, context);
+      }
+    }
+
+    // Translate positions back to original text coordinates if markers were present
+    if (hasMarkers) {
+      for (const citation of parsed) {
+        if (citation.position) {
+          citation.position = {
+            start: toOriginal(citation.position.start),
+            end: toOriginal(citation.position.end),
+          };
+        }
       }
     }
 
@@ -39,11 +58,10 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
     const issueMap = runFullAnalysis(parsed);
 
     // Build analyzed citation results
-    const results: AnalyzedCitation[] = [];
-
-    for (const citation of parsed) {
+    const results: AnalyzedCitation[] = parsed.map(citation => {
       const issues = issueMap.get(citation.id) || [];
       const score = calculateScore(issues);
+      const errorCount = issues.filter((i: ValidationIssue) => i.severity === 'error').length;
 
       const analyzed: AnalyzedCitation = {
         parsed: citation,
@@ -54,228 +72,61 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
         logicTrace: [
           `Identified as a ${citation.type} citation.`,
           `Checked against ${issues.length} Bluebook and Indigo Book rules.`,
-          ...(issues.filter((i: ValidationIssue) => i.severity === 'error').length > 0
-            ? [`Found ${issues.filter((i: ValidationIssue) => i.severity === 'error').length} formatting issue${issues.filter((i: ValidationIssue) => i.severity === 'error').length !== 1 ? 's' : ''} requiring correction.`]
+          ...(errorCount > 0
+            ? [`Found ${errorCount} formatting issue${errorCount !== 1 ? 's' : ''} requiring correction.`]
             : ['No formatting issues found — citation format looks correct.']),
         ],
         score,
       };
 
-      // Verify case citations
-      if (citation.type === 'case') {
-        const components = citation.components as CaseComponents;
+      const shortForms = generateShortForms(citation);
+      if (shortForms.length > 0) {
+        analyzed.shortForms = shortForms;
+      }
 
-        try {
-          const verification = await cachedVerifyCaseCitation(components);
-          analyzed.verificationStatus = verification.status;
-          analyzed.discrepancies = verification.discrepancies;
-          analyzed.referenceExamples = verification.referenceExamples;
-          analyzed.verifiedCitation = verification.verifiedCitation;
-          analyzed.logicTrace.push(...verification.logicTrace);
-        } catch (err) {
-          console.error('Verification error in /analyze:', err);
-          analyzed.verificationStatus = 'pending';
-          analyzed.logicTrace.push('External verification temporarily unavailable. Bluebook formatting rules still checked.');
-        }
+      return analyzed;
+    });
 
-        // Pinpoint-PDF matching: check pinCite against uploaded documents
-        if (components.pinCite && documentIds && documentIds.length > 0) {
-          for (const docId of documentIds) {
-            try {
-              const match = await matchPinpointToDocument(
-                components.pinCite,
-                docId,
-                components.firstPage
+    // Verify case citations in parallel
+    await Promise.all(results.map(async (analyzed) => {
+      if (analyzed.parsed.type !== 'case') return;
+
+      const components = analyzed.parsed.components as CaseComponents;
+
+      try {
+        const verification = await cachedVerifyCaseCitation(components);
+        analyzed.verificationStatus = verification.status;
+        analyzed.discrepancies = verification.discrepancies;
+        analyzed.referenceExamples = verification.referenceExamples;
+        analyzed.verifiedCitation = verification.verifiedCitation;
+        analyzed.logicTrace.push(...verification.logicTrace);
+      } catch (err) {
+        console.error('Verification error in /analyze:', err);
+        analyzed.verificationStatus = 'pending';
+        analyzed.logicTrace.push('External verification temporarily unavailable. Bluebook formatting rules still checked.');
+      }
+
+      if (components.pinCite && documentIds && documentIds.length > 0) {
+        for (const docId of documentIds) {
+          try {
+            const match = await matchPinpointToDocument(
+              components.pinCite,
+              docId,
+              components.firstPage
+            );
+            if (match && match.matched) {
+              analyzed.pinpointMatch = match;
+              analyzed.logicTrace.push(
+                `Pinpoint page verified against uploaded source "${match.documentName}".`
               );
-              if (match && match.matched) {
-                analyzed.pinpointMatch = match;
-                analyzed.logicTrace.push(
-                  `Pinpoint page verified against uploaded source "${match.documentName}".`
-                );
-                break;
-              }
-            } catch {
-              // Non-critical — continue without pinpoint match
+              break;
             }
+          } catch {
+            // Non-critical — continue without pinpoint match
           }
         }
       }
-
-      // Generate short forms for case citations
-      if (citation.type === 'case') {
-        const comp = citation.components as CaseComponents;
-        const shortParty = comp.partyOne;
-
-        const shortForms: ShortFormEntry[] = [
-          {
-            form: '*Id.*',
-            type: 'id',
-            label: 'Id. Citation',
-            whenToUse: 'Use when citing the EXACT same source as the immediately preceding citation, with no other citations in between. The preceding citation must cite only ONE authority (no semicolons).',
-            whereToPlace: `Use this immediately after the full citation of ${shortParty} appears, as long as no other source is cited between them.`,
-            warnings: [
-              'Never use Id. if the preceding citation contains multiple sources separated by semicolons.',
-              'Id. must be italicized, including the period.',
-              'Capitalize "Id." only when it begins a citation sentence.',
-            ],
-          },
-          {
-            form: '*Id.* at [pinpoint page]',
-            type: 'id_pinpoint',
-            label: 'Id. with Pinpoint',
-            whenToUse: 'Use when citing the same source as the immediately preceding citation but referencing a DIFFERENT specific page. Replace [pinpoint page] with the actual page number.',
-            whereToPlace: `Use after the full citation of ${shortParty} when you need to reference a specific page different from the one in the full citation.`,
-            warnings: [
-              'Use "at" before page numbers but NOT before § or ¶ symbols.',
-              'Do not create a double period: "Id. at 205." is correct, not "Id.. at 205."',
-            ],
-          },
-        ];
-
-        // Short case form (only if we have reporter info)
-        if (comp.volume && comp.reporter) {
-          shortForms.push({
-            form: `*${shortParty}*, ${comp.volume} ${comp.reporter} at [pinpoint page]`,
-            type: 'short_case',
-            label: 'Short Case Form',
-            whenToUse: 'Use after the full citation has been given once AND there are intervening citations to other sources (making Id. unavailable). Use only the first party name.',
-            whereToPlace: `Use for any subsequent reference to this case when other citations appear between this reference and the last citation to ${shortParty}.`,
-            warnings: [
-              'Only use after the full citation has appeared at least once in the same document.',
-              'The short form must appear within approximately 5 citations of the most recent full citation to this source.',
-            ],
-          });
-        }
-
-        analyzed.shortForms = shortForms;
-      }
-
-      // Generate short forms for statute citations
-      if (citation.type === 'statute') {
-        const comp = citation.components as StatuteComponents;
-        const shortForms: ShortFormEntry[] = [
-          {
-            form: '*Id.*',
-            type: 'id',
-            label: 'Id. Citation',
-            whenToUse: 'Use when citing the EXACT same statute as the immediately preceding citation.',
-            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
-            warnings: ['Id. must be italicized, including the period.'],
-          },
-          {
-            form: `*Id.* § ${comp.section || '[section]'}`,
-            type: 'id_pinpoint',
-            label: 'Id. with Section',
-            whenToUse: 'Use when citing the same statute but a different section.',
-            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
-            warnings: ['Use § (not "at") before section numbers for statutes.'],
-          },
-        ];
-        analyzed.shortForms = shortForms;
-      }
-
-      // Generate short forms for book/treatise citations
-      if (citation.type === 'book') {
-        const comp = citation.components as BookComponents;
-        const author = comp.authors?.[0] || 'Author';
-        const shortForms: ShortFormEntry[] = [
-          {
-            form: '*Id.*',
-            type: 'id',
-            label: 'Id. Citation',
-            whenToUse: 'Use when citing the EXACT same source as the immediately preceding citation.',
-            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
-            warnings: ['Id. must be italicized, including the period.'],
-          },
-          {
-            form: '*Id.* at [page]',
-            type: 'id_pinpoint',
-            label: 'Id. with Page',
-            whenToUse: 'Use when citing the same source but a different page.',
-            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
-          },
-          {
-            form: `${author}, *supra* note [N], at [page]`,
-            type: 'supra',
-            label: 'Supra Form',
-            whenToUse: 'Use after the full citation has been given once AND there are intervening citations (making Id. unavailable).',
-            whereToPlace: `Replace [N] with the footnote number where ${author} was first cited in full.`,
-            warnings: ['Only use in footnotes, not in main text.'],
-          },
-        ];
-        analyzed.shortForms = shortForms;
-      }
-
-      // Generate short forms for article citations
-      if (citation.type === 'article') {
-        const comp = citation.components as ArticleComponents;
-        const author = comp.authors?.[0] || 'Author';
-        const shortForms: ShortFormEntry[] = [
-          {
-            form: '*Id.*',
-            type: 'id',
-            label: 'Id. Citation',
-            whenToUse: 'Use when citing the EXACT same article as the immediately preceding citation.',
-            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
-            warnings: ['Id. must be italicized, including the period.'],
-          },
-          {
-            form: '*Id.* at [page]',
-            type: 'id_pinpoint',
-            label: 'Id. with Page',
-            whenToUse: 'Use when citing the same article but a different page.',
-            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
-          },
-          {
-            form: `${author}, *supra* note [N], at [page]`,
-            type: 'supra',
-            label: 'Supra Form',
-            whenToUse: 'Use after the full citation has been given once AND there are intervening citations.',
-            whereToPlace: `Replace [N] with the footnote number where ${author} was first cited in full.`,
-            warnings: ['Only use in footnotes, not in main text.'],
-          },
-        ];
-        analyzed.shortForms = shortForms;
-      }
-
-      // Generate short forms for regulation citations
-      if (citation.type === 'regulation') {
-        const shortForms: ShortFormEntry[] = [
-          {
-            form: '*Id.*',
-            type: 'id',
-            label: 'Id. Citation',
-            whenToUse: 'Use when citing the EXACT same regulation as the immediately preceding citation.',
-            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
-          },
-          {
-            form: '*Id.* § [section]',
-            type: 'id_pinpoint',
-            label: 'Id. with Section',
-            whenToUse: 'Use when citing the same regulation but a different section.',
-            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
-            warnings: ['Use § (not "at") before section numbers for regulations.'],
-          },
-        ];
-        analyzed.shortForms = shortForms;
-      }
-
-      // Generate short forms for constitution citations
-      if (citation.type === 'constitution') {
-        const shortForms: ShortFormEntry[] = [
-          {
-            form: '*Id.*',
-            type: 'id',
-            label: 'Id. Citation',
-            whenToUse: 'Use when citing the EXACT same constitutional provision as the immediately preceding citation.',
-            whereToPlace: 'Use immediately after the full citation with no intervening citations.',
-          },
-        ];
-        analyzed.shortForms = shortForms;
-      }
-
-      results.push(analyzed);
-    }
+    }));
 
     // Post-processing: detect duplicate case citations and suggest short forms
     const shortFormSuggestions = generateShortFormSuggestions(results, text);
@@ -293,7 +144,7 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
 
     // Even if no citations found, return 200 with empty results (never 400 for in-text)
     logCitationCheck({
-      userId: (req as any).user?.userId,
+      userId: req.user?.userId,
       mode: 'in_text',
       inputText: text,
       results,
@@ -310,94 +161,150 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
 });
 
 /**
- * Detect duplicate case citations in the analyzed results and generate
- * natural-language suggestions for where to use short forms.
+ * POST /api/analyze/footnotes — Analyze text with footnote-structured citations
+ * Parses footnote boundaries, validates cross-references, and checks ordering.
  */
-function generateShortFormSuggestions(
-  results: AnalyzedCitation[],
-  fullText: string
-): ShortFormSuggestion[] {
-  const suggestions: ShortFormSuggestion[] = [];
+analyzeRouter.post('/footnotes', validateAnalyzeText, async (req: Request, res: Response) => {
+  try {
+    const { text, documentIds } = req.body as {
+      text: string;
+      documentIds?: string[];
+    };
 
-  // Track case citations by a normalized key (partyOne + reporter + volume)
-  const caseOccurrences = new Map<string, number[]>();
-
-  for (let i = 0; i < results.length; i++) {
-    const result = results[i];
-    if (result.parsed?.type !== 'case') continue;
-
-    const comp = result.parsed.components as CaseComponents;
-    const key = `${comp.partyOne}|${comp.volume}|${comp.reporter}`.toLowerCase();
-
-    if (!caseOccurrences.has(key)) {
-      caseOccurrences.set(key, []);
+    if (!text || typeof text !== 'string') {
+      res.status(400).json({ error: 'Text is required' });
+      return;
     }
-    caseOccurrences.get(key)!.push(i);
-  }
 
-  // For each case that appears more than once, suggest short forms for subsequent appearances
-  for (const [, indices] of caseOccurrences) {
-    if (indices.length < 2) continue;
+    const { stripped, toOriginal } = stripMarkersWithOffsetMap(text);
+    const hasMarkers = stripped.length !== text.length;
 
-    const firstIdx = indices[0];
-    const firstResult = results[firstIdx];
-    const firstComp = firstResult.parsed.components as CaseComponents;
-    const caseName = firstComp.partyTwo
-      ? `${firstComp.partyOne} v. ${firstComp.partyTwo}`
-      : firstComp.partyOne;
+    const parsedFootnotes = extractFootnoteCitations(stripped);
 
-    for (let j = 1; j < indices.length; j++) {
-      const dupIdx = indices[j];
-      const dupResult = results[dupIdx];
-      const pos = dupResult.parsed?.position;
+    if (parsedFootnotes.length === 0) {
+      res.json({
+        results: [],
+        citationCount: 0,
+        footnoteCount: 0,
+        footnotes: [],
+        integrityReport: { totalCitations: 0, totalFootnotes: 0, crossReferenceIssues: [], citationOrderIssues: [] },
+      });
+      return;
+    }
 
-      // Extract a snippet of surrounding text for context
-      let contextSnippet = '';
-      if (pos) {
-        const snippetStart = Math.max(0, pos.start - 80);
-        const rawSnippet = fullText.slice(snippetStart, pos.start).trim();
-        // Get the last sentence fragment
-        const lastSentence = rawSnippet.split(/[.!?]\s+/).pop() || rawSnippet;
-        contextSnippet = lastSentence.slice(0, 60);
-        if (lastSentence.length > 60) contextSnippet += '...';
-      }
-
-      // Determine if the previous citation is the same case (Id.) or different (short form)
-      const prevIdx = dupIdx - 1;
-      const prevIsSameCase =
-        prevIdx >= 0 &&
-        results[prevIdx].parsed?.type === 'case' &&
-        (() => {
-          const prevComp = results[prevIdx].parsed.components as CaseComponents;
-          return prevComp.partyOne.toLowerCase() === firstComp.partyOne.toLowerCase() &&
-                 prevComp.volume === firstComp.volume;
-        })();
-
-      if (prevIsSameCase) {
-        suggestions.push({
-          citationIndex: dupIdx,
-          suggestedForm: '*Id.*',
-          reason: `This is the same case as the immediately preceding citation. Use Id. instead of repeating the full citation to ${caseName}.`,
-          contextSnippet: contextSnippet
-            ? `After the text "${contextSnippet}", replace the full citation with *Id.*`
-            : `Replace this repeated citation to ${caseName} with *Id.*`,
-        });
-      } else {
-        const shortForm = firstComp.volume && firstComp.reporter
-          ? `*${firstComp.partyOne}*, ${firstComp.volume} ${firstComp.reporter} at [page]`
-          : `*${firstComp.partyOne}*`;
-
-        suggestions.push({
-          citationIndex: dupIdx,
-          suggestedForm: shortForm,
-          reason: `You already cited ${caseName} in full earlier. Since other sources were cited in between, use the short case form.`,
-          contextSnippet: contextSnippet
-            ? `After the text "${contextSnippet}", replace the full citation with the short form: ${shortForm}`
-            : `Replace this citation to ${caseName} with: ${shortForm}`,
-        });
+    // Translate positions back if markers were present
+    if (hasMarkers) {
+      for (const fn of parsedFootnotes) {
+        for (const citation of fn.citations) {
+          if (citation.position) {
+            citation.position = {
+              start: toOriginal(citation.position.start),
+              end: toOriginal(citation.position.end),
+            };
+          }
+        }
       }
     }
-  }
 
-  return suggestions;
-}
+    // Build DocumentCitationMap
+    const footnoteMap = new Map<number, ParsedCitation[]>();
+    const allCitations: ParsedCitation[] = [];
+    for (const fn of parsedFootnotes) {
+      footnoteMap.set(fn.footnoteNumber, fn.citations);
+      allCitations.push(...fn.citations);
+    }
+
+    const docMap: DocumentCitationMap = {
+      footnotes: footnoteMap,
+      allCitations,
+      footnoteCount: parsedFootnotes.length,
+    };
+
+    // Run footnote analysis
+    const { issueMap, integrityReport } = runFootnoteAnalysis(docMap);
+
+    // Build analyzed citation results
+    const results: AnalyzedCitation[] = allCitations.map(citation => {
+      const issues = issueMap.get(citation.id) || [];
+      const score = calculateScore(issues);
+      const errorCount = issues.filter((i: ValidationIssue) => i.severity === 'error').length;
+
+      return {
+        parsed: citation,
+        issues,
+        verificationStatus: 'pending' as const,
+        discrepancies: [],
+        referenceExamples: [],
+        logicTrace: [
+          `Identified as a ${citation.type} citation in footnote ${citation.footnoteContext?.footnoteNumber ?? '?'}.`,
+          `Checked against ${issues.length} Bluebook rules (including footnote-context rules).`,
+          ...(errorCount > 0
+            ? [`Found ${errorCount} issue${errorCount !== 1 ? 's' : ''} requiring correction.`]
+            : ['No formatting issues found.']),
+        ],
+        score,
+      };
+    });
+
+    // Verify case citations in parallel
+    await Promise.all(results.map(async (analyzed) => {
+      if (analyzed.parsed.type !== 'case') return;
+
+      const components = analyzed.parsed.components as CaseComponents;
+      try {
+        const verification = await cachedVerifyCaseCitation(components);
+        analyzed.verificationStatus = verification.status;
+        analyzed.discrepancies = verification.discrepancies;
+        analyzed.referenceExamples = verification.referenceExamples;
+        analyzed.verifiedCitation = verification.verifiedCitation;
+        analyzed.logicTrace.push(...verification.logicTrace);
+      } catch {
+        analyzed.verificationStatus = 'pending';
+        analyzed.logicTrace.push('External verification temporarily unavailable.');
+      }
+
+      if (components.pinCite && documentIds && documentIds.length > 0) {
+        for (const docId of documentIds) {
+          try {
+            const match = await matchPinpointToDocument(components.pinCite, docId, components.firstPage);
+            if (match && match.matched) {
+              analyzed.pinpointMatch = match;
+              break;
+            }
+          } catch {
+            // Non-critical
+          }
+        }
+      }
+    }));
+
+    const footnoteSummary = parsedFootnotes.map(fn => ({
+      number: fn.footnoteNumber,
+      citationCount: fn.citations.length,
+      citationIds: fn.citations.map(c => c.id),
+    }));
+
+    logCitationCheck({
+      userId: req.user?.userId,
+      mode: 'footnote',
+      inputText: text,
+      results,
+      citationCount: results.length,
+      averageScore: results.length > 0
+        ? Math.round(results.reduce((sum, r) => sum + r.score, 0) / results.length)
+        : undefined,
+    });
+
+    res.json({
+      results,
+      citationCount: results.length,
+      footnoteCount: parsedFootnotes.length,
+      footnotes: footnoteSummary,
+      integrityReport,
+    });
+  } catch (error) {
+    console.error('Footnote analysis error:', error);
+    res.status(500).json({ error: 'Footnote analysis failed' });
+  }
+});
+

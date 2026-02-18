@@ -13,6 +13,8 @@ import type {
   UnpublishedComponents,
   ValidationIssue,
   CitationContext,
+  DocumentCitationMap,
+  DocumentIntegrityReport,
 } from '@legalcitation/shared';
 
 import { validateCaseName } from './bluebook/case-name-rules.js';
@@ -57,10 +59,16 @@ import { validateRestatement } from './bluebook/restatement-rules.js';
 import { validateInternet } from './bluebook/internet-rules.js';
 import { validateAiSource } from './bluebook/ai-source-rules.js';
 import { validateUnpublished } from './bluebook/unpublished-rules.js';
+import { validateCitationOrder } from './bluebook/citation-order-rules.js';
+import { validateFootnoteContext } from './context/footnote-rules.js';
+import { validateCrossReferences } from './context/cross-reference-validator.js';
 
 export { RULE_EXPLANATIONS } from './explanations.js';
 export type { RuleExplanation } from './explanations.js';
 export { validateContext } from './context/context-rules.js';
+export { validateCitationOrder } from './bluebook/citation-order-rules.js';
+export { validateFootnoteContext } from './context/footnote-rules.js';
+export { validateCrossReferences } from './context/cross-reference-validator.js';
 
 /**
  * Run all Bluebook rules on a single parsed citation.
@@ -126,6 +134,7 @@ export function runBluebookRules(citation: ParsedCitation): ValidationIssue[] {
     }
     case 'id':
     case 'supra':
+    case 'infra':
     case 'short_form': {
       const components = citation.components as ShortFormComponents;
       issues.push(...validateShortForm(components, citation.rawText));
@@ -247,7 +256,75 @@ export function runFullAnalysis(citations: ParsedCitation[]): Map<string, Valida
     issueMap.set(id, [...existing, ...issues]);
   }
 
+  // R. 1.4: Citation ordering within string citations
+  const citOrderIssues = validateCitationOrder(citations);
+  for (const [id, issues] of citOrderIssues) {
+    const existing = issueMap.get(id) || [];
+    issueMap.set(id, [...existing, ...issues]);
+  }
+
   return issueMap;
+}
+
+/**
+ * Merge issues from one map into another.
+ */
+function mergeIssues(
+  target: Map<string, ValidationIssue[]>,
+  source: Map<string, ValidationIssue[]>
+): void {
+  for (const [id, issues] of source) {
+    const existing = target.get(id) || [];
+    target.set(id, [...existing, ...issues]);
+  }
+}
+
+/**
+ * Run full analysis in footnote mode.
+ * Applies per-citation rules, footnote-aware context rules,
+ * citation ordering within footnotes, and cross-reference validation.
+ */
+export function runFootnoteAnalysis(
+  docMap: DocumentCitationMap
+): { issueMap: Map<string, ValidationIssue[]>; integrityReport: DocumentIntegrityReport } {
+  const issueMap = new Map<string, ValidationIssue[]>();
+  const allCitations = docMap.allCitations;
+
+  // Per-citation rules
+  for (const citation of allCitations) {
+    const issues = runAllRules(citation);
+    if (citation.context === 'citation_sentence') {
+      issues.push(...validateCitationSentenceSemicolons(citation.rawText));
+    }
+    issueMap.set(citation.id, issues);
+  }
+
+  // Flat context rules (Id. chains, short form proximity)
+  const contextIssues = validateContext(allCitations);
+  mergeIssues(issueMap, contextIssues);
+
+  // Footnote-specific context rules
+  const footnoteIssues = validateFootnoteContext(docMap);
+  mergeIssues(issueMap, footnoteIssues);
+
+  // R. 1.4: Citation ordering within each footnote
+  for (const [, citations] of docMap.footnotes) {
+    const orderIssues = validateCitationOrder(citations);
+    mergeIssues(issueMap, orderIssues);
+  }
+
+  // Signal ordering
+  const sigOrderIssues = validateSignalOrder(allCitations);
+  mergeIssues(issueMap, sigOrderIssues);
+
+  // R. 1.2(c): "But" omission
+  const butOmissionIssues = validateButOmission(allCitations);
+  mergeIssues(issueMap, butOmissionIssues);
+
+  // Cross-reference chain validation (Scope 8)
+  const integrityReport = validateCrossReferences(docMap);
+
+  return { issueMap, integrityReport };
 }
 
 /**
@@ -275,6 +352,9 @@ const RULE_WEIGHTS: Record<string, number> = {
   'R. 17.1': 1.1,       // Unpublished source errors
   'R. 18.2.1(d)': 2.0,  // Archive requirement (22nd ed. critical change)
   'R. 18.3': 1.5,       // AI citation format (new in 22nd ed.)
+  'R. 1.4': 1.2,        // Citation ordering
+  'R. 4.2': 1.5,        // Supra note reference errors
+  'R. 3.5': 1.2,        // Infra reference errors
 };
 
 /**

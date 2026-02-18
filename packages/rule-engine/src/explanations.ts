@@ -326,7 +326,42 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
   'R. 1.4': {
     title: 'Order of Authorities Within Each Signal',
     explanation:
-      'Authorities within each signal are separated by semicolons. They should be ordered in a logical manner. If one authority is considerably more helpful or authoritative than the others, it should precede the others. Authorities cited in short form are ordered as though cited in full.',
+      'When citing more than one authority within a single signal, arrange the authorities in the following order:\n\n' +
+      '(a) Constitutions: Federal constitution first, then state constitutions alphabetically by state.\n' +
+      '(b) Statutes: Federal statutes (by U.S.C. title number, then by section), then state statutes alphabetically by state.\n' +
+      '(c) Treaties and international agreements.\n' +
+      '(d) Cases: Federal cases first (Supreme Court, then courts of appeals by circuit, then district courts), then state cases alphabetically by state. Within the same court, arrange in reverse chronological order (newest first).\n' +
+      '(e) Legislative materials.\n' +
+      '(f) Administrative and executive materials.\n' +
+      '(g) Resolutions, decisions, and advisory opinions of international organizations.\n' +
+      '(h) Records, briefs, and petitions.\n' +
+      '(i) Secondary materials (books, articles, treatises, restatements).\n' +
+      '(j) Cross-references to the author\'s own text.',
+    examples: [
+      'U.S. Const. amend. XIV, § 1; 42 U.S.C. § 1983 (2018); Brown v. Bd. of Educ., 347 U.S. 483 (1954).',
+      'Marbury v. Madison, 5 U.S. (1 Cranch) 137 (1803); McCulloch v. Maryland, 17 U.S. (4 Wheat.) 316 (1819). (SCOTUS before lower courts)',
+      'Smith v. Jones, 600 F.3d 100 (2d Cir. 2010); Doe v. Roe, 500 F. Supp. 3d 200 (S.D.N.Y. 2020). (Circuit before district)',
+    ],
+    tips: [
+      'Constitutions always come first, then statutes, then cases, then secondary sources.',
+      'Within federal cases: Supreme Court > Courts of Appeals > District Courts.',
+      'Within the same court level, arrange in reverse chronological order (newest first).',
+      'State cases are ordered alphabetically by state, not by date.',
+      'When mixing federal and state cases, all federal cases come before state cases.',
+    ],
+    commonMistakes: [
+      'Citing a statute after a case within the same signal.',
+      'Citing a district court case before a circuit court case.',
+      'Ordering cases from oldest to newest instead of reverse chronological.',
+      'Mixing state cases among federal cases instead of grouping them separately.',
+    ],
+    decisionSteps: [
+      '1. Group all authorities by type: constitutions, statutes, cases, secondary sources.',
+      '2. Within cases, separate federal from state.',
+      '3. Within federal cases, order by court level (SCOTUS first, then circuits, then districts).',
+      '4. Within the same court, order by date (newest first).',
+      '5. State cases go after all federal cases, ordered alphabetically by state.',
+    ],
   },
   'R. 3': {
     title: 'Subdivisions',
@@ -4567,6 +4602,22 @@ export const RULE_EXPLANATIONS: Record<string, RuleExplanation> = {
       'Including a year for current rules.',
       'Using "supra" for procedural rules.',
       'Adding a space before rule subdivisions.',
+    ],
+  },
+  'R. 4.1-footnote': {
+    title: 'Id. Across Footnote Boundaries',
+    explanation:
+      'In law review format, "Id." at the beginning of a footnote refers to the authority cited in the immediately preceding footnote. This works only when the preceding footnote cites exactly one authority.\n\n' +
+      'If the preceding footnote contains a string citation (multiple authorities separated by semicolons), "Id." at the start of the next footnote is ambiguous and should not be used. Instead, use a short form or full citation to identify the specific source.\n\n' +
+      'Within a footnote, "Id." refers to the immediately preceding authority in that same footnote.',
+    examples: [
+      'Footnote 5: Brown v. Bd. of Educ., 347 U.S. 483 (1954).\nFootnote 6: Id. at 490. (Valid — FN5 has one authority)',
+      'Footnote 5: Brown, 347 U.S. at 490; Plessy v. Ferguson, 163 U.S. 537 (1896).\nFootnote 6: Brown, 347 U.S. at 491. (Must use short form — FN5 has two authorities)',
+    ],
+    tips: [
+      'Count the distinct authorities in the preceding footnote. If more than one, do not use "Id." at the start of the next footnote.',
+      '"Id." within a footnote always refers to the previous citation in that same footnote.',
+      'When in doubt, use a short form citation instead of "Id." — it is always safe.',
     ],
   },
 };

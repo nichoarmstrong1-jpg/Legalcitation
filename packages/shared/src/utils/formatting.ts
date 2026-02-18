@@ -67,6 +67,57 @@ export function markdownToPlain(text: string): string {
 }
 
 /**
+ * Strip `*` and `_` formatting markers from text while maintaining
+ * a position mapping from the stripped text back to the original.
+ *
+ * This is critical for citation detection: the detector runs on stripped text
+ * (no markers) to get clean positions, then those positions are translated
+ * back to the original marker-inclusive text for frontend highlighting.
+ */
+export function stripMarkersWithOffsetMap(text: string): {
+  stripped: string;
+  toOriginal: (strippedPos: number) => number;
+  toStripped: (originalPos: number) => number;
+} {
+  const stripped: string[] = [];
+  // Maps each index in stripped text to the corresponding index in original text
+  const strippedToOriginal: number[] = [];
+  // Maps each index in original text to the corresponding index in stripped text
+  const originalToStripped: number[] = new Array(text.length + 1);
+
+  let strippedIdx = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    originalToStripped[i] = strippedIdx;
+    if (ch === '*' || ch === '_') {
+      // Skip marker characters
+      continue;
+    }
+    stripped.push(ch);
+    strippedToOriginal.push(i);
+    strippedIdx++;
+  }
+  // Map the position just past end of original to just past end of stripped
+  originalToStripped[text.length] = strippedIdx;
+  // Map the position just past end of stripped to just past end of original
+  strippedToOriginal.push(text.length);
+
+  return {
+    stripped: stripped.join(''),
+    toOriginal: (strippedPos: number) => {
+      if (strippedPos < 0) return 0;
+      if (strippedPos >= strippedToOriginal.length) return text.length;
+      return strippedToOriginal[strippedPos];
+    },
+    toStripped: (originalPos: number) => {
+      if (originalPos < 0) return 0;
+      if (originalPos >= originalToStripped.length) return strippedIdx;
+      return originalToStripped[originalPos];
+    },
+  };
+}
+
+/**
  * Wrap a case name in markdown-style italics markers
  */
 export function formatCaseName(name: string): string {

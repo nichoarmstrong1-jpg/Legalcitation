@@ -1,4 +1,4 @@
-import type { ParsedCitation, CitationContext } from '@legalcitation/shared';
+import type { ParsedCitation, CitationContext, FootnoteContext } from '@legalcitation/shared';
 import { detectCitations, type DetectedSpan } from './detector.js';
 import {
   parseCaseCitation,
@@ -14,6 +14,7 @@ import {
   parseUnpublishedCitation,
   parseIdCitation,
   parseSupraCitation,
+  parseInfraCitation,
 } from './parsers/index.js';
 
 export { detectCitations, type DetectedSpan } from './detector.js';
@@ -117,6 +118,9 @@ export function extractAndParseCitations(
         case 'supra':
           result = parseSupraCitation(span.text, position, detectedContext);
           break;
+        case 'infra':
+          result = parseInfraCitation(span.text, position, detectedContext);
+          break;
         case 'statute':
           result = parseStatuteCitation(span.text, position, detectedContext);
           break;
@@ -157,7 +161,8 @@ export function extractAndParseCitations(
             || parseAiSourceCitation(span.text, position, detectedContext)
             || parseUnpublishedCitation(span.text, position, detectedContext)
             || parseIdCitation(span.text, position, detectedContext)
-            || parseSupraCitation(span.text, position, detectedContext);
+            || parseSupraCitation(span.text, position, detectedContext)
+            || parseInfraCitation(span.text, position, detectedContext);
       }
 
       if (result) {
@@ -167,6 +172,74 @@ export function extractAndParseCitations(
   }
 
   return parsed;
+}
+
+export interface ParsedFootnote {
+  footnoteNumber: number;
+  rawText: string;
+  startOffset: number;
+  endOffset: number;
+  citations: ParsedCitation[];
+}
+
+/**
+ * Parse footnote-structured text into an array of footnotes with their citations.
+ * Supports formats:
+ *   "1. Citation text here."
+ *   "1 Citation text here."
+ * Footnotes can span multiple lines until the next footnote number.
+ */
+export function extractFootnoteCitations(text: string): ParsedFootnote[] {
+  const footnotes: ParsedFootnote[] = [];
+
+  // Detect footnote starts: a number at line start (or string start), optional period, then whitespace
+  const footnoteStartPattern = /(?:^|\n)(\d{1,4})\.?\s+/g;
+  const starts: Array<{ number: number; contentStart: number; matchStart: number }> = [];
+
+  let match;
+  while ((match = footnoteStartPattern.exec(text)) !== null) {
+    starts.push({
+      number: parseInt(match[1], 10),
+      contentStart: match.index + match[0].length,
+      matchStart: match.index === 0 ? 0 : match.index + 1, // skip the \n
+    });
+  }
+
+  if (starts.length === 0) {
+    return footnotes;
+  }
+
+  for (let i = 0; i < starts.length; i++) {
+    const start = starts[i];
+    const endOffset = i + 1 < starts.length ? starts[i + 1].matchStart : text.length;
+    const footnoteText = text.slice(start.contentStart, endOffset).trim();
+
+    const citations = extractAndParseCitations(footnoteText);
+
+    // Annotate each citation with footnote context and adjust positions
+    for (let j = 0; j < citations.length; j++) {
+      const fnContext: FootnoteContext = {
+        footnoteNumber: start.number,
+        positionInFootnote: j,
+        totalInFootnote: citations.length,
+      };
+      citations[j].footnoteContext = fnContext;
+      citations[j].position = {
+        start: citations[j].position.start + start.contentStart,
+        end: citations[j].position.end + start.contentStart,
+      };
+    }
+
+    footnotes.push({
+      footnoteNumber: start.number,
+      rawText: footnoteText,
+      startOffset: start.matchStart,
+      endOffset,
+      citations,
+    });
+  }
+
+  return footnotes;
 }
 
 /**

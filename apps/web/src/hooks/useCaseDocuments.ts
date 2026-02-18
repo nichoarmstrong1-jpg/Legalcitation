@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getCaseDocuments, type CaseDocument, type AnalyzedCitation } from '../services/api.ts';
+import type { CaseComponents } from '@legalcitation/shared';
 
 export function useCaseDocuments() {
   const [documents, setDocuments] = useState<CaseDocument[]>([]);
@@ -25,15 +26,17 @@ export function useCaseDocuments() {
     (citation: AnalyzedCitation): CaseDocument | undefined => {
       if (!citation.parsed) return undefined;
 
-      const components = citation.parsed.components;
       const rawText = citation.parsed.rawText?.toLowerCase() || '';
+      const caseComp = citation.parsed.type === 'case'
+        ? citation.parsed.components as CaseComponents
+        : null;
 
       for (const doc of documents) {
         // Match by case name from parsed components
-        if (components?.partyOne && components?.partyTwo && doc.caseName) {
+        if (caseComp?.partyOne && caseComp?.partyTwo && doc.caseName) {
           const docName = doc.caseName.toLowerCase();
-          const partyOne = (components.partyOne as string).toLowerCase();
-          const partyTwo = (components.partyTwo as string).toLowerCase();
+          const partyOne = caseComp.partyOne.toLowerCase();
+          const partyTwo = caseComp.partyTwo.toLowerCase();
           if (docName.includes(partyOne) && docName.includes(partyTwo)) {
             return doc;
           }
@@ -49,9 +52,9 @@ export function useCaseDocuments() {
         }
 
         // Match by case name in document filename
-        if (components?.partyOne && doc.fileName) {
+        if (caseComp?.partyOne && doc.fileName) {
           const fileName = doc.fileName.toLowerCase().replace(/[_-]/g, ' ').replace(/\.[^.]+$/, '');
-          const partyOne = (components.partyOne as string).toLowerCase();
+          const partyOne = caseComp.partyOne.toLowerCase();
           if (fileName.includes(partyOne)) {
             return doc;
           }

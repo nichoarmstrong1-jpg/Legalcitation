@@ -1,10 +1,13 @@
 import type {
+  AnalyzedCitation,
+  ValidationIssue,
+  DocumentIntegrityReport,
   ShortFormEntry,
   ShortFormSuggestion,
-  PinpointMatchResult,
+  ParsedCitation,
 } from '@legalcitation/shared';
 
-export type { ShortFormEntry, ShortFormSuggestion };
+export type { AnalyzedCitation, ValidationIssue, DocumentIntegrityReport, ShortFormEntry, ShortFormSuggestion };
 
 export const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -58,36 +61,21 @@ export async function authenticatedFetch(
   return res;
 }
 
-export interface AnalyzedCitation {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  parsed: any;
-  issues: ValidationIssue[];
-  verificationStatus: string;
-  verifiedCitation?: string;
-  verifiedCitationHtml?: string;
-  discrepancies: { component: string; userValue: string; verifiedValue: string }[];
-  referenceExamples: { source: string; context: string; url?: string }[];
-  logicTrace: string[];
-  score: number;
-  shortForms?: (string | ShortFormEntry)[];
-  shortFormSuggestions?: ShortFormSuggestion[];
-  pinpointMatch?: PinpointMatchResult;
-}
-
-export interface ValidationIssue {
-  id: string;
-  rule: string;
-  source: 'Bluebook' | 'Indigo' | 'Context' | 'Verification';
-  severity: 'error' | 'warning' | 'suggestion';
-  message: string;
-  suggestion: string;
-  antecedentIndex?: number;
-  antecedentText?: string;
-}
-
 export interface AnalyzeResponse {
   results: AnalyzedCitation[];
   citationCount: number;
+}
+
+export interface FootnoteSummary {
+  number: number;
+  citationCount: number;
+  citationIds: string[];
+}
+
+export interface FootnoteAnalyzeResponse extends AnalyzeResponse {
+  footnoteCount: number;
+  footnotes: FootnoteSummary[];
+  integrityReport: DocumentIntegrityReport;
 }
 
 export async function analyzeText(
@@ -108,6 +96,27 @@ export async function analyzeText(
   if (!res.ok) {
     const errBody = await res.json().catch(() => null);
     throw new Error(errBody?.message || errBody?.error || `Analysis failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function analyzeFootnotes(
+  text: string,
+  documentIds?: string[]
+): Promise<FootnoteAnalyzeResponse> {
+  const body: Record<string, unknown> = { text };
+  if (documentIds && documentIds.length > 0) {
+    body.documentIds = documentIds;
+  }
+
+  const res = await authenticatedFetch(`${API_BASE}/analyze/footnotes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => null);
+    throw new Error(errBody?.message || errBody?.error || `Footnote analysis failed: ${res.status}`);
   }
   return res.json();
 }
@@ -304,8 +313,7 @@ export interface SpadingAnnotation {
   startOffset: number;
   endOffset: number;
   rawCitationText: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  parsedCitation: any;
+  parsedCitation: ParsedCitation | null;
   status: AnnotationStatus;
   issues: ValidationIssue[];
   score: number | null;
