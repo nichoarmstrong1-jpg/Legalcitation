@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { detectCitations, extractAndParseCitations } from '../index.js';
-import type { CaseComponents, ShortFormComponents, StatuteComponents, ConstitutionComponents, RegulationComponents } from '@legalcitation/shared';
+import type { CaseComponents, StatuteComponents, ConstitutionComponents, RegulationComponents } from '@legalcitation/shared';
 
 describe('detectCitations', () => {
   it('detects a full case citation', () => {
@@ -50,6 +50,54 @@ describe('detectCitations', () => {
   it('returns empty array for text with no citations', () => {
     const spans = detectCitations('This is a normal sentence with no legal citations.');
     expect(spans).toEqual([]);
+  });
+
+  it('does not over-highlight into surrounding prose after a full case citation', () => {
+    const text = 'Pickering v. Bd. of Educ. of Twp. High Sch. Dist. 205, Will Cty., 391 U.S. 563, 582 (1968). First, the employee must prove public concern.';
+    const spans = detectCitations(text);
+    const pickering = spans.find(span => span.type === 'full_case' && span.text.includes('Pickering v.'));
+    expect(pickering).toBeDefined();
+    expect(pickering?.text).toBe('Pickering v. Bd. of Educ. of Twp. High Sch. Dist. 205, Will Cty., 391 U.S. 563, 582 (1968).');
+  });
+
+  it('detects adjacent full citations and trailing Id. in sequence', () => {
+    const text = [
+      'Pickering v. Bd. of Educ. of Twp. High Sch. Dist. 205, Will Cty., 391 U.S. 563, 582 (1968).',
+      'Bryson v. Waycross, 888 F.2d 1562, 1565 (11th Cir. 1989).',
+      'Id. at 1566.',
+    ].join(' ');
+    const parsed = extractAndParseCitations(text);
+    expect(parsed.length).toBeGreaterThanOrEqual(3);
+    expect(parsed[0].type).toBe('case');
+    expect(parsed[1].type).toBe('case');
+    expect(parsed[2].type).toBe('id');
+    expect(parsed[1].rawText).toContain('Bryson v. Waycross');
+  });
+
+  it('detects a case with parallel reporters as one full-case span', () => {
+    const text = 'Molinaro v. New Jersey, 396 U.S. 365, 90 S. Ct. 498, 24 L. Ed. 2d 586 (1970).';
+    const spans = detectCitations(text);
+    expect(spans.length).toBeGreaterThanOrEqual(1);
+    const full = spans.find(span => span.type === 'full_case');
+    expect(full).toBeDefined();
+    expect(full?.text).toContain('396 U.S. 365, 90 S. Ct. 498, 24 L. Ed. 2d 586 (1970).');
+  });
+
+  it('detects wrapped-line citations from brief-style text', () => {
+    const text = 'United States v. Timbers\nPreserve, Routt Cnty., Colo., 999 F.2d 452, 453\n(10th Cir. 1993).';
+    const spans = detectCitations(text);
+    const timbers = spans.find(span => span.type === 'full_case' && span.text.includes('Timbers'));
+    expect(timbers).toBeDefined();
+    expect(timbers?.text).toContain('999 F.2d 452, 453');
+    expect(timbers?.text).toContain('(10th Cir. 1993).');
+  });
+
+  it('detects TOA-style case lines without including dot leaders and page locators', () => {
+    const text = 'Molinaro v. New Jersey, 396 U.S. 365 (1970) ............ 3';
+    const spans = detectCitations(text);
+    const molinaro = spans.find(span => span.type === 'full_case' && span.text.includes('Molinaro v.'));
+    expect(molinaro).toBeDefined();
+    expect(molinaro?.text).toBe('Molinaro v. New Jersey, 396 U.S. 365 (1970)');
   });
 });
 

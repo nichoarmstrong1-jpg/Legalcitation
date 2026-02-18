@@ -22,52 +22,95 @@ const REPORTER_ALT = reporterAltParts.join('|');
  * patterns, then expand boundaries to capture the full citation.
  */
 export function detectCitations(text: string): DetectedSpan[] {
+  const normalizedText = normalizeTextForDetection(text);
   const spans: DetectedSpan[] = [];
 
   // 1. Detect Id. citations
-  detectIdCitations(text, spans);
+  detectIdCitations(normalizedText, spans);
 
   // 2. Detect supra citations
-  detectSupraCitations(text, spans);
+  detectSupraCitations(normalizedText, spans);
 
   // 2b. Detect infra citations
-  detectInfraCitations(text, spans);
+  detectInfraCitations(normalizedText, spans);
 
   // 3. Detect full case citations (anchored on reporter abbreviation)
-  detectFullCaseCitations(text, spans);
+  detectFullCaseCitations(normalizedText, spans);
 
   // 4. Detect short form case citations (Party, Vol Rep at Page)
-  detectShortCaseCitations(text, spans);
+  detectShortCaseCitations(normalizedText, spans);
 
   // 5. Detect statute citations
-  detectStatuteCitations(text, spans);
+  detectStatuteCitations(normalizedText, spans);
 
   // 6. Detect constitution citations
-  detectConstitutionCitations(text, spans);
+  detectConstitutionCitations(normalizedText, spans);
 
   // 7. Detect regulation citations (C.F.R.)
-  detectRegulationCitations(text, spans);
+  detectRegulationCitations(normalizedText, spans);
 
   // 8. Detect restatement citations
-  detectRestatementCitations(text, spans);
+  detectRestatementCitations(normalizedText, spans);
 
   // 9. Detect article/journal citations
-  detectArticleCitations(text, spans);
+  detectArticleCitations(normalizedText, spans);
 
   // 10. Detect book/treatise citations
-  detectBookCitations(text, spans);
+  detectBookCitations(normalizedText, spans);
 
   // 11. Detect internet/electronic source citations
-  detectInternetCitations(text, spans);
+  detectInternetCitations(normalizedText, spans);
 
   // 12. Detect AI-generated content citations
-  detectAiCitations(text, spans);
+  detectAiCitations(normalizedText, spans);
 
   // 13. Detect unpublished/forthcoming citations
-  detectUnpublishedCitations(text, spans);
+  detectUnpublishedCitations(normalizedText, spans);
 
   // Remove overlapping spans (keep the longer/first one)
   return deduplicateSpans(spans);
+}
+
+function normalizeTextForDetection(text: string): string {
+  // Keep string length stable so span offsets remain valid.
+  let normalized = text.replace(/\r\n?/g, '\n');
+
+  // Join hard-wrapped citation lines common in appellate briefs/OCR dumps.
+  normalized = normalized.replace(
+    /([A-Za-z0-9.,;:)\]])\n(?=[A-Za-z0-9([{"'])/g,
+    '$1 '
+  );
+
+  // Remove TOA dot-leader page locators from citation matching, preserving offsets.
+  normalized = normalized.replace(
+    /\.{3,}\s*(?:\d+(?:\s*,\s*\d+)*|passim)\b/gi,
+    (match) => ' '.repeat(match.length)
+  );
+
+  return normalized;
+}
+
+function pushTrimmedSpan(
+  spans: DetectedSpan[],
+  text: string,
+  start: number,
+  end: number,
+  type: DetectedSpan['type']
+): void {
+  let safeStart = Math.max(0, Math.min(start, text.length));
+  let safeEnd = Math.max(safeStart, Math.min(end, text.length));
+
+  while (safeStart < safeEnd && /\s/.test(text[safeStart])) safeStart++;
+  while (safeEnd > safeStart && /\s/.test(text[safeEnd - 1])) safeEnd--;
+
+  if (safeEnd <= safeStart) return;
+
+  spans.push({
+    text: text.slice(safeStart, safeEnd),
+    start: safeStart,
+    end: safeEnd,
+    type,
+  });
 }
 
 function detectIdCitations(text: string, spans: DetectedSpan[]): void {
@@ -76,14 +119,7 @@ function detectIdCitations(text: string, spans: DetectedSpan[]): void {
   const idPattern = /\*?Id\.\*?\s*(?:at\s+\d[\d,\s–n.-]*|[§¶]\s*[\d.]+(?:\([a-zA-Z0-9]+\))*)?/gi;
   let match;
   while ((match = idPattern.exec(text)) !== null) {
-    const trimmed = match[0].trim();
-    if (!trimmed) continue;
-    spans.push({
-      text: trimmed,
-      start: match.index,
-      end: match.index + trimmed.length,
-      type: 'id',
-    });
+    pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'id');
   }
 }
 
@@ -92,12 +128,7 @@ function detectSupraCitations(text: string, spans: DetectedSpan[]): void {
   const supraPattern = /\b([A-Z][a-zA-Z']+),?\s+supra\s+(?:note\s+\d+)?(?:,\s*at\s+\d[\d–-]*)?/g;
   let match;
   while ((match = supraPattern.exec(text)) !== null) {
-    spans.push({
-      text: match[0].trim(),
-      start: match.index,
-      end: match.index + match[0].trim().length,
-      type: 'supra',
-    });
+    pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'supra');
   }
 }
 
@@ -106,12 +137,7 @@ function detectInfraCitations(text: string, spans: DetectedSpan[]): void {
   const infraPattern = /\b(?:see\s+)?infra\s+(?:note\s+\d+(?:\s+and\s+accompanying\s+text)?|Part\s+[IVX\d]+|Section\s+[IVX\d]+|§\s*[\d.]+|text\s+accompanying\s+note(?:s)?\s+\d+(?:\s*[–-]\s*\d+)?)/gi;
   let match;
   while ((match = infraPattern.exec(text)) !== null) {
-    spans.push({
-      text: match[0].trim(),
-      start: match.index,
-      end: match.index + match[0].trim().length,
-      type: 'infra',
-    });
+    pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'infra');
   }
 }
 
@@ -130,39 +156,53 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
     let caseStart = reporterStart;
     const lookbackDistance = 500;
     const textBefore = text.slice(Math.max(0, reporterStart - lookbackDistance), reporterStart);
+    const lookbackBase = Math.max(0, reporterStart - lookbackDistance);
 
+    // Compute the most recent sentence-like boundary before this reporter anchor
+    // (excluding "v."), then prefer case-name matching after that boundary.
+    const boundaryPattern = /(?<!\bv)[.;]\s+([A-Z])/g;
+    let lastBoundary = -1;
+    let boundaryMatch;
+    while ((boundaryMatch = boundaryPattern.exec(textBefore)) !== null) {
+      lastBoundary = boundaryMatch.index + boundaryMatch[0].length - 1;
+    }
     // Find the case name by looking backward for party v. party pattern
     // Use [^;]+ after v. to handle commas in party names (e.g., "Burke Cnty., Ga.")
     // while stopping at semicolons which are citation boundaries
     const vPattern = /([A-Z][^.;]*?\s+v\.\s+[^;]+),\s*$/;
     const vMatch = textBefore.match(vPattern);
-    if (vMatch && vMatch.index !== undefined) {
-      caseStart = Math.max(0, reporterStart - lookbackDistance) + vMatch.index;
+    const crossesPriorSentence =
+      vMatch && vMatch.index !== undefined
+        ? /\)\.\s+[A-Z][^,;]{1,120}\s+v\.?\s+/.test(textBefore.slice(vMatch.index))
+        : false;
+
+    if (vMatch && vMatch.index !== undefined && !crossesPriorSentence) {
+      caseStart = lookbackBase + vMatch.index;
     } else {
+      const searchableBefore = lastBoundary >= 0 ? textBefore.slice(lastBoundary) : textBefore;
+      const searchableBase = lookbackBase + (lastBoundary >= 0 ? lastBoundary : 0);
+
+      const vMatchAfterBoundary = searchableBefore.match(vPattern);
+      if (vMatchAfterBoundary && vMatchAfterBoundary.index !== undefined) {
+        caseStart = searchableBase + vMatchAfterBoundary.index;
+      } else {
       // Also try "v " without period (lazy input)
       const vNoPeriodPattern = /([A-Z][^.;]*?\s+v\s+[^;]+),\s*$/;
-      const vNoPeriodMatch = textBefore.match(vNoPeriodPattern);
+      const vNoPeriodMatch = searchableBefore.match(vNoPeriodPattern);
       if (vNoPeriodMatch && vNoPeriodMatch.index !== undefined) {
-        caseStart = Math.max(0, reporterStart - lookbackDistance) + vNoPeriodMatch.index;
+        caseStart = searchableBase + vNoPeriodMatch.index;
       } else {
         // Try to find "In re", "Ex parte", "In the Matter of", "Estate of", "Guardianship of"
         const inRePattern = /((?:In re|Ex parte|Ex rel\.|In the Matter of|Estate of|Guardianship of)\s+[^,]+),\s*$/;
-        const inReMatch = textBefore.match(inRePattern);
+        const inReMatch = searchableBefore.match(inRePattern);
         if (inReMatch && inReMatch.index !== undefined) {
-          caseStart = Math.max(0, reporterStart - lookbackDistance) + inReMatch.index;
+          caseStart = searchableBase + inReMatch.index;
         } else {
-          // Smarter boundary: find the last sentence terminator (. or ;) followed by a capital letter
-          // Use negative lookbehind to skip "v." (not a sentence boundary)
-          const boundaryPattern = /(?<!\bv)[.;]\s+([A-Z])/g;
-          let lastBoundary = -1;
-          let boundaryMatch;
-          while ((boundaryMatch = boundaryPattern.exec(textBefore)) !== null) {
-            lastBoundary = boundaryMatch.index + boundaryMatch[0].length - 1;
-          }
           if (lastBoundary >= 0) {
-            caseStart = Math.max(0, reporterStart - lookbackDistance) + lastBoundary;
+            caseStart = lookbackBase + lastBoundary;
           }
         }
+      }
       }
     }
 
@@ -187,29 +227,23 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
     const textAfter = text.slice(reporterEnd, reporterEnd + 500);
 
     // Look for optional pincite, then date parenthetical
-    const afterPattern = /^(?:,\s*\d[\d–,\s-]*)?(?:\s*n\.\d+)?\s*\([^)]+\)(?:\s*\([^)]+\))*(?:\s*,\s*(?:aff'd|rev'd|cert\.\s*denied|vacated|modified|reh'g\s*denied|reh'g\s*en\s*banc\s*denied|aff'g|rev'g|remanded|aff'd\s*in\s*part|rev'd\s*in\s*part|overruled\s*by|aff'd\s*sub\s*nom\.|rev'd\s*sub\s*nom\.|cert\.\s*dismissed)[^.;]*)*/;
+    const afterPattern = new RegExp(
+      `^(?:,\\s*\\d[\\d–,\\s-]*)?` +
+      `(?:,\\s*\\d{1,4}\\s+(?:${REPORTER_ALT})\\s+\\d{1,5}(?:,\\s*\\d[\\d–,\\s-]*)?)*` +
+      `(?:\\s*n\\.\\d+)?\\s*\\([^)]+\\)(?:\\s*\\([^)]+\\))*` +
+      `(?:\\s*,\\s*(?:aff'd|rev'd|cert\\.\\s*denied|vacated|modified|reh'g\\s*denied|reh'g\\s*en\\s*banc\\s*denied|aff'g|rev'g|remanded|aff'd\\s*in\\s*part|rev'd\\s*in\\s*part|overruled\\s*by|aff'd\\s*sub\\s*nom\\.|rev'd\\s*sub\\s*nom\\.|cert\\.\\s*dismissed)[^.;]*)*`
+    );
     const afterMatch = textAfter.match(afterPattern);
     if (afterMatch) {
       caseEnd = reporterEnd + afterMatch[0].length;
     }
 
-    // Check for period at end (handle possible whitespace from Word paste)
+    // Include only an immediately adjacent trailing period.
     if (text[caseEnd] === '.') {
       caseEnd++;
-    } else {
-      const nextChars = text.slice(caseEnd, caseEnd + 5);
-      const periodMatch = nextChars.match(/^\s*\./);
-      if (periodMatch) {
-        caseEnd += periodMatch[0].length;
-      }
     }
 
-    spans.push({
-      text: text.slice(caseStart, caseEnd).trim(),
-      start: caseStart,
-      end: caseEnd,
-      type: 'full_case',
-    });
+    pushTrimmedSpan(spans, text, caseStart, caseEnd, 'full_case');
   }
 }
 
@@ -221,14 +255,7 @@ function detectShortCaseCitations(text: string, spans: DetectedSpan[]): void {
   );
   let match;
   while ((match = shortPattern.exec(text)) !== null) {
-    const start = match.index;
-    const end = match.index + match[0].length;
-    spans.push({
-      text: match[0].trim(),
-      start,
-      end,
-      type: 'short_case',
-    });
+    pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'short_case');
   }
 }
 
@@ -237,23 +264,13 @@ function detectStatuteCitations(text: string, spans: DetectedSpan[]): void {
   const uscPattern = /\b(\d{1,2})\s+U\.S\.C\.?\s*§{1,2}\s*([\d\w]+(?:\([a-zA-Z0-9]+\))*)(?:\s*[–-]\s*\d+)?(?:\s*\([^)]+\))?/g;
   let match;
   while ((match = uscPattern.exec(text)) !== null) {
-    spans.push({
-      text: match[0].trim(),
-      start: match.index,
-      end: match.index + match[0].length,
-      type: 'statute',
-    });
+    pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'statute');
   }
 
   // State codes (common pattern: State Code Ann. § section)
   const stateCodePattern = /\b([A-Z][a-z.]+(?:\s+[A-Z][a-z.]+)*)\s+(?:Code|Stat\.|Laws?)\s+(?:Ann\.\s+)?§{1,2}\s*[\d\w:.-]+(?:\s*[–-]\s*[\d\w]+)?(?:\s*\([^)]+\))?/g;
   while ((match = stateCodePattern.exec(text)) !== null) {
-    spans.push({
-      text: match[0].trim(),
-      start: match.index,
-      end: match.index + match[0].length,
-      type: 'statute',
-    });
+    pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'statute');
   }
 }
 
@@ -262,23 +279,13 @@ function detectConstitutionCitations(text: string, spans: DetectedSpan[]): void 
   const usConstPattern = /\bU\.S\.\s+Const\.\s+(?:art\.\s+[IVX]+|amend\.\s+[IVX]+\w*)(?:,\s*§\s*\d+)?(?:,\s*cl\.\s*\d+)?/gi;
   let match;
   while ((match = usConstPattern.exec(text)) !== null) {
-    spans.push({
-      text: match[0].trim(),
-      start: match.index,
-      end: match.index + match[0].length,
-      type: 'constitution',
-    });
+    pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'constitution');
   }
 
   // State constitutions
   const stateConstPattern = /\b[A-Z][a-z]+\.?\s+Const\.\s+(?:art\.\s+[IVX\d]+|§\s*\d+)/gi;
   while ((match = stateConstPattern.exec(text)) !== null) {
-    spans.push({
-      text: match[0].trim(),
-      start: match.index,
-      end: match.index + match[0].length,
-      type: 'constitution',
-    });
+    pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'constitution');
   }
 }
 
@@ -287,23 +294,13 @@ function detectRegulationCitations(text: string, spans: DetectedSpan[]): void {
   const cfrPattern = /\b(\d{1,2})\s+C\.F\.R\.?\s*§?\s*([\d.]+)\s*(?:\(([^)]+)\))?/g;
   let match;
   while ((match = cfrPattern.exec(text)) !== null) {
-    spans.push({
-      text: match[0].trim(),
-      start: match.index,
-      end: match.index + match[0].length,
-      type: 'regulation',
-    });
+    pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'regulation');
   }
 
   // Federal Register
   const fedRegPattern = /\b(\d{1,3})\s+Fed\.\s+Reg\.\s+([\d,]+)\s*(?:\(([^)]+)\))?/g;
   while ((match = fedRegPattern.exec(text)) !== null) {
-    spans.push({
-      text: match[0].trim(),
-      start: match.index,
-      end: match.index + match[0].length,
-      type: 'regulation',
-    });
+    pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'regulation');
   }
 }
 
@@ -315,12 +312,7 @@ function detectRestatementCitations(text: string, spans: DetectedSpan[]): void {
   while ((match = pattern.exec(text)) !== null) {
     let end = match.index + match[0].length;
     if (text[end] === '.') end++;
-    spans.push({
-      text: text.slice(match.index, end).trim(),
-      start: match.index,
-      end,
-      type: 'restatement',
-    });
+    pushTrimmedSpan(spans, text, match.index, end, 'restatement');
   }
 }
 
@@ -357,12 +349,7 @@ function detectArticleCitations(text: string, spans: DetectedSpan[]): void {
 
     if (text[citEnd] === '.') citEnd++;
 
-    spans.push({
-      text: text.slice(citStart, citEnd).trim(),
-      start: citStart,
-      end: citEnd,
-      type: 'article',
-    });
+    pushTrimmedSpan(spans, text, citStart, citEnd, 'article');
   }
 }
 
@@ -406,12 +393,7 @@ function detectBookCitations(text: string, spans: DetectedSpan[]): void {
     const bookStart = Math.max(0, match.index - 500) + candidateStart;
     let end = parenEnd;
     if (text[end] === '.') end++;
-    spans.push({
-      text: text.slice(bookStart, end).trim(),
-      start: bookStart,
-      end,
-      type: 'book',
-    });
+    pushTrimmedSpan(spans, text, bookStart, end, 'book');
   }
 }
 
@@ -470,12 +452,7 @@ function detectInternetCitations(text: string, spans: DetectedSpan[]): void {
     let end = urlEnd;
     if (text[end] === '.') end++;
 
-    spans.push({
-      text: text.slice(citStart, end).trim(),
-      start: citStart,
-      end,
-      type: 'internet',
-    });
+    pushTrimmedSpan(spans, text, citStart, end, 'internet');
   }
 }
 
@@ -511,23 +488,13 @@ function detectAiCitations(text: string, spans: DetectedSpan[]): void {
     let end = onFileEnd;
     if (text[end] === '.') end++;
 
-    spans.push({
-      text: text.slice(citStart, end).trim(),
-      start: citStart,
-      end,
-      type: 'ai_source',
-    });
+    pushTrimmedSpan(spans, text, citStart, end, 'ai_source');
   }
 
   // Detect "(generated by MODEL)" parentheticals
   const generatedByPattern = /[^.]*?\(generated by\s+(?:ChatGPT|GPT-4o?|Claude|DALL-E(?:\s+3)?|Midjourney|Stable Diffusion|[A-Z][a-zA-Z\s]+?)\)\.?/g;
   while ((match = generatedByPattern.exec(text)) !== null) {
-    spans.push({
-      text: match[0].trim(),
-      start: match.index,
-      end: match.index + match[0].length,
-      type: 'ai_source',
-    });
+    pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'ai_source');
   }
 }
 
@@ -549,12 +516,7 @@ function detectUnpublishedCitations(text: string, spans: DetectedSpan[]): void {
     }
     let end = parenEnd;
     if (text[end] === '.') end++;
-    spans.push({
-      text: text.slice(citStart, end).trim(),
-      start: citStart,
-      end,
-      type: 'article', // forthcoming articles are still articles
-    });
+    pushTrimmedSpan(spans, text, citStart, end, 'article'); // forthcoming articles are still articles
   }
 
   // Detect "(unpublished manuscript)" — expand to sentence boundaries
@@ -580,12 +542,7 @@ function detectUnpublishedCitations(text: string, spans: DetectedSpan[]): void {
     }
     let end = citEnd;
     if (text[end] === '.') end++;
-    spans.push({
-      text: text.slice(citStart, end).trim(),
-      start: citStart,
-      end,
-      type: 'unpublished',
-    });
+    pushTrimmedSpan(spans, text, citStart, end, 'unpublished');
   }
 
   // Detect "Working Paper No." — expand to sentence boundaries
@@ -608,12 +565,7 @@ function detectUnpublishedCitations(text: string, spans: DetectedSpan[]): void {
     }
     let end = citEnd;
     if (text[end] === '.') end++;
-    spans.push({
-      text: text.slice(citStart, end).trim(),
-      start: citStart,
-      end,
-      type: 'unpublished',
-    });
+    pushTrimmedSpan(spans, text, citStart, end, 'unpublished');
   }
 
   // Detect dissertations: "(Ph.D. dissertation" or "(LL.M. thesis" etc.
@@ -637,12 +589,7 @@ function detectUnpublishedCitations(text: string, spans: DetectedSpan[]): void {
     }
     let end = citEnd;
     if (text[end] === '.') end++;
-    spans.push({
-      text: text.slice(citStart, end).trim(),
-      start: citStart,
-      end,
-      type: 'unpublished',
-    });
+    pushTrimmedSpan(spans, text, citStart, end, 'unpublished');
   }
 }
 

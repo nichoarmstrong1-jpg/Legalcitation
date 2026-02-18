@@ -39,6 +39,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('in_text');
+  const [analysisText, setAnalysisText] = useState('');
   const [footnoteSummary, setFootnoteSummary] = useState<FootnoteSummary[]>([]);
   const [integrityReport, setIntegrityReport] = useState<DocumentIntegrityReport | null>(null);
   const [integrityExpanded, setIntegrityExpanded] = useState(false);
@@ -76,7 +77,8 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   }, []);
 
   const handleAnalyze = async () => {
-    if (!input.trim()) return;
+    const textToAnalyze = input.trim();
+    if (!textToAnalyze) return;
     setLoading(true);
     setError(null);
     setSelectedIdx(null);
@@ -87,15 +89,17 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
 
     try {
       if (analysisMode === 'footnotes') {
-        const data = await analyzeFootnotes(input.trim(), documentIds.length > 0 ? documentIds : undefined) as FootnoteAnalyzeResponse;
+        const data = await analyzeFootnotes(textToAnalyze, documentIds.length > 0 ? documentIds : undefined) as FootnoteAnalyzeResponse;
         trackEvent('citation_check', { citationCount: data.results.length, mode: 'footnotes' });
-        onResults(data.results, input.trim());
+        onResults(data.results, textToAnalyze);
+        setAnalysisText(textToAnalyze);
         setFootnoteSummary(data.footnotes);
         setIntegrityReport(data.integrityReport);
       } else {
-        const data = await analyzeText(input.trim(), 'citation_sentence', documentIds.length > 0 ? documentIds : undefined);
+        const data = await analyzeText(textToAnalyze, 'citation_sentence', documentIds.length > 0 ? documentIds : undefined);
         trackEvent('citation_check', { citationCount: data.results.length });
-        onResults(data.results, input.trim());
+        onResults(data.results, textToAnalyze);
+        setAnalysisText(textToAnalyze);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
@@ -105,6 +109,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   };
 
   const handleFileText = async (text: string, fileName: string) => {
+    const textToAnalyze = text.trim();
     setUploadedFileName(fileName);
     setInput(text);
     setLoading(true);
@@ -117,15 +122,17 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
 
     try {
       if (analysisMode === 'footnotes') {
-        const data = await analyzeFootnotes(text.trim(), documentIds.length > 0 ? documentIds : undefined) as FootnoteAnalyzeResponse;
+        const data = await analyzeFootnotes(textToAnalyze, documentIds.length > 0 ? documentIds : undefined) as FootnoteAnalyzeResponse;
         trackEvent('citation_check', { citationCount: data.results.length, source: 'file_upload', mode: 'footnotes' });
-        onResults(data.results, text.trim());
+        onResults(data.results, textToAnalyze);
+        setAnalysisText(textToAnalyze);
         setFootnoteSummary(data.footnotes);
         setIntegrityReport(data.integrityReport);
       } else {
-        const data = await analyzeText(text.trim(), 'citation_sentence', documentIds.length > 0 ? documentIds : undefined);
+        const data = await analyzeText(textToAnalyze, 'citation_sentence', documentIds.length > 0 ? documentIds : undefined);
         trackEvent('citation_check', { citationCount: data.results.length, source: 'file_upload' });
-        onResults(data.results, text.trim());
+        onResults(data.results, textToAnalyze);
+        setAnalysisText(textToAnalyze);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
@@ -200,8 +207,8 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   }, [results, acceptedChanges, deniedChanges, showToast]);
 
   const handleCopyAllCorrected = useCallback(async () => {
-    const trimmedInput = input.trim();
-    let correctedText = trimmedInput;
+    const sourceText = analysisText || input.trim();
+    let correctedText = sourceText;
     const sorted = results
       .map((r, i) => ({ result: r, idx: i }))
       .filter(r => r.result.parsed?.position && acceptedChanges.has(r.idx) && r.result.verifiedCitation)
@@ -220,7 +227,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
     } catch {
       showToast('Could not copy — try selecting manually', 'error');
     }
-  }, [input, results, acceptedChanges, showToast]);
+  }, [analysisText, input, results, acceptedChanges, showToast]);
 
   // Keyboard shortcut: Ctrl/Cmd+Z for undo
   useEffect(() => {
@@ -302,7 +309,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   const renderAnnotatedText = () => {
     if (results.length === 0 || !input) return null;
 
-    const trimmedInput = input.trim();
+    const sourceText = analysisText || input.trim();
     const segments: Array<{ text: string; citationIdx?: number }> = [];
     let lastEnd = 0;
 
@@ -316,15 +323,15 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
       if (!pos) continue;
 
       if (pos.start > lastEnd) {
-        segments.push({ text: trimmedInput.slice(lastEnd, pos.start) });
+        segments.push({ text: sourceText.slice(lastEnd, pos.start) });
       }
 
-      segments.push({ text: trimmedInput.slice(pos.start, pos.end), citationIdx: idx });
+      segments.push({ text: sourceText.slice(pos.start, pos.end), citationIdx: idx });
       lastEnd = pos.end;
     }
 
-    if (lastEnd < trimmedInput.length) {
-      segments.push({ text: trimmedInput.slice(lastEnd) });
+    if (lastEnd < sourceText.length) {
+      segments.push({ text: sourceText.slice(lastEnd) });
     }
 
     return (
@@ -580,7 +587,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
 
             <div className="flex justify-between items-center mt-4">
               <button
-                onClick={() => { onResults([], ''); setInput(''); setSelectedIdx(null); setAcceptedChanges(new Set()); setDeniedChanges(new Set()); setUploadedFileName(null); setFootnoteSummary([]); setIntegrityReport(null); }}
+                onClick={() => { onResults([], ''); setInput(''); setAnalysisText(''); setSelectedIdx(null); setAcceptedChanges(new Set()); setDeniedChanges(new Set()); setUploadedFileName(null); setFootnoteSummary([]); setIntegrityReport(null); }}
                 className="text-xs text-surface-400 hover:text-surface-600 transition-colors"
               >
                 Clear and start over

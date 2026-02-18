@@ -7,6 +7,7 @@ import {
   validateCitationSentenceSemicolons,
 } from '../bluebook/citation-form-rules.js';
 import { validateSignal, extractSignal } from '../bluebook/signal-rules.js';
+import { validateContext } from '../context/context-rules.js';
 import type { ParsedCitation } from '@legalcitation/shared';
 
 describe('calculateScore', () => {
@@ -659,5 +660,26 @@ describe('end-to-end: parse → validate → score', () => {
       expect(score).toBeGreaterThanOrEqual(0);
       expect(score).toBeLessThanOrEqual(100);
     }
+  });
+});
+
+describe('context resolution for detected Id. antecedents', () => {
+  it('links Id. to the immediately preceding detected full citation', () => {
+    const text = [
+      'Pickering v. Bd. of Educ. of Twp. High Sch. Dist. 205, Will Cty., 391 U.S. 563, 582 (1968).',
+      'Bryson v. Waycross, 888 F.2d 1562, 1565 (11th Cir. 1989).',
+      'Id. at 1566.',
+    ].join(' ');
+    const parsed = extractAndParseCitations(text);
+    const issueMap = validateContext(parsed);
+    const idCitation = parsed.find(c => c.type === 'id');
+
+    expect(idCitation).toBeDefined();
+    const idIssues = idCitation ? issueMap.get(idCitation.id) ?? [] : [];
+    const antecedentIssue = idIssues.find(
+      issue => issue.severity === 'suggestion' && issue.antecedentText?.includes('Bryson v. Waycross')
+    );
+
+    expect(antecedentIssue).toBeDefined();
   });
 });

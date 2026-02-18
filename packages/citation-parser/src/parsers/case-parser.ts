@@ -1,6 +1,11 @@
 import { v4 as uuid } from 'uuid';
 import type { ParsedCitation, CaseComponents, CitationContext } from '@legalcitation/shared';
-import { VALID_REPORTER_ABBREVIATIONS, ALL_REPORTERS, ALL_HISTORY_ABBREVIATIONS } from '@legalcitation/shared';
+import { VALID_REPORTER_ABBREVIATIONS, ALL_HISTORY_ABBREVIATIONS } from '@legalcitation/shared';
+
+const REPORTER_ALT = Array.from(VALID_REPORTER_ABBREVIATIONS)
+  .sort((a, b) => b.length - a.length)
+  .map(r => r.replace(/\./g, '\\.').replace(/'/g, "\\'"))
+  .join('|');
 
 /**
  * Reporter alias map — maps common lazy/incorrect reporter forms
@@ -53,6 +58,11 @@ const REPORTER_ALIASES: [RegExp, string][] = [
  */
 export function normalizeCitationInput(text: string): string {
   let normalized = text.trim();
+
+  // Join hard-wrapped lines from copied briefs/OCR while preserving paragraph breaks.
+  normalized = normalized
+    .replace(/\r\n?/g, '\n')
+    .replace(/([A-Za-z0-9.,;:)\]])\n(?=[A-Za-z0-9([{"'])/g, '$1 ');
 
   // Fix "v" without period: "Party v Party" → "Party v. Party"
   // Match " v " that's not already " v. "
@@ -175,7 +185,12 @@ function parseStandardCase(text: string): CaseComponents | null {
   let pinCite: string | undefined;
   let afterPinCite = remainder;
 
-  const pinCiteMatch = remainder.match(/^,\s*([\d–\-,\s]+(?:n\.\d+)?)\s*(\(.*)$/);
+  // Strip leading parallel citations (e.g., ", 90 S. Ct. 498, 24 L. Ed. 2d 586")
+  // so date/court parsing can still run on the trailing parenthetical.
+  const parallel = stripLeadingParallelCitations(afterPinCite);
+  afterPinCite = parallel.remaining;
+
+  const pinCiteMatch = afterPinCite.match(/^,\s*([\d–\-,\s]+(?:n\.\d+)?)\s*(\(.*)$/);
   if (pinCiteMatch) {
     pinCite = pinCiteMatch[1].trim();
     afterPinCite = pinCiteMatch[2];
@@ -259,6 +274,22 @@ function parseStandardCase(text: string): CaseComponents | null {
     database,
     electronicReportNumber,
   };
+}
+
+function stripLeadingParallelCitations(remainder: string): { remaining: string } {
+  let remaining = remainder;
+
+  const parallelPattern = new RegExp(
+    `^,\\s*\\d{1,4}\\s+(?:${REPORTER_ALT})\\s+\\d{1,5}(?:,\\s*\\d[\\d–,\\s-]*)?`
+  );
+
+  while (true) {
+    const match = remaining.match(parallelPattern);
+    if (!match) break;
+    remaining = remaining.slice(match[0].length);
+  }
+
+  return { remaining };
 }
 
 /**
