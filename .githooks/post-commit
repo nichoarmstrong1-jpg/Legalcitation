@@ -2,18 +2,37 @@
 set -eu
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-
-echo "Auto-pushing latest commit to origin/main..."
+cd "$REPO_ROOT"
 
 # Allow temporary opt-out per command:
-# AUTO_PUSH_MAIN=0 git commit -m "message"
-if [ "${AUTO_PUSH_MAIN:-1}" = "0" ]; then
-  echo "AUTO_PUSH_MAIN=0 set, skipping auto-push."
+# AUTO_PUSH=0 git commit -m "message"
+if [ "${AUTO_PUSH:-1}" = "0" ]; then
+  echo "AUTO_PUSH=0 set, skipping auto-push."
   exit 0
 fi
 
-git push origin HEAD:main
-echo "Auto-push complete."
-echo "Checking live deployment status..."
+if ! git remote get-url origin >/dev/null 2>&1; then
+  echo "No 'origin' remote configured. Skipping auto-push."
+  exit 0
+fi
 
-sh "$REPO_ROOT/scripts/confirm-live.sh"
+current_branch="$(git branch --show-current || true)"
+if [ -z "$current_branch" ]; then
+  echo "Detached HEAD detected; skipping auto-push. Switch to a branch for automatic push/deploy."
+  exit 0
+fi
+
+echo "Auto-pushing latest commit to origin/$current_branch..."
+if ! git push -u origin "$current_branch"; then
+  echo "Auto-push failed. Commit is saved locally; push manually when ready."
+  exit 0
+fi
+
+if [ "$current_branch" = "main" ]; then
+  echo "main updated. Checking live deployment status..."
+  if ! sh "$REPO_ROOT/scripts/confirm-live.sh"; then
+    echo "Live deployment check did not pass yet. Verify provider dashboards."
+  fi
+else
+  echo "Pushed $current_branch. Live deployment check runs automatically only for main."
+fi

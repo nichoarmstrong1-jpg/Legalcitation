@@ -130,6 +130,7 @@ function AppContent() {
         onAuthOpen={() => openAuth()}
         onTipsOpen={() => setShowTips(true)}
         onTourStart={tour.startTour}
+        isTourActive={tour.isActive}
         onProfileOpen={() => setShowProfile(true)}
         onAdminOpen={() => setShowAdmin(true)}
       />

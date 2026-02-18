@@ -1,8 +1,29 @@
 #!/bin/sh
-export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/local/node/bin:$PATH"
-echo "Running typecheck before commit..."
-npm run typecheck
-if [ $? -ne 0 ]; then
-  echo "Typecheck failed. Fix errors before committing."
+set -eu
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+run_local_typecheck() {
+  echo "Running typecheck with local Node/npm..."
+  npm run typecheck
+}
+
+run_docker_typecheck() {
+  echo "Local Node/npm not found. Running typecheck in Docker Node 22..."
+  docker run --rm -v "$REPO_ROOT":/app -w /app node:22-alpine sh -lc \
+    "npm ci && npm run typecheck"
+}
+
+echo "Running pre-commit typecheck..."
+if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+  run_local_typecheck
+elif command -v docker >/dev/null 2>&1; then
+  run_docker_typecheck
+else
+  echo "Typecheck blocked: neither local Node/npm nor Docker is available."
+  echo "Install Node 22+ (recommended) or Docker to keep pre-commit checks automatic."
   exit 1
 fi
+
+echo "Pre-commit typecheck passed."

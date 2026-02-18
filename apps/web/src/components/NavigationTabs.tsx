@@ -50,7 +50,7 @@ export function NavigationTabs({ mode, onModeChange }: NavigationTabsProps) {
             role="tab"
             aria-selected={isActive}
             tabIndex={isActive ? 0 : -1}
-            {...(tab.id === 'checker' ? { 'data-tour': 'checker-tab' } : {})}
+            data-tour={`${tab.id}-tab`}
             className={`flex-1 px-1.5 sm:px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 ${
               isActive
                 ? 'bg-white shadow-card text-primary-900 border-b-2 border-primary-500'

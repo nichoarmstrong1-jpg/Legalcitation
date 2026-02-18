@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface TourStep {
@@ -20,66 +20,126 @@ interface GuidedTourProps {
 export function GuidedTour({ step, currentStep, totalSteps, onNext, onPrev, onExit }: GuidedTourProps) {
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0, height: 0 });
   const [targetFound, setTargetFound] = useState(false);
-  const tooltipRef = useRef<HTMLDivElement>(null);
+  const missingStepTimerRef = useRef<number | null>(null);
+
+  const updateTargetPosition = useCallback(() => {
+    const target = document.querySelector<HTMLElement>(step.targetSelector);
+    if (!target) {
+      setTargetFound(false);
+      return false;
+    }
+
+    const rect = target.getBoundingClientRect();
+    setTargetFound(true);
+    setPosition({
+      top: rect.top,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    });
+    return true;
+  }, [step.targetSelector]);
 
   useEffect(() => {
-    // Wait a frame for DOM to settle, then find target
-    const raf = requestAnimationFrame(() => {
-      const target = document.querySelector(step.targetSelector);
-      if (!target) {
-        setTargetFound(false);
-        // If target not found, auto-advance to next step after a short delay
-        const timer = setTimeout(() => onNext(), 300);
-        return () => clearTimeout(timer);
+    let attempts = 0;
+    let cancelled = false;
+    const maxAttempts = 10;
+
+    const locateTarget = () => {
+      if (cancelled) return;
+      const found = updateTargetPosition();
+      if (found) {
+        const target = document.querySelector<HTMLElement>(step.targetSelector);
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        return;
       }
 
-      setTargetFound(true);
-      const rect = target.getBoundingClientRect();
-      setPosition({
-        top: rect.top + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width,
-        height: rect.height,
-      });
+      if (attempts < maxAttempts) {
+        attempts += 1;
+        window.setTimeout(locateTarget, 120);
+      } else if (!missingStepTimerRef.current) {
+        // Keep users from getting stuck if an element is unavailable in this viewport/mode.
+        missingStepTimerRef.current = window.setTimeout(() => {
+          onNext();
+          missingStepTimerRef.current = null;
+        }, 1200);
+      }
+    };
 
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
+    const raf = requestAnimationFrame(locateTarget);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      if (missingStepTimerRef.current) {
+        window.clearTimeout(missingStepTimerRef.current);
+        missingStepTimerRef.current = null;
+      }
+    };
+  }, [step.targetSelector, onNext, updateTargetPosition]);
 
-    return () => cancelAnimationFrame(raf);
-  }, [step.targetSelector, onNext]);
+  useEffect(() => {
+    if (!targetFound) return;
+    const handleReposition = () => {
+      updateTargetPosition();
+    };
+    window.addEventListener('resize', handleReposition);
+    window.addEventListener('scroll', handleReposition, true);
+    return () => {
+      window.removeEventListener('resize', handleReposition);
+      window.removeEventListener('scroll', handleReposition, true);
+    };
+  }, [targetFound, updateTargetPosition]);
 
-  if (!targetFound) return null;
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onExit();
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onExit]);
 
   const getTooltipStyle = (): React.CSSProperties => {
     const padding = 12;
+    const maxWidth = 320;
+    const viewportPadding = 16;
+    const approxTooltipHeight = 220;
+    const clampHorizontal = (value: number) => {
+      const maxLeft = Math.max(viewportPadding, window.innerWidth - maxWidth - viewportPadding);
+      return Math.min(Math.max(viewportPadding, value), maxLeft);
+    };
+    const clampVertical = (value: number) => {
+      const maxTop = Math.max(viewportPadding, window.innerHeight - approxTooltipHeight - viewportPadding);
+      return Math.min(Math.max(viewportPadding, value), maxTop);
+    };
+
     switch (step.placement) {
       case 'bottom':
         return {
-          position: 'absolute',
-          top: position.top + position.height + padding,
-          left: Math.max(16, position.left + position.width / 2 - 160),
-          maxWidth: 320,
+          position: 'fixed',
+          top: clampVertical(position.top + position.height + padding),
+          left: clampHorizontal(position.left + position.width / 2 - 160),
+          maxWidth,
         };
       case 'top':
         return {
-          position: 'absolute',
-          top: position.top - padding - 160,
-          left: Math.max(16, position.left + position.width / 2 - 160),
-          maxWidth: 320,
+          position: 'fixed',
+          top: clampVertical(position.top - padding - approxTooltipHeight),
+          left: clampHorizontal(position.left + position.width / 2 - 160),
+          maxWidth,
         };
       case 'left':
         return {
-          position: 'absolute',
-          top: position.top,
-          left: Math.max(16, position.left - 336),
-          maxWidth: 320,
+          position: 'fixed',
+          top: clampVertical(position.top),
+          left: clampHorizontal(position.left - 336),
+          maxWidth,
         };
       case 'right':
         return {
-          position: 'absolute',
-          top: position.top,
-          left: position.left + position.width + padding,
-          maxWidth: 320,
+          position: 'fixed',
+          top: clampVertical(position.top),
+          left: clampHorizontal(position.left + position.width + padding),
+          maxWidth,
         };
     }
   };
@@ -87,24 +147,26 @@ export function GuidedTour({ step, currentStep, totalSteps, onNext, onPrev, onEx
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Feature tour">
       {/* Overlay — blocks interaction but does NOT dismiss on click */}
-      <div className="absolute inset-0 bg-black/40 transition-opacity" />
+      <div className="absolute inset-0 bg-black/40 transition-opacity" onClick={onExit} />
 
       {/* Highlight cutout */}
-      <div
-        className="absolute rounded-xl ring-4 ring-primary-400 ring-offset-4 z-10 pointer-events-none transition-all duration-300"
-        style={{
-          top: position.top - 4,
-          left: position.left - 4,
-          width: position.width + 8,
-          height: position.height + 8,
-        }}
-      />
+      {targetFound && (
+        <div
+          className="fixed rounded-xl ring-4 ring-primary-400 ring-offset-4 z-10 pointer-events-none transition-all duration-300"
+          style={{
+            top: position.top - 4,
+            left: position.left - 4,
+            width: position.width + 8,
+            height: position.height + 8,
+          }}
+        />
+      )}
 
       {/* Tooltip */}
       <div
-        ref={tooltipRef}
         className="z-20 bg-white rounded-2xl shadow-modal p-5 animate-scale-in"
-        style={getTooltipStyle()}
+        style={targetFound ? getTooltipStyle() : { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', maxWidth: 320 }}
+        onClick={(event) => event.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
@@ -123,6 +185,11 @@ export function GuidedTour({ step, currentStep, totalSteps, onNext, onPrev, onEx
         {/* Content */}
         <h3 className="text-sm font-bold text-primary-900 mb-1.5">{step.title}</h3>
         <p className="text-xs text-surface-500 leading-relaxed">{step.description}</p>
+        {!targetFound && (
+          <p className="text-[11px] text-warning-700 bg-warning-50 border border-warning-100 rounded-lg px-2 py-1.5 mt-2">
+            This feature is not visible right now. Continuing will skip to the next step.
+          </p>
+        )}
 
         {/* Progress bar */}
         <div className="flex gap-1 mt-4 mb-3">

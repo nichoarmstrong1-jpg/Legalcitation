@@ -9,6 +9,12 @@ export interface TourStep {
 
 const TOUR_STEPS: TourStep[] = [
   {
+    targetSelector: '[data-tour="builder-tab"]',
+    title: 'Citation Builder',
+    description: 'Use Builder to search for a case and generate a Bluebook citation from a case name, topic, or partial citation.',
+    placement: 'bottom',
+  },
+  {
     targetSelector: '[data-tour="builder-input"]',
     title: 'Search for Cases',
     description: 'Type any case name, description, or legal topic to search. We\'ll find matching cases and build properly formatted Bluebook citations.',
@@ -18,6 +24,12 @@ const TOUR_STEPS: TourStep[] = [
     targetSelector: '[data-tour="checker-tab"]',
     title: 'Check Citations',
     description: 'Paste your legal text to check all citations at once. Each citation is analyzed against Bluebook rules with inline highlighting.',
+    placement: 'bottom',
+  },
+  {
+    targetSelector: '[data-tour="spading-tab"]',
+    title: 'Journal Spading',
+    description: 'Run cite-checking workflows for law review articles and identify citation issues at scale.',
     placement: 'bottom',
   },
   {

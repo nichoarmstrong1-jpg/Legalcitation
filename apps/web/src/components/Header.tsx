@@ -9,11 +9,12 @@ interface HeaderProps {
   onAuthOpen: () => void;
   onTipsOpen: () => void;
   onTourStart?: () => void;
+  isTourActive?: boolean;
   onAdminOpen?: () => void;
   onProfileOpen?: () => void;
 }
 
-export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpen, onTipsOpen, onTourStart, onAdminOpen, onProfileOpen }: HeaderProps) {
+export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpen, onTipsOpen, onTourStart, isTourActive, onAdminOpen, onProfileOpen }: HeaderProps) {
   const { user, logout, isLoading } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -76,12 +77,18 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpe
           {onTourStart && (
             <button
               onClick={onTourStart}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-surface-400 hover:text-primary-700 hover:bg-surface-100 rounded-xl transition-all duration-200"
-              title="Take a Tour"
-              aria-label="Take a tour"
+              disabled={isTourActive}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-xl transition-all duration-200 ${
+                isTourActive
+                  ? 'text-primary-700 bg-primary-50 cursor-default'
+                  : 'text-surface-400 hover:text-primary-700 hover:bg-surface-100'
+              }`}
+              title={isTourActive ? 'Tour is active' : 'Take a Tour'}
+              aria-label={isTourActive ? 'Tour is active' : 'Take a tour'}
+              data-tour="tour-btn"
             >
               <HelpCircle className="w-4 h-4" />
-              <span className="hidden lg:inline">Tour</span>
+              <span className="hidden lg:inline">{isTourActive ? 'Touring' : 'Tour'}</span>
             </button>
           )}
 
@@ -229,6 +236,21 @@ export function Header({ formatStyle, onFormatChange, onHistoryToggle, onAuthOpe
                   </button>
                 </div>
               </div>
+
+              {onTourStart && (
+                <button
+                  onClick={() => { setShowMobileMenu(false); onTourStart(); }}
+                  disabled={isTourActive}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2 ${
+                    isTourActive
+                      ? 'text-primary-700 bg-primary-50'
+                      : 'text-surface-700 hover:bg-surface-50'
+                  }`}
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  {isTourActive ? 'Tour in Progress' : 'Take a Tour'}
+                </button>
+              )}
 
               {isLoading ? null : user ? (
                 <>
