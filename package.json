@@ -12,6 +12,7 @@
     "dev:api": "npm run dev -w apps/api",
     "guardrails:env": "sh scripts/check-env-example.sh",
     "ship:ready": "sh scripts/ship-ready.sh",
+    "deploy:live": "sh scripts/deploy-live.sh",
     "build": "npm run build -w packages/shared && npm run build -w packages/citation-parser && npm run build -w packages/rule-engine && npm run build -w packages/verification && npm run build -w apps/api && npm run build -w apps/web",
     "build:api": "npm run build -w packages/shared && npm run build -w packages/citation-parser && npm run build -w packages/rule-engine && npm run build -w packages/verification && npm run build -w apps/api",
     "test": "vitest run",
