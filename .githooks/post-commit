@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+echo "Auto-pushing latest commit to origin/main..."
+
+# Allow temporary opt-out per command:
+# AUTO_PUSH_MAIN=0 git commit -m "message"
+if [ "${AUTO_PUSH_MAIN:-1}" = "0" ]; then
+  echo "AUTO_PUSH_MAIN=0 set, skipping auto-push."
+  exit 0
+fi
+
+git push origin HEAD:main
+echo "Auto-push complete."
