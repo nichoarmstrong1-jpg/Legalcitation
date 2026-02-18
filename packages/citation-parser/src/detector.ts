@@ -231,15 +231,20 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
       `^(?:,\\s*\\d[\\d–,\\s-]*)?` +
       `(?:,\\s*\\d{1,4}\\s+(?:${REPORTER_ALT})\\s+\\d{1,5}(?:,\\s*\\d[\\d–,\\s-]*)?)*` +
       `(?:\\s*n\\.\\d+)?\\s*\\([^)]+\\)(?:\\s*\\([^)]+\\))*` +
-      `(?:\\s*,\\s*(?:aff'd|rev'd|cert\\.\\s*denied|vacated|modified|reh'g\\s*denied|reh'g\\s*en\\s*banc\\s*denied|aff'g|rev'g|remanded|aff'd\\s*in\\s*part|rev'd\\s*in\\s*part|overruled\\s*by|aff'd\\s*sub\\s*nom\\.|rev'd\\s*sub\\s*nom\\.|cert\\.\\s*dismissed)[^.;]*)*`
+      `(?:\\s*,\\s*(?:aff'd|rev'd|cert\\.\\s*denied|vacated|modified|reh'g\\s*denied|reh'g\\s*en\\s*banc\\s*denied|aff'g|rev'g|remanded|aff'd\\s*in\\s*part|rev'd\\s*in\\s*part|overruled\\s*by|aff'd\\s*sub\\s*nom\\.|rev'd\\s*sub\\s*nom\\.|cert\\.\\s*dismissed)` +
+      `(?:\\s+[A-Z][A-Za-z0-9'&.,\\-\\s]{0,120})?` +
+      `(?:,\\s*\\d{1,4}\\s+(?:${REPORTER_ALT})\\s+\\d{1,5}(?:,\\s*\\d[\\d–,\\s-]*)?)?` +
+      `(?:\\s*\\([^)]+\\))?` +
+      `)*`
     );
     const afterMatch = textAfter.match(afterPattern);
     if (afterMatch) {
       caseEnd = reporterEnd + afterMatch[0].length;
     }
 
-    // Include only an immediately adjacent trailing period.
-    if (text[caseEnd] === '.') {
+    // Include an immediately adjacent period only when it is likely citation punctuation.
+    const charBeforePeriod = text[caseEnd - 1] || '';
+    if (text[caseEnd] === '.' && (charBeforePeriod === ')' || /\d/.test(charBeforePeriod))) {
       caseEnd++;
     }
 

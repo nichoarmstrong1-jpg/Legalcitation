@@ -329,7 +329,7 @@ export async function runSpadingPipeline(projectId: string): Promise<void> {
     });
 
     // Run rule engine on all citations at once (includes context rules)
-    const issueMap = runFullAnalysis(parsedCitations);
+    const issueMap = runFullAnalysis(parsedCitations, journalText);
 
     // Step 3: Load source documents
     emitProgress(projectId, {

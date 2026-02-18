@@ -60,6 +60,18 @@ describe('detectCitations', () => {
     expect(pickering?.text).toBe('Pickering v. Bd. of Educ. of Twp. High Sch. Dist. 205, Will Cty., 391 U.S. 563, 582 (1968).');
   });
 
+  it('keeps narrative text after Connick separate from the next citation', () => {
+    const text = 'Connick v. Myers, 461 U.S. 138, 148 (1983). Public concern refers to "subjects of legitimate news interest." City of San Diego v. Roe, 543 U.S. 77, 84 (2004).';
+    const spans = detectCitations(text);
+    const connick = spans.find(span => span.type === 'full_case' && span.text.includes('Connick v. Myers'));
+    const roe = spans.find(span => span.type === 'full_case' && span.text.includes('City of San Diego v. Roe'));
+
+    expect(connick).toBeDefined();
+    expect(connick?.text).toBe('Connick v. Myers, 461 U.S. 138, 148 (1983).');
+    expect(roe).toBeDefined();
+    expect(roe?.text).toBe('City of San Diego v. Roe, 543 U.S. 77, 84 (2004).');
+  });
+
   it('detects adjacent full citations and trailing Id. in sequence', () => {
     const text = [
       'Pickering v. Bd. of Educ. of Twp. High Sch. Dist. 205, Will Cty., 391 U.S. 563, 582 (1968).',

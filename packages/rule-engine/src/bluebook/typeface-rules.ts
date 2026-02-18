@@ -348,7 +348,7 @@ function checkAcademicShortFormTypeface(
 ): void {
   if (citation.type === 'id') {
     // "Id." should be italicized — check for non-italicized "Id."
-    if (rawText.includes('Id.') && !rawText.includes('*Id.*')) {
+    if (rawText.includes('Id.') && !rawText.includes('*Id.*') && !rawText.includes('_Id._')) {
       issues.push({
         id: uuid(),
         rule: 'R. 2.1',
@@ -361,7 +361,7 @@ function checkAcademicShortFormTypeface(
   }
 
   if (citation.type === 'supra') {
-    if (rawText.includes('supra') && !rawText.includes('*supra*')) {
+    if (rawText.includes('supra') && !rawText.includes('*supra*') && !rawText.includes('_supra_')) {
       issues.push({
         id: uuid(),
         rule: 'R. 2.1',

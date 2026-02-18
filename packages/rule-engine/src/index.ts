@@ -220,7 +220,10 @@ export function runAllRules(citation: ParsedCitation): ValidationIssue[] {
 /**
  * Run all rules including context-aware validation on a list of citations.
  */
-export function runFullAnalysis(citations: ParsedCitation[]): Map<string, ValidationIssue[]> {
+export function runFullAnalysis(
+  citations: ParsedCitation[],
+  sourceText?: string
+): Map<string, ValidationIssue[]> {
   const issueMap = new Map<string, ValidationIssue[]>();
 
   // Per-citation rules
@@ -257,7 +260,7 @@ export function runFullAnalysis(citations: ParsedCitation[]): Map<string, Valida
   }
 
   // R. 1.4: Citation ordering within string citations
-  const citOrderIssues = validateCitationOrder(citations);
+  const citOrderIssues = validateCitationOrder(citations, sourceText);
   for (const [id, issues] of citOrderIssues) {
     const existing = issueMap.get(id) || [];
     issueMap.set(id, [...existing, ...issues]);
@@ -285,7 +288,8 @@ function mergeIssues(
  * citation ordering within footnotes, and cross-reference validation.
  */
 export function runFootnoteAnalysis(
-  docMap: DocumentCitationMap
+  docMap: DocumentCitationMap,
+  sourceText?: string
 ): { issueMap: Map<string, ValidationIssue[]>; integrityReport: DocumentIntegrityReport } {
   const issueMap = new Map<string, ValidationIssue[]>();
   const allCitations = docMap.allCitations;
@@ -309,7 +313,7 @@ export function runFootnoteAnalysis(
 
   // R. 1.4: Citation ordering within each footnote
   for (const [, citations] of docMap.footnotes) {
-    const orderIssues = validateCitationOrder(citations);
+    const orderIssues = validateCitationOrder(citations, sourceText);
     mergeIssues(issueMap, orderIssues);
   }
 

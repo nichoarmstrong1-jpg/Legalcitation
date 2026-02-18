@@ -55,7 +55,7 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
     }
 
     // Run rules on all citations (including context rules)
-    const issueMap = runFullAnalysis(parsed);
+    const issueMap = runFullAnalysis(parsed, text);
 
     // Build analyzed citation results
     const results: AnalyzedCitation[] = parsed.map(citation => {
@@ -221,7 +221,7 @@ analyzeRouter.post('/footnotes', validateAnalyzeText, async (req: Request, res: 
     };
 
     // Run footnote analysis
-    const { issueMap, integrityReport } = runFootnoteAnalysis(docMap);
+    const { issueMap, integrityReport } = runFootnoteAnalysis(docMap, text);
 
     // Build analyzed citation results
     const results: AnalyzedCitation[] = allCitations.map(citation => {

@@ -19,6 +19,22 @@ function mockCitation(
   } as ParsedCitation;
 }
 
+function makeStringCiteText(citations: ParsedCitation[]): string {
+  const parts: string[] = [];
+  let offset = 0;
+  for (let idx = 0; idx < citations.length; idx++) {
+    const citation = citations[idx];
+    const text = citation.rawText || `citation ${idx + 1}`;
+    citation.position = { start: offset, end: offset + text.length };
+    parts.push(text);
+    offset += text.length;
+    if (idx < citations.length - 1) {
+      offset += 2; // "; "
+    }
+  }
+  return parts.join('; ');
+}
+
 describe('R. 1.4 — Citation Order Rules', () => {
   describe('authority type ordering', () => {
     it('correct order: constitution before statute before case produces no issues', () => {
@@ -47,7 +63,7 @@ describe('R. 1.4 — Citation Order Rules', () => {
         }),
       ];
 
-      const issueMap = validateCitationOrder(citations);
+      const issueMap = validateCitationOrder(citations, makeStringCiteText(citations));
       expect(issueMap.size).toBe(0);
     });
 
@@ -72,7 +88,7 @@ describe('R. 1.4 — Citation Order Rules', () => {
         }),
       ];
 
-      const issueMap = validateCitationOrder(citations);
+      const issueMap = validateCitationOrder(citations, makeStringCiteText(citations));
       expect(issueMap.size).toBeGreaterThan(0);
 
       const allIssues = [...issueMap.values()].flat();
@@ -100,7 +116,7 @@ describe('R. 1.4 — Citation Order Rules', () => {
         }),
       ];
 
-      const issueMap = validateCitationOrder(citations);
+      const issueMap = validateCitationOrder(citations, makeStringCiteText(citations));
       expect(issueMap.size).toBeGreaterThan(0);
     });
   });
@@ -135,7 +151,7 @@ describe('R. 1.4 — Citation Order Rules', () => {
         }),
       ];
 
-      const issueMap = validateCitationOrder(citations);
+      const issueMap = validateCitationOrder(citations, makeStringCiteText(citations));
       expect(issueMap.size).toBe(0);
     });
 
@@ -168,7 +184,7 @@ describe('R. 1.4 — Citation Order Rules', () => {
         }),
       ];
 
-      const issueMap = validateCitationOrder(citations);
+      const issueMap = validateCitationOrder(citations, makeStringCiteText(citations));
       expect(issueMap.size).toBeGreaterThan(0);
     });
 
@@ -202,7 +218,7 @@ describe('R. 1.4 — Citation Order Rules', () => {
         }),
       ];
 
-      const issueMap = validateCitationOrder(citations);
+      const issueMap = validateCitationOrder(citations, makeStringCiteText(citations));
       expect(issueMap.size).toBe(0);
     });
 
@@ -236,7 +252,7 @@ describe('R. 1.4 — Citation Order Rules', () => {
         }),
       ];
 
-      const issueMap = validateCitationOrder(citations);
+      const issueMap = validateCitationOrder(citations, makeStringCiteText(citations));
       expect(issueMap.size).toBeGreaterThan(0);
     });
   });
@@ -270,7 +286,7 @@ describe('R. 1.4 — Citation Order Rules', () => {
         }),
       ];
 
-      const issueMap = validateCitationOrder(citations);
+      const issueMap = validateCitationOrder(citations, makeStringCiteText(citations));
       expect(issueMap.size).toBe(0);
     });
 
@@ -302,7 +318,7 @@ describe('R. 1.4 — Citation Order Rules', () => {
         }),
       ];
 
-      const issueMap = validateCitationOrder(citations);
+      const issueMap = validateCitationOrder(citations, makeStringCiteText(citations));
       expect(issueMap.size).toBeGreaterThan(0);
 
       const allIssues = [...issueMap.values()].flat();
@@ -346,8 +362,49 @@ describe('R. 1.4 — Citation Order Rules', () => {
         }),
       ];
 
-      const issueMap = validateCitationOrder(citations);
+      const issueMap = validateCitationOrder(citations, makeStringCiteText(citations));
       // The two real case citations are in correct reverse-chronological order (2020 then 2010)
+      expect(issueMap.size).toBe(0);
+    });
+  });
+
+  describe('string-cite scoping', () => {
+    it('does not apply R. 1.4 outside semicolon string cites', () => {
+      const citations = [
+        mockCitation({
+          id: 'circuit-1',
+          type: 'case',
+          rawText: 'Smith v. Jones, 500 F.3d 100 (2d Cir. 2007).',
+          components: {
+            partyOne: 'Smith',
+            partyTwo: 'Jones',
+            volume: '500',
+            reporter: 'F.3d',
+            firstPage: '100',
+            court: '2d Cir.',
+            year: '2007',
+          } as CaseComponents,
+          position: { start: 0, end: 44 },
+        }),
+        mockCitation({
+          id: 'scotus-1',
+          type: 'case',
+          rawText: 'Rankin v. McPherson, 483 U.S. 378, 388 (1987).',
+          components: {
+            partyOne: 'Rankin',
+            partyTwo: 'McPherson',
+            volume: '483',
+            reporter: 'U.S.',
+            firstPage: '378',
+            pinCite: '388',
+            year: '1987',
+          } as CaseComponents,
+          position: { start: 92, end: 138 },
+        }),
+      ];
+
+      const sourceText = `${citations[0].rawText} This sentence discusses context. ${citations[1].rawText}`;
+      const issueMap = validateCitationOrder(citations, sourceText);
       expect(issueMap.size).toBe(0);
     });
   });
@@ -374,7 +431,7 @@ describe('R. 1.4 — Citation Order Rules', () => {
         }),
       ];
 
-      const issueMap = validateCitationOrder(citations);
+      const issueMap = validateCitationOrder(citations, makeStringCiteText(citations));
       expect(issueMap.size).toBe(0);
     });
   });

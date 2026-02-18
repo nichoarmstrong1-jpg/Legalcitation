@@ -55,43 +55,92 @@ const AUTHORITY_TYPE_NAMES: Partial<Record<CitationType, string>> = {
  * Only validates citations that are full authorities (skips Id., supra, infra, short_form).
  */
 export function validateCitationOrder(
-  citations: ParsedCitation[]
+  citations: ParsedCitation[],
+  sourceText?: string
 ): Map<string, ValidationIssue[]> {
   const issueMap = new Map<string, ValidationIssue[]>();
 
   // Filter to full citations only (ordering doesn't apply to short forms)
   const fullCitations = citations.filter(c =>
     c.type !== 'id' && c.type !== 'supra' && c.type !== 'infra' &&
-    c.type !== 'short_form' && c.type !== 'unknown'
+    c.type !== 'short_form' && c.type !== 'unknown' &&
+    !!c.position && Number.isFinite(c.position.start) && Number.isFinite(c.position.end)
   );
 
   if (fullCitations.length < 2) return issueMap;
 
-  // Check each adjacent pair
-  for (let i = 0; i < fullCitations.length - 1; i++) {
-    const current = fullCitations[i];
-    const next = fullCitations[i + 1];
+  // R. 1.4 applies only within true semicolon-delimited citation strings.
+  for (const group of buildStringCitationGroups(fullCitations, sourceText)) {
+    if (group.length < 2) continue;
+    for (let i = 0; i < group.length - 1; i++) {
+      const current = group[i];
+      const next = group[i + 1];
 
-    const comparison = compareCitationOrder(current, next);
-    if (comparison > 0) {
-      // Current should come AFTER next — ordering violation
-      const currentType = AUTHORITY_TYPE_NAMES[current.type] || current.type;
-      const nextType = AUTHORITY_TYPE_NAMES[next.type] || next.type;
+      const comparison = compareCitationOrder(current, next);
+      if (comparison > 0) {
+        // Current should come AFTER next — ordering violation
+        const currentType = AUTHORITY_TYPE_NAMES[current.type] || current.type;
+        const nextType = AUTHORITY_TYPE_NAMES[next.type] || next.type;
 
-      const issues = issueMap.get(current.id) || [];
-      issues.push({
-        id: uuid(),
-        rule: 'R. 1.4',
-        source: 'Bluebook',
-        severity: 'warning',
-        message: getOrderingMessage(current, next, currentType, nextType),
-        suggestion: `Per R. 1.4, ${nextType.toLowerCase()} authorities should be cited before ${currentType.toLowerCase()} authorities.`,
-      });
-      issueMap.set(current.id, issues);
+        const issues = issueMap.get(current.id) || [];
+        issues.push({
+          id: uuid(),
+          rule: 'R. 1.4',
+          source: 'Bluebook',
+          severity: 'warning',
+          message: getOrderingMessage(current, next, currentType, nextType),
+          suggestion: `Per R. 1.4, ${nextType.toLowerCase()} authorities should be cited before ${currentType.toLowerCase()} authorities.`,
+        });
+        issueMap.set(current.id, issues);
+      }
     }
   }
 
   return issueMap;
+}
+
+function buildStringCitationGroups(
+  citations: ParsedCitation[],
+  sourceText?: string
+): ParsedCitation[][] {
+  if (!sourceText) return [];
+
+  const ordered = [...citations].sort((a, b) => a.position.start - b.position.start);
+  const groups: ParsedCitation[][] = [];
+  let currentGroup: ParsedCitation[] = [ordered[0]];
+
+  for (let i = 1; i < ordered.length; i++) {
+    const previous = ordered[i - 1];
+    const current = ordered[i];
+    const between = sourceText.slice(previous.position.end, current.position.start);
+
+    if (isStringCitationSeparator(between)) {
+      currentGroup.push(current);
+    } else {
+      if (currentGroup.length > 1) {
+        groups.push(currentGroup);
+      }
+      currentGroup = [current];
+    }
+  }
+
+  if (currentGroup.length > 1) {
+    groups.push(currentGroup);
+  }
+
+  return groups;
+}
+
+function isStringCitationSeparator(gap: string): boolean {
+  const normalizedGap = gap.replace(/[*_]/g, '').trim();
+  if (!normalizedGap.startsWith(';')) return false;
+  if (/[.?!]/.test(normalizedGap)) return false;
+  if (normalizedGap.length > 60) return false;
+
+  const tail = normalizedGap.slice(1).trim();
+  if (!tail) return true;
+
+  return /^(?:see(?:\s+also)?|see,?\s*e\.g\.,?|cf\.|but see|but cf\.|accord|contra|compare|and|but|e\.g\.,?)\s*$/i.test(tail);
 }
 
 /**

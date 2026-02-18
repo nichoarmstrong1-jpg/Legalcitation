@@ -19,6 +19,7 @@ interface CitationTooltipProps {
   onSelect: (idx: number) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onJumpToCitation?: (citationIdx: number) => void;
 }
 
 function renderFormattedText(text: string, formatStyle: FormatStyle) {
@@ -78,6 +79,7 @@ export function CitationTooltip({
   onSelect,
   onMouseEnter,
   onMouseLeave,
+  onJumpToCitation,
 }: CitationTooltipProps) {
   const [expanded, setExpanded] = useState(false);
   const [flipVertical, setFlipVertical] = useState(false);
@@ -210,14 +212,26 @@ export function CitationTooltip({
           {(() => {
             const traceIssue = result.issues.find(iss => iss.antecedentText);
             if (!traceIssue) return null;
+            const targetIdx = traceIssue.antecedentIndex;
+            const canJump = typeof targetIdx === 'number' && targetIdx >= 0;
             return (
-              <span>
+              <button
+                type="button"
+                className={`text-left ${canJump ? 'hover:text-primary-700 transition-colors' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (canJump && onJumpToCitation) {
+                    onJumpToCitation(targetIdx);
+                  }
+                }}
+                disabled={!canJump}
+              >
                 References citation #{(traceIssue.antecedentIndex ?? 0) + 1}:{' '}
                 <span className="font-serif text-surface-600">
                   {traceIssue.antecedentText!.slice(0, 60)}
                   {traceIssue.antecedentText!.length > 60 ? '...' : ''}
                 </span>
-              </span>
+              </button>
             );
           })()}
         </div>

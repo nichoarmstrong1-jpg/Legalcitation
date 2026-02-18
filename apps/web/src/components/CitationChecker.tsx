@@ -31,6 +31,69 @@ interface CitationCheckerProps {
   onAuthOpen?: (message?: string) => void;
 }
 
+interface CitationReplacement {
+  start: number;
+  end: number;
+  replacement: string;
+}
+
+export type MarkedTokenType = 'plain' | 'asterisk' | 'underscore';
+export interface MarkedToken {
+  text: string;
+  type: MarkedTokenType;
+}
+
+export function tokenizeMarkedText(text: string): MarkedToken[] {
+  return text
+    .split(/(\*[^*]+\*|_[^_]+_)/)
+    .filter(Boolean)
+    .map((part) => {
+      if (part.startsWith('*') && part.endsWith('*')) {
+        return { text: part.slice(1, -1), type: 'asterisk' as const };
+      }
+      if (part.startsWith('_') && part.endsWith('_')) {
+        return { text: part.slice(1, -1), type: 'underscore' as const };
+      }
+      return { text: part, type: 'plain' as const };
+    });
+}
+
+function stripFormattingMarkers(text: string): string {
+  return text.replace(/\*([^*]+)\*/g, '$1').replace(/_([^_]+)_/g, '$1');
+}
+
+export function buildSafeCitationReplacements(
+  sourceText: string,
+  results: AnalyzedCitation[],
+  acceptedChanges: ReadonlySet<number>
+): CitationReplacement[] {
+  const candidates = results
+    .map((result, idx) => ({ result, idx }))
+    .filter(({ result, idx }) => result.parsed?.position && acceptedChanges.has(idx) && result.verifiedCitation)
+    .map(({ result }) => {
+      const pos = result.parsed.position;
+      return {
+        start: pos.start,
+        end: pos.end,
+        replacement: stripFormattingMarkers(result.verifiedCitation || ''),
+      };
+    })
+    .filter(({ start, end }) => start >= 0 && end > start && end <= sourceText.length)
+    .sort((a, b) => a.start - b.start);
+
+  const safe: CitationReplacement[] = [];
+  let lastEnd = -1;
+  for (const candidate of candidates) {
+    if (candidate.start < lastEnd) {
+      continue;
+    }
+    safe.push(candidate);
+    lastEnd = candidate.end;
+  }
+
+  return safe;
+}
+
 export function CitationChecker({ onResults, onSelectCitation, results, formatStyle, restoredInput, onAuthOpen: _onAuthOpen }: CitationCheckerProps) {
   const { showToast } = useToast();
   const { findMatchingDocument, documents } = useCaseDocuments();
@@ -54,6 +117,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   const [undoStack, setUndoStack] = useState<Array<{ type: 'accept' | 'deny'; citationIdx: number; prevAccepted: Set<number>; prevDenied: Set<number> }>>([]);
   const annotatedRef = useRef<HTMLDivElement>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const citationRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
 
   // Restore input from history
   useEffect(() => {
@@ -146,6 +210,15 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
     onSelectCitation(results[idx]);
   }, [results, onSelectCitation]);
 
+  const handleJumpToCitation = useCallback((idx: number) => {
+    if (idx < 0 || idx >= results.length) return;
+    const target = citationRefs.current.get(idx);
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setSelectedIdx(idx);
+    onSelectCitation(results[idx]);
+  }, [results, onSelectCitation]);
+
   const handleAcceptChange = useCallback((idx: number) => {
     const result = results[idx];
     if (!result.verifiedCitation) return;
@@ -209,16 +282,10 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   const handleCopyAllCorrected = useCallback(async () => {
     const sourceText = analysisText || input.trim();
     let correctedText = sourceText;
-    const sorted = results
-      .map((r, i) => ({ result: r, idx: i }))
-      .filter(r => r.result.parsed?.position && acceptedChanges.has(r.idx) && r.result.verifiedCitation)
-      .sort((a, b) => (b.result.parsed.position.start) - (a.result.parsed.position.start));
+    const safeReplacements = buildSafeCitationReplacements(sourceText, results, acceptedChanges);
 
-    for (const { result } of sorted) {
-      const pos = result.parsed?.position;
-      if (!pos || !result.verifiedCitation) continue;
-      const plain = result.verifiedCitation.replace(/\*([^*]+)\*/g, '$1').replace(/_([^_]+)_/g, '$1');
-      correctedText = correctedText.slice(0, pos.start) + plain + correctedText.slice(pos.end);
+    for (const replacement of [...safeReplacements].sort((a, b) => b.start - a.start)) {
+      correctedText = correctedText.slice(0, replacement.start) + replacement.replacement + correctedText.slice(replacement.end);
     }
 
     try {
@@ -293,15 +360,17 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
   };
 
   const renderFormattedInline = (text: string) => {
-    const parts = text.split(/(\*[^*]+\*)/);
-    return parts.map((part, i) => {
-      if (part.startsWith('*') && part.endsWith('*')) {
-        const content = part.slice(1, -1);
+    const tokens = tokenizeMarkedText(text);
+    return tokens.map((token, i) => {
+      if (token.type === 'asterisk') {
         return formatStyle === 'italics'
-          ? <em key={i} className="font-serif">{content}</em>
-          : <u key={i}>{content}</u>;
+          ? <em key={i} className="font-serif">{token.text}</em>
+          : <u key={i}>{token.text}</u>;
       }
-      return <span key={i}>{part}</span>;
+      if (token.type === 'underscore') {
+        return <u key={i}>{token.text}</u>;
+      }
+      return <span key={i}>{token.text}</span>;
     });
   };
 
@@ -341,7 +410,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
       >
         {segments.map((seg, i) => {
           if (seg.citationIdx === undefined) {
-            return <span key={i}>{seg.text}</span>;
+            return <span key={i}>{renderFormattedInline(seg.text)}</span>;
           }
 
           const result = results[seg.citationIdx];
@@ -352,6 +421,14 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
           return (
             <span
               key={i}
+              ref={(el) => {
+                if (seg.citationIdx === undefined) return;
+                if (el) {
+                  citationRefs.current.set(seg.citationIdx, el);
+                } else {
+                  citationRefs.current.delete(seg.citationIdx);
+                }
+              }}
               className={`relative cursor-pointer border-b-2 ${colors.underline} ${
                 isSelected ? colors.hover : isHovered ? colors.bg : ''
               } transition-all duration-200 rounded-sm px-0.5 -mx-0.5`}
@@ -359,9 +436,11 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
               onMouseLeave={handleCitationMouseLeave}
               onClick={() => handleCitationClick(seg.citationIdx!)}
             >
-              {acceptedChanges.has(seg.citationIdx) && result.verifiedCitation
-                ? renderFormattedInline(result.verifiedCitation)
-                : seg.text}
+              {renderFormattedInline(
+                acceptedChanges.has(seg.citationIdx) && result.verifiedCitation
+                  ? result.verifiedCitation
+                  : seg.text
+              )}
               {/* Shared tooltip popover */}
               {(isHovered || isSelected) && (
                 <CitationTooltip
@@ -379,6 +458,7 @@ export function CitationChecker({ onResults, onSelectCitation, results, formatSt
                   onSelect={handleCitationClick}
                   onMouseEnter={() => handleCitationMouseEnter(seg.citationIdx!)}
                   onMouseLeave={handleCitationMouseLeave}
+                  onJumpToCitation={handleJumpToCitation}
                 />
               )}
             </span>
