@@ -32,6 +32,30 @@ const upload = multer({
   limits: { fileSize: MAX_UPLOAD_BYTES },
 });
 
+interface UploadConstraintError {
+  status: number;
+  body: { error: string };
+}
+
+export function getJournalUploadConstraintError(
+  role: 'journal_entry' | 'source',
+  filesLength: number,
+  hasExistingJournal: boolean
+): UploadConstraintError | null {
+  if (role === 'journal_entry' && filesLength > 1) {
+    return {
+      status: 400,
+      body: { error: 'Only one journal entry allowed per project' },
+    };
+  }
+
+  if (role === 'journal_entry' && hasExistingJournal && filesLength === 1) {
+    return null;
+  }
+
+  return null;
+}
+
 // --- Project CRUD ---
 
 spadingRouter.post('/projects', async (req: Request, res: Response) => {
@@ -224,6 +248,7 @@ spadingRouter.post(
   upload.array('files', 20),
   async (req: Request, res: Response) => {
     const uploadedPaths: string[] = [];
+    let replacedJournalFilePath: string | null = null;
     let committed = false;
     try {
       if (!isDatabaseConfigured()) {
@@ -265,18 +290,13 @@ spadingRouter.post(
         return;
       }
 
-      // Journal entry: only one allowed
-      if (role === 'journal_entry' && files.length > 1) {
-        res.status(400).json({ error: 'Only one journal entry allowed per project' });
-        return;
-      }
-
-      if (role === 'journal_entry' && project.journalDocumentId) {
-        res.status(409).json({
-          error: 'A journal entry already exists for this project.',
-          suggestion: 'Remove the current journal entry before uploading a new one.',
-          code: 'JOURNAL_ENTRY_EXISTS',
-        });
+      const uploadConstraintError = getJournalUploadConstraintError(
+        role,
+        files.length,
+        Boolean(project.journalDocumentId)
+      );
+      if (uploadConstraintError) {
+        res.status(uploadConstraintError.status).json(uploadConstraintError.body);
         return;
       }
 
@@ -370,7 +390,7 @@ spadingRouter.post(
         });
       }
 
-      const results = await db.transaction(async (tx) => {
+      const transactionResult = await db.transaction(async (tx) => {
         const insertedDocs: Array<{
           id: string;
           role: 'journal_entry' | 'source';
@@ -382,6 +402,24 @@ spadingRouter.post(
           citation: string | null;
           uploadedAt: Date;
         }> = [];
+        let replacedPath: string | null = null;
+
+        if (role === 'journal_entry' && project.journalDocumentId) {
+          const [existingJournal] = await tx
+            .select({
+              id: schema.projectDocuments.id,
+              filePath: schema.projectDocuments.filePath,
+            })
+            .from(schema.projectDocuments)
+            .where(eq(schema.projectDocuments.id, project.journalDocumentId));
+
+          if (existingJournal) {
+            replacedPath = existingJournal.filePath;
+            await tx
+              .delete(schema.projectDocuments)
+              .where(eq(schema.projectDocuments.id, existingJournal.id));
+          }
+        }
 
         for (const doc of preparedDocuments) {
           const [inserted] = await tx
@@ -421,11 +459,20 @@ spadingRouter.post(
             .where(eq(schema.spadingProjects.id, projectId));
         }
 
-        return insertedDocs;
+        return {
+          insertedDocs,
+          replacedPath,
+        };
       });
 
+      replacedJournalFilePath = transactionResult.replacedPath;
       committed = true;
-      res.json({ documents: results });
+      if (replacedJournalFilePath) {
+        await deleteFile(replacedJournalFilePath).catch(() => {
+          // Non-critical cleanup for replaced journal files.
+        });
+      }
+      res.json({ documents: transactionResult.insertedDocs });
     } catch (error) {
       if (!committed && uploadedPaths.length > 0) {
         await Promise.allSettled(uploadedPaths.map((path) => deleteFile(path)));
