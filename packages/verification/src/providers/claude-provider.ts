@@ -17,6 +17,12 @@ export interface CaseSearchResult {
   court: string;
   summary: string;
   confidence: number;
+  volume?: string;
+  reporter?: string;
+  firstPage?: string;
+  verified?: boolean;
+  verifiedBy?: string[];
+  sourceUrl?: string;
 }
 
 let client: Anthropic | null = null;
@@ -268,19 +274,23 @@ Respond with a JSON object:
 - "results": array of up to 5 case objects, each with:
   - "case_name": string (full case name as it would appear in Bluebook format)
   - "citation": string (full Bluebook citation with *asterisks* for italicized case name)
+  - "volume": string (reporter volume number, e.g., "384")
+  - "reporter": string (T1 reporter abbreviation exactly, e.g., "U.S.", "F.3d", "S. Ct.", "F. Supp. 3d")
+  - "first_page": string (starting page number, e.g., "436")
   - "year": string (year decided)
   - "court": string (e.g., "U.S. Supreme Court", "9th Circuit", "S.D.N.Y.")
   - "summary": string (1-2 sentence summary of what the case is about, written for a law student)
   - "confidence": number (0-100, how confident you are this matches what the user is looking for)
-- "reasoning": string[] (2-3 steps explaining your search strategy, e.g., "Searched for cases involving [topic] with party name [name]...")
+- "reasoning": string[] (2-3 steps explaining your search strategy)
 
-IMPORTANT:
-- Only include REAL cases with accurate citations
+CRITICAL ACCURACY RULES:
+- Only include cases you are CERTAIN are real with ACCURATE reporter citations
+- Do NOT guess or approximate volume numbers, page numbers, or reporter series
+- If you are not 100% sure of the exact volume/reporter/page, do NOT include that case
 - Use proper Bluebook formatting (T1 reporters, T6 abbreviations, R. 10 formatting)
 - Order results by confidence (highest first)
-- If the query is very specific (e.g., "Roe v Wade"), the first result should be the exact case
-- If the query is broad (e.g., "free speech student case"), return diverse relevant cases
-- For each case, the citation must be complete and accurate`
+- Prefer well-known, landmark cases where you are certain of the citation details
+- For each case, the volume, reporter, and first_page must be independently verifiable`
       }],
     }, { signal: timeout.signal });
 
@@ -298,6 +308,9 @@ IMPORTANT:
       results: Array<{
         case_name: string;
         citation: string;
+        volume: string;
+        reporter: string;
+        first_page: string;
         year: string;
         court: string;
         summary: string;
@@ -319,6 +332,9 @@ IMPORTANT:
       court: r.court,
       summary: r.summary,
       confidence: r.confidence,
+      volume: r.volume,
+      reporter: r.reporter,
+      firstPage: r.first_page,
     }));
 
     trace.push(`Found ${searchResults.length} matching case${searchResults.length !== 1 ? 's' : ''}.`);

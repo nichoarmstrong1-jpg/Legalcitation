@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { BookOpen, ChevronRight, FileText, Search, Copy, Check } from 'lucide-react';
+import { BookOpen, ChevronRight, FileText, Search, Copy, Check, ShieldCheck, ShieldAlert, ExternalLink } from 'lucide-react';
 import { searchCases, buildCitation, analyzeText, type AnalyzedCitation, type CaseSearchResult } from '../services/api.ts';
 import { JOURNAL_ABBREVIATIONS } from '@legalcitation/shared';
 import { FileUploader } from './FileUploader.tsx';
@@ -466,7 +466,20 @@ export function CitationBuilder({ onResult, formatStyle, restoredInput, onAuthOp
                         {result.summary}
                       </p>
                     </div>
-                    <div className="shrink-0 flex flex-col items-end gap-1">
+                    <div className="shrink-0 flex flex-col items-end gap-1.5">
+                      {result.verified !== undefined && (
+                        <div className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md ${
+                          result.verified
+                            ? 'bg-verified-50 text-verified-700'
+                            : 'bg-warning-50 text-warning-600'
+                        }`}>
+                          {result.verified ? (
+                            <><ShieldCheck className="w-3 h-3" /> Verified</>
+                          ) : (
+                            <><ShieldAlert className="w-3 h-3" /> Unverified</>
+                          )}
+                        </div>
+                      )}
                       <div className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${
                         result.confidence >= 90 ? 'bg-verified-100 text-verified-700' :
                         result.confidence >= 70 ? 'bg-warning-100 text-warning-700' :
@@ -479,6 +492,28 @@ export function CitationBuilder({ onResult, formatStyle, restoredInput, onAuthOp
                       )}
                     </div>
                   </div>
+                  {/* Verification sources */}
+                  {result.verifiedBy && result.verifiedBy.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] text-surface-400 font-medium">Confirmed by:</span>
+                      {result.verifiedBy.map((source, si) => (
+                        <span key={si} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-verified-50 text-verified-600">
+                          {source}
+                        </span>
+                      ))}
+                      {result.sourceUrl && (
+                        <a
+                          href={result.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-0.5 text-[10px] text-primary-500 hover:text-primary-700 transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="w-2.5 h-2.5" /> Source
+                        </a>
+                      )}
+                    </div>
+                  )}
                   <div className="mt-3 flex justify-end">
                     <button
                       onClick={() => handleSelectResult(result)}

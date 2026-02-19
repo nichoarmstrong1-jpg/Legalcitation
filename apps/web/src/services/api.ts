@@ -154,6 +154,9 @@ export interface CaseSearchResult {
   court: string;
   summary: string;
   confidence: number;
+  verified?: boolean;
+  verifiedBy?: string[];
+  sourceUrl?: string;
 }
 
 export interface CaseSearchResponse {

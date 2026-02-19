@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { extractAndParseCitations, normalizeCitationInput } from '@legalcitation/citation-parser';
 import { runAllRules, calculateScore } from '@legalcitation/rule-engine';
-import { buildCitationWithClaude, searchCasesWithClaude } from '@legalcitation/verification';
+import { buildCitationWithClaude, searchCasesWithClaude, verifySearchResults } from '@legalcitation/verification';
 import type { AnalyzedCitation, CaseComponents, ValidationIssue, ShortFormEntry } from '@legalcitation/shared';
 import { validateSearch, validateBuild } from '../middleware/validation.js';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
@@ -24,18 +24,23 @@ buildRouter.post('/search', validateSearch, async (req: Request, res: Response) 
     }
 
     const searchResult = await searchCasesWithClaude(query);
+    const logicTrace = searchResult?.logicTrace || [];
 
     if (searchResult && searchResult.results.length > 0) {
+      // Verify each result against real legal databases and web sources
+      logicTrace.push('Verifying results against external legal databases...');
+      const verifiedResults = await verifySearchResults(searchResult.results, logicTrace);
+
       logCitationCheck({
         userId: (req as any).user?.userId,
         mode: 'builder_search',
         inputText: query,
-        results: searchResult.results,
-        citationCount: searchResult.results.length,
+        results: verifiedResults,
+        citationCount: verifiedResults.length,
       });
       res.json({
-        results: searchResult.results,
-        logicTrace: searchResult.logicTrace,
+        results: verifiedResults,
+        logicTrace,
       });
       return;
     }
@@ -51,7 +56,7 @@ buildRouter.post('/search', validateSearch, async (req: Request, res: Response) 
     res.json({
       results: [],
       logicTrace: [
-        ...(searchResult?.logicTrace || []),
+        ...logicTrace,
         'No matching cases found. Try a more specific search query.',
       ],
     });
