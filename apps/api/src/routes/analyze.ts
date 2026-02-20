@@ -1,14 +1,39 @@
 import { Router, type Request, type Response } from 'express';
-import { extractParseAndResolve, normalizeCitationInput, extractFootnoteCitations, resolveCitations } from '@legalcitation/citation-parser';
+import { extractParseAndResolve, normalizeCitationInput, extractFootnoteCitations, resolveCitations, parseSingleSpan, mergeAdditionalCitations } from '@legalcitation/citation-parser';
 import { runFullAnalysis, runFootnoteAnalysis, calculateScore } from '@legalcitation/rule-engine';
 import type { AnalyzedCitation, CaseComponents, CitationContext, DocumentCitationMap, ParsedCitation } from '@legalcitation/shared';
 import { stripMarkersWithOffsetMap } from '@legalcitation/shared';
+import { detectMissedCitations, type LLMDetectedSpan } from '@legalcitation/verification';
 import { validateAnalyzeText } from '../middleware/validation.js';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
 import { logCitationCheck } from '../services/citation-logger.js';
 import { matchPinpointToDocument } from '../services/pinpoint-matcher.js';
 import { generateShortForms, generateShortFormSuggestions } from '../services/short-form-generator.js';
 import { buildLogicTrace } from '../services/logic-trace.js';
+import { v4 as uuid } from 'uuid';
+
+/**
+ * Build a minimal ParsedCitation for LLM-detected spans that no regex parser could handle.
+ * Uses the LLM's type classification and stores the raw text for display.
+ */
+function buildFallbackCitation(
+  span: LLMDetectedSpan,
+  position: { start: number; end: number },
+): ParsedCitation {
+  return {
+    id: uuid(),
+    rawText: span.text,
+    type: span.type === 'short_form' || span.type === 'id' || span.type === 'supra' || span.type === 'infra'
+      ? span.type
+      : span.type,
+    context: 'citation_sentence',
+    position,
+    components: {
+      type: 'short_case',
+      pinCite: undefined,
+    },
+  };
+}
 
 export const analyzeRouter = Router();
 
@@ -79,6 +104,40 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
       }
     }
 
+    // LLM detection pass: find citations the regex missed
+    const llmDetectedIds = new Set<string>();
+    const llmExplanations = new Map<string, string>();
+    try {
+      const existingSpans = parsed
+        .filter(c => c.position)
+        .map(c => ({ text: c.rawText, start: c.position.start, end: c.position.end }));
+
+      const llmResult = await detectMissedCitations(stripped, existingSpans);
+
+      if (llmResult.spans.length > 0) {
+        const llmParsed: ParsedCitation[] = [];
+        for (const span of llmResult.spans) {
+          const position = hasMarkers
+            ? { start: toOriginal(span.start), end: toOriginal(span.end) }
+            : { start: span.start, end: span.end };
+
+          let citation = parseSingleSpan(span.text, position, stripped);
+          if (!citation) {
+            citation = buildFallbackCitation(span, position);
+          }
+
+          llmDetectedIds.add(citation.id);
+          llmExplanations.set(citation.id, span.explanation);
+          llmParsed.push(citation);
+        }
+
+        parsed = mergeAdditionalCitations(parsed, llmParsed);
+        resolution = resolveCitations(parsed);
+      }
+    } catch (err) {
+      console.error('LLM detection pass error (non-fatal):', err);
+    }
+
     // Run rules on all citations (including context rules) with resolution data
     const issueMap = runFullAnalysis(parsed, text, resolution);
 
@@ -89,6 +148,14 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
 
       const logicTrace = buildLogicTrace(citation, issues, resolution);
 
+      const isLlmDetected = llmDetectedIds.has(citation.id);
+      if (isLlmDetected) {
+        const explanation = llmExplanations.get(citation.id);
+        if (explanation) {
+          logicTrace.unshift(explanation);
+        }
+      }
+
       const analyzed: AnalyzedCitation = {
         parsed: citation,
         issues,
@@ -97,6 +164,8 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
         referenceExamples: [],
         logicTrace,
         score,
+        detectionSource: isLlmDetected ? 'llm' : 'regex',
+        detectionExplanation: isLlmDetected ? llmExplanations.get(citation.id) : undefined,
       };
 
       const shortForms = generateShortForms(citation);

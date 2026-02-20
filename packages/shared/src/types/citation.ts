@@ -278,6 +278,8 @@ export interface FormattingDirective {
   component: string;
 }
 
+export type DetectionSource = 'regex' | 'llm';
+
 export interface AnalyzedCitation {
   parsed: ParsedCitation;
   issues: ValidationIssue[];
@@ -292,6 +294,8 @@ export interface AnalyzedCitation {
   shortForms?: (string | ShortFormEntry)[];
   shortFormSuggestions?: ShortFormSuggestion[];
   formattingDirectives?: FormattingDirective[];
+  detectionSource?: DetectionSource;
+  detectionExplanation?: string;
 }
 
 export interface HistoryEntry {

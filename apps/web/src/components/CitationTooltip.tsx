@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { X, Check, Copy, AlertTriangle, Undo2 } from 'lucide-react';
+import { X, Check, Copy, AlertTriangle, Undo2, Info } from 'lucide-react';
 import type { AnalyzedCitation } from '../services/api.ts';
 
 type FormatStyle = 'italics' | 'underline';
@@ -149,6 +149,14 @@ export function CitationTooltip({
           </button>
         )}
       </div>
+
+      {/* Detection explanation for non-standard citation forms */}
+      {result.detectionExplanation && (
+        <div className="flex items-start gap-1.5 text-[11px] text-primary-700 mb-2 p-2 bg-primary-50 rounded-lg border border-primary-100 leading-relaxed">
+          <Info className="w-3 h-3 shrink-0 mt-0.5" />
+          <span>{result.detectionExplanation}</span>
+        </div>
+      )}
 
       {/* Full citation display */}
       {result.verifiedCitation && (
