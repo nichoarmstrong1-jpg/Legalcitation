@@ -1,4 +1,4 @@
-import { VALID_REPORTER_ABBREVIATIONS } from '@legalcitation/shared';
+import { VALID_REPORTER_ABBREVIATIONS, VENDOR_NEUTRAL_REPORTERS } from '@legalcitation/shared';
 
 /**
  * Citation span detected in text — raw position and text.
@@ -9,6 +9,15 @@ export interface DetectedSpan {
   end: number;
   type: 'full_case' | 'short_case' | 'id' | 'supra' | 'infra' | 'statute' | 'constitution' | 'regulation' | 'article' | 'book' | 'restatement' | 'internet' | 'ai_source' | 'unpublished' | 'unknown';
 }
+
+// Legal stop words — signals and procedural phrases that indicate case name boundaries.
+// Used during backward expansion in detectFullCaseCitations to identify boundaries.
+const _LEGAL_STOP_WORDS = new Set([
+  'see', 'see also', 'e.g.', 'cf.', 'but see', 'but cf.', 'accord', 'contra',
+  'compare', 'quoting', 'citing', 'quoted in', 'cited in',
+  'aff\'d', 'aff\'g', 'rev\'d', 'rev\'g', 'cert. denied', 'cert. granted',
+  'vacated', 'remanded', 'overruled by', 'overruling',
+]);
 
 // Build regex alternation from reporter abbreviations (escape dots)
 const reporterAltParts = Array.from(VALID_REPORTER_ABBREVIATIONS)
@@ -67,6 +76,9 @@ export function detectCitations(text: string): DetectedSpan[] {
   // 13. Detect unpublished/forthcoming citations
   detectUnpublishedCitations(normalizedText, spans);
 
+  // 14. Detect vendor-neutral / public domain citations
+  detectVendorNeutralCitations(normalizedText, spans);
+
   // Remove overlapping spans (keep the longer/first one)
   return deduplicateSpans(spans);
 }
@@ -114,9 +126,8 @@ function pushTrimmedSpan(
 }
 
 function detectIdCitations(text: string, spans: DetectedSpan[]): void {
-  // Match Id. or id. with optional pincite
-  // Also handle *Id.* with formatting markers (stripped at API level, but also handle standalone)
-  const idPattern = /\*?Id\.\*?\s*(?:at\s+\d[\d,\s–n.-]*|[§¶]\s*[\d.]+(?:\([a-zA-Z0-9]+\))*)?/gi;
+  // Match Id./Ibid. with optional pincite including ¶, §, *, pp., pg., p., page:paragraph
+  const idPattern = /\*?(?:Id|Ibid)\.\*?\s*(?:at\s+(?:p(?:p|g|age)?\.?\s*)?(?:[*]*\d[\d,\s–\-:n.]*|¶¶?\s*[\d.]+|§§?\s*[\d.]+)|[§¶]\s*[\d.]+(?:\([a-zA-Z0-9]+\))*)?/gi;
   let match;
   while ((match = idPattern.exec(text)) !== null) {
     pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'id');
@@ -124,8 +135,8 @@ function detectIdCitations(text: string, spans: DetectedSpan[]): void {
 }
 
 function detectSupraCitations(text: string, spans: DetectedSpan[]): void {
-  // Match "Author, supra note X, at Y"
-  const supraPattern = /\b([A-Z][a-zA-Z']+),?\s+supra\s+(?:note\s+\d+)?(?:,\s*at\s+\d[\d–-]*)?/g;
+  // Match "Author, supra note X, at Y" -- expanded pin cite with *, pp., pg., page:paragraph
+  const supraPattern = /\b([A-Z][a-zA-Z']+),?\s+supra\s+(?:note\s+\d+)?(?:,\s*at\s+(?:p(?:p|g|age)?\.?\s*)?[*]*\d[\d–\-:,\s*]*)?/g;
   let match;
   while ((match = supraPattern.exec(text)) !== null) {
     pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'supra');
@@ -141,15 +152,25 @@ function detectInfraCitations(text: string, spans: DetectedSpan[]): void {
   }
 }
 
+// Street suffixes used to filter false positive addresses.
+// Matches ordinal suffixes ("12th") followed by a street type, or direct street type after page.
+const STREET_SUFFIX_PATTERN = /^(?:th|st|nd|rd)\s+(?:St\.?|Street|Ave\.?|Avenue|Blvd\.?|Boulevard|Rd\.?|Road|Dr\.?|Drive|Ct\.?|Court|Ln\.?|Lane|Pl\.?|Place|Way|Hwy\.?|Highway)(?:\s|$)/i;
+const DIRECT_STREET_PATTERN = /^\s+(?:St\.?|Street|Ave\.?|Avenue|Blvd\.?|Boulevard|Rd\.?|Road|Dr\.?|Drive|Ct\.?|Court|Ln\.?|Lane|Pl\.?|Place|Way|Hwy\.?|Highway)(?:\s|$)/i;
+
 function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
   // Strategy: find reporter abbreviation, then expand backward to find
   // the case name and forward to find the date parenthetical.
-  const reporterRegex = new RegExp(`\\b(\\d{1,4})\\s+(${REPORTER_ALT})\\s+(\\d{1,5})`, 'g');
+  // Page: digits, underscores (placeholder for unpublished), dashes (placeholder), or roman numerals
+  const reporterRegex = new RegExp(`\\b(\\d{1,4})\\s+(${REPORTER_ALT})\\s+(\\d{1,5}|_+|[—–-]{2,}|[ivxlc]{1,10})`, 'gi');
   let match;
 
   while ((match = reporterRegex.exec(text)) !== null) {
     const reporterStart = match.index;
     const reporterEnd = match.index + match[0].length;
+
+    // Filter false positives: reject street addresses like "111 S.W. 12th St."
+    const textAfterMatch = text.slice(reporterEnd, reporterEnd + 30);
+    if (STREET_SUFFIX_PATTERN.test(textAfterMatch) || DIRECT_STREET_PATTERN.test(textAfterMatch)) continue;
 
     // Expand backward to find case name (look for the start of the sentence
     // or the last period/semicolon before a capital letter + " v. ")
@@ -243,11 +264,11 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
     let caseEnd = reporterEnd;
     const textAfter = text.slice(reporterEnd, reporterEnd + 500);
 
-    // Look for optional pincite, then date parenthetical
+    // Look for optional pincite (expanded: digits, ¶, §, *, pp., pg., footnotes, page:paragraph), then date parenthetical
     const afterPattern = new RegExp(
-      `^(?:,\\s*\\d[\\d–,\\s-]*)?` +
-      `(?:,\\s*\\d{1,4}\\s+(?:${REPORTER_ALT})\\s+\\d{1,5}(?:,\\s*\\d[\\d–,\\s-]*)?)*` +
-      `(?:\\s*n\\.\\d+)?\\s*\\([^)]+\\)(?:\\s*\\([^)]+\\))*` +
+      `^(?:,\\s*(?:(?:p(?:p|g|age)?\\.?\\s*)?[*]*\\d[\\d–,\\s\\-:*]*|¶¶?\\s*[\\d.]+(?:[–\\-]\\d+)?|§§?\\s*[\\d.]+(?:\\([a-zA-Z0-9]+\\))*))?` +
+      `(?:,\\s*\\d{1,4}\\s+(?:${REPORTER_ALT})\\s+(?:\\d{1,5}|_+|[—–-]{2,}|[ivxlc]{1,10})(?:,\\s*(?:(?:p(?:p|g|age)?\\.?\\s*)?[*]*\\d[\\d–,\\s\\-:*]*|¶¶?\\s*[\\d.]+|§§?\\s*[\\d.]+))?)*` +
+      `(?:\\s*(?:n\\.|nn\\.|fn\\.)\\s*\\d+)?\\s*\\([^)]+\\)(?:\\s*\\([^)]+\\))*` +
       `(?:\\s*,\\s*(?:aff'd|rev'd|cert\\.\\s*denied|vacated|modified|reh'g\\s*denied|reh'g\\s*en\\s*banc\\s*denied|aff'g|rev'g|remanded|aff'd\\s*in\\s*part|rev'd\\s*in\\s*part|overruled\\s*by|aff'd\\s*sub\\s*nom\\.|rev'd\\s*sub\\s*nom\\.|cert\\.\\s*dismissed)` +
       `(?:\\s+[A-Z][A-Za-z0-9'&.,\\-\\s]{0,120})?` +
       `(?:,\\s*\\d{1,4}\\s+(?:${REPORTER_ALT})\\s+\\d{1,5}(?:,\\s*\\d[\\d–,\\s-]*)?)?` +
@@ -270,9 +291,9 @@ function detectFullCaseCitations(text: string, spans: DetectedSpan[]): void {
 }
 
 function detectShortCaseCitations(text: string, spans: DetectedSpan[]): void {
-  // Pattern 1: Party, Vol Rep at Page (standard)
+  // Pattern: Party, Vol Rep at Page -- expanded to accept "at p.", "at pp.", "at pg.", "at page", star pagination
   const shortPattern = new RegExp(
-    `([A-Z][a-zA-Z']+),?\\s*(\\d{1,4})\\s+(${REPORTER_ALT})\\s+at\\s+(\\d[\\d–,\\s-]*)`,
+    `([A-Z][a-zA-Z']+),?\\s*(\\d{1,4})\\s+(${REPORTER_ALT})\\s+at\\s+(?:p(?:p|g|age)?\\.?\\s*)?([*]*\\d[\\d–,\\s\\-:*]*)`,
     'g'
   );
   let match;
@@ -612,6 +633,18 @@ function detectUnpublishedCitations(text: string, spans: DetectedSpan[]): void {
     let end = citEnd;
     if (text[end] === '.') end++;
     pushTrimmedSpan(spans, text, citStart, end, 'unpublished');
+  }
+}
+
+function detectVendorNeutralCitations(text: string, spans: DetectedSpan[]): void {
+  // Use regexTemplate from vendor-neutral reporters to detect non-standard formats
+  for (const reporter of VENDOR_NEUTRAL_REPORTERS) {
+    if (!reporter.regexTemplate) continue;
+    const regex = new RegExp(reporter.regexTemplate, 'g');
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      pushTrimmedSpan(spans, text, match.index, match.index + match[0].length, 'full_case');
+    }
   }
 }
 

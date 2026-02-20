@@ -101,6 +101,14 @@ export const UNPUBLISHED_COMPONENT_RULES: Record<string, ComponentRuleMapping> =
   onFileWith: { rule: 'R. 17.2.1', label: 'On File With' },
 };
 
+export const SHORT_FORM_COMPONENT_RULES: Record<string, ComponentRuleMapping> = {
+  type: { rule: 'R. 4', label: 'Short Form Type' },
+  partyName: { rule: 'R. 10.9', label: 'Party Name' },
+  pinCite: { rule: 'R. 3.2(a)', label: 'Pinpoint Citation' },
+  supraNoteNumber: { rule: 'R. 4.2(a)', label: 'Note Number' },
+  infraNoteNumber: { rule: 'R. 3.5', label: 'Note Number' },
+};
+
 export function getComponentRules(citationType?: string): Record<string, ComponentRuleMapping> {
   switch (citationType) {
     case 'case': return CASE_COMPONENT_RULES;
@@ -113,6 +121,11 @@ export function getComponentRules(citationType?: string): Record<string, Compone
     case 'internet': return INTERNET_COMPONENT_RULES;
     case 'ai_source': return AI_SOURCE_COMPONENT_RULES;
     case 'unpublished': return UNPUBLISHED_COMPONENT_RULES;
+    case 'id':
+    case 'supra':
+    case 'infra':
+    case 'short_form':
+      return SHORT_FORM_COMPONENT_RULES;
     default: return CASE_COMPONENT_RULES;
   }
 }

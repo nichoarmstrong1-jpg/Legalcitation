@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { detectCitations, extractAndParseCitations } from '../index.js';
-import type { CaseComponents, StatuteComponents, ConstitutionComponents, RegulationComponents } from '@legalcitation/shared';
+import type { CaseComponents, ShortFormComponents, StatuteComponents, ConstitutionComponents, RegulationComponents } from '@legalcitation/shared';
 
 describe('detectCitations', () => {
   it('detects a full case citation', () => {
@@ -216,5 +216,112 @@ describe('extractAndParseCitations — regulation citations', () => {
     expect(results[0].type).toBe('regulation');
     const comp = results[0].components as RegulationComponents;
     expect(comp.title).toBe('40');
+  });
+});
+
+describe('Phase 1 — Ibid. support', () => {
+  it('detects Ibid. as an id citation', () => {
+    const spans = detectCitations('Ibid.');
+    expect(spans.length).toBeGreaterThanOrEqual(1);
+    expect(spans[0].type).toBe('id');
+  });
+
+  it('parses Ibid. as an id citation', () => {
+    const results = extractAndParseCitations('Ibid.');
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0].type).toBe('id');
+  });
+
+  it('detects Ibid. with pincite', () => {
+    const spans = detectCitations('Ibid. at 42.');
+    expect(spans.length).toBeGreaterThanOrEqual(1);
+    expect(spans[0].type).toBe('id');
+  });
+});
+
+describe('Phase 1 — placeholder page numbers', () => {
+  it('detects citation with underscore placeholder page', () => {
+    const spans = detectCitations('Smith v. Jones, 585 U.S. ___ (2018).');
+    expect(spans.length).toBeGreaterThanOrEqual(1);
+    expect(spans[0].type).toBe('full_case');
+  });
+
+  it('parses underscore placeholder page as empty firstPage', () => {
+    const results = extractAndParseCitations('Smith v. Jones, 585 U.S. ___ (2018).');
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    const comp = results[0].components as CaseComponents;
+    expect(comp.volume).toBe('585');
+    expect(comp.reporter).toBe('U.S.');
+    expect(comp.firstPage).toBe('');
+    expect(comp.year).toBe('2018');
+  });
+
+  it('detects citation with dash placeholder page', () => {
+    const spans = detectCitations('Smith v. Jones, 585 U.S. --- (2018).');
+    expect(spans.length).toBeGreaterThanOrEqual(1);
+    expect(spans[0].type).toBe('full_case');
+  });
+});
+
+describe('Phase 1 — roman numeral page numbers', () => {
+  it('detects citation with roman numeral page', () => {
+    const spans = detectCitations('Smith v. Jones, 12 Ill. App. 3d lxiv (2004).');
+    expect(spans.length).toBeGreaterThanOrEqual(1);
+    expect(spans[0].type).toBe('full_case');
+  });
+});
+
+describe('Phase 1 — expanded pin cites', () => {
+  it('detects Id. with paragraph symbol', () => {
+    const spans = detectCitations('Id. ¶ 34');
+    expect(spans.length).toBeGreaterThanOrEqual(1);
+    expect(spans[0].type).toBe('id');
+  });
+
+  it('parses Id. with paragraph symbol', () => {
+    const results = extractAndParseCitations('Id. ¶ 34');
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    const comp = results[0].components as ShortFormComponents;
+    expect(comp.pinCite).toContain('¶');
+    expect(comp.pinCite).toContain('34');
+  });
+
+  it('detects Id. with star pagination', () => {
+    const spans = detectCitations('Id. at *10');
+    expect(spans.length).toBeGreaterThanOrEqual(1);
+    expect(spans[0].type).toBe('id');
+  });
+
+  it('parses Id. at *10', () => {
+    const results = extractAndParseCitations('Id. at *10');
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    const comp = results[0].components as ShortFormComponents;
+    expect(comp.pinCite).toContain('*10');
+  });
+
+  it('detects short case with "at p." format', () => {
+    const spans = detectCitations('Smith, 174 F.3d at p. 651');
+    expect(spans.length).toBeGreaterThanOrEqual(1);
+    expect(spans[0].type).toBe('short_case');
+  });
+
+  it('detects Id. with section symbol', () => {
+    const spans = detectCitations('Id. § 5.2(a)');
+    expect(spans.length).toBeGreaterThanOrEqual(1);
+    expect(spans[0].type).toBe('id');
+  });
+});
+
+describe('Phase 1 — address false positive filtering', () => {
+  it('does NOT detect street addresses as citations', () => {
+    const spans = detectCitations('111 S.W. 12th St.');
+    const caseCitations = spans.filter(s => s.type === 'full_case');
+    expect(caseCitations.length).toBe(0);
+  });
+
+  it('does NOT detect avenue addresses as citations', () => {
+    const spans = detectCitations('200 N.E. 5th Ave.');
+    const caseCitations = spans.filter(s => s.type === 'full_case');
+    expect(caseCitations.length).toBe(0);
   });
 });

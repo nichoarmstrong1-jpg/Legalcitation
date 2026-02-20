@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid';
 import type { ParsedCitation, CaseComponents, CitationContext } from '@legalcitation/shared';
-import { VALID_REPORTER_ABBREVIATIONS, ALL_HISTORY_ABBREVIATIONS } from '@legalcitation/shared';
+import { VALID_REPORTER_ABBREVIATIONS, ALL_HISTORY_ABBREVIATIONS, REPORTER_MAP, REPORTER_VARIATIONS } from '@legalcitation/shared';
 
 const REPORTER_ALT = Array.from(VALID_REPORTER_ABBREVIATIONS)
   .sort((a, b) => b.length - a.length)
@@ -71,6 +71,13 @@ export function normalizeCitationInput(text: string): string {
   // Apply reporter aliases
   for (const [pattern, replacement] of REPORTER_ALIASES) {
     normalized = normalized.replace(pattern, replacement);
+  }
+
+  // Apply variation normalization from the comprehensive variations map
+  for (const [variation, canonical] of REPORTER_VARIATIONS) {
+    if (normalized.includes(variation)) {
+      normalized = normalized.replace(variation, canonical);
+    }
   }
 
   // Insert comma before volume number if missing
@@ -161,22 +168,48 @@ function parseStandardCase(text: string): CaseComponents | null {
 
   for (const abbr of reporterAbbrsSorted) {
     const escapedAbbr = abbr.replace(/\./g, '\\.').replace(/'/g, "\\'");
+    // Page: digits, underscores/dashes (placeholder), or roman numerals
     const pattern = new RegExp(
-      `^(.+?),\\s*(\\d{1,4})\\s+(${escapedAbbr})\\s+(\\d{1,5})(.*)$`,
-      's'
+      `^(.+?),\\s*(\\d{1,4})\\s+(${escapedAbbr})\\s+(\\d{1,5}|_+|[—–-]{2,}|[ivxlc]{1,10})(.*)$`,
+      'si'
     );
     const match = text.match(pattern);
     if (match) {
       caseName = match[1].trim();
       volume = match[2];
       reporter = abbr;
-      firstPage = match[4];
+      // Normalize placeholder pages (underscores, dashes) to empty string
+      const rawPage = match[4];
+      firstPage = /^[_—–-]+$/.test(rawPage) ? '' : rawPage;
       remainder = match[5].trim();
       break;
     }
   }
 
   if (!caseName) return null;
+
+  // Step 1b: Edition disambiguation — if reporter matches multiple editions, prefer
+  // the one whose date range includes the citation year (extracted later, but we can
+  // do a quick forward-peek for the year parenthetical here).
+  const reporterEntry = REPORTER_MAP.get(reporter);
+  if (reporterEntry && reporterEntry.startYear && reporterEntry.endYear) {
+    const yearPeek = remainder.match(/\((?:[^)]*?)(\d{4})\s*\)/);
+    if (yearPeek) {
+      const citYear = parseInt(yearPeek[1], 10);
+      if (citYear < reporterEntry.startYear || citYear > reporterEntry.endYear) {
+        // The year doesn't match this edition — look for a better match
+        for (const [abbr, entry] of REPORTER_MAP) {
+          if (abbr === reporter) continue;
+          if (entry.fullName === reporterEntry.fullName && entry.startYear && entry.endYear) {
+            if (citYear >= entry.startYear && citYear <= entry.endYear) {
+              reporter = abbr;
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
 
   // Step 2: Parse case name into parties
   const { partyOne, partyTwo } = parseCaseNameParties(caseName);
@@ -190,7 +223,17 @@ function parseStandardCase(text: string): CaseComponents | null {
   const parallel = stripLeadingParallelCitations(afterPinCite);
   afterPinCite = parallel.remaining;
 
-  const pinCiteMatch = afterPinCite.match(/^,\s*([\d–\-,\s]+(?:n\.\d+)?)\s*(\(.*)$/);
+  // Expanded pincite: digits, ranges, ¶, §, *, pp., pg., p., footnote refs, page:paragraph
+  const PIN_CITE_RE = new RegExp(
+    String.raw`^,\s*` +
+    String.raw`(` +
+      String.raw`(?:p(?:p|g|age)?\.?\s*)?[*]*[\d]+[\d\u2013\-:,\s&*]*(?:(?:n\.|nn\.|fn\.)\s*\d+)?` +
+      String.raw`|\u00b6\u00b6?\s*[\d.]+(?:[\u2013\-]\d+)?` +
+      String.raw`|\u00a7\u00a7?\s*[\d.]+(?:\([a-zA-Z0-9]+\))*` +
+    String.raw`)` +
+    String.raw`\s*(\(.*)$`
+  );
+  const pinCiteMatch = afterPinCite.match(PIN_CITE_RE);
   if (pinCiteMatch) {
     pinCite = pinCiteMatch[1].trim();
     afterPinCite = pinCiteMatch[2];
@@ -356,7 +399,7 @@ export function parseShortCaseCitation(
   for (const abbr of reporterAbbrsSorted) {
     const escapedAbbr = abbr.replace(/\./g, '\\.').replace(/'/g, "\\'");
     const pattern = new RegExp(
-      `^(.+?),\\s*(\\d{1,4})\\s+(${escapedAbbr})\\s+at\\s+(\\d[\\d–\\-,\\s]*)$`
+      `^(.+?),\\s*(\\d{1,4})\\s+(${escapedAbbr})\\s+at\\s+(?:p(?:p|g|age)?\\.?\\s*)?([*]*\\d[\\d–\\-:,\\s*]*)$`
     );
     const match = text.match(pattern);
     if (match) {

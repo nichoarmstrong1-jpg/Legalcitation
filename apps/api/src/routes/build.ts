@@ -6,6 +6,7 @@ import type { AnalyzedCitation, CaseComponents, ValidationIssue, ShortFormEntry 
 import { validateSearch, validateBuild } from '../middleware/validation.js';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
 import { logCitationCheck } from '../services/citation-logger.js';
+import { buildLogicTrace } from '../services/logic-trace.js';
 
 export const buildRouter = Router();
 
@@ -90,11 +91,13 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
     }
 
     if (parsed.length > 0) {
-      logicTrace.push(`Found ${parsed.length} citation(s) in input. Validating and improving...`);
-
       const target = parsed[0];
       const issues = runAllRules(target);
       const score = calculateScore(issues);
+
+      // Use shared logic trace builder for consistent, detailed output
+      const detailedTrace = buildLogicTrace(target, issues);
+      logicTrace.push(...detailedTrace);
 
       const analyzed: AnalyzedCitation = {
         parsed: target,

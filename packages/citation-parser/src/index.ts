@@ -1,4 +1,4 @@
-import type { ParsedCitation, CitationContext, FootnoteContext } from '@legalcitation/shared';
+import type { ParsedCitation, CitationContext, FootnoteContext, ResolutionResult } from '@legalcitation/shared';
 import { detectCitations, type DetectedSpan } from './detector.js';
 import {
   parseCaseCitation,
@@ -16,9 +16,20 @@ import {
   parseSupraCitation,
   parseInfraCitation,
 } from './parsers/index.js';
+import { resolveCitations, type ResolverOptions } from './resolver.js';
 
 export { detectCitations, type DetectedSpan } from './detector.js';
 export * from './parsers/index.js';
+export { resolveCitations, type ResolverOptions } from './resolver.js';
+export { cleanText, toOriginalSpan, type CleanerStep, type SpanMapping } from './cleaners.js';
+export { SpanMapper } from './span-mapper.js';
+export {
+  annotateCitations,
+  htmlAnnotator,
+  type AnnotatorFn,
+  type AnnotationMarker,
+  type AnnotateOptions,
+} from './annotator.js';
 
 /**
  * Classify a citation's context by examining surrounding text.
@@ -172,6 +183,21 @@ export function extractAndParseCitations(
   }
 
   return parsed;
+}
+
+/**
+ * Full pipeline: detect, parse, and resolve citations.
+ * Returns both parsed citations (with resolvedResourceId populated)
+ * and the resolution result mapping citations to resources.
+ */
+export function extractParseAndResolve(
+  text: string,
+  context: CitationContext = 'citation_sentence',
+  resolverOptions?: ResolverOptions
+): { citations: ParsedCitation[]; resolution: ResolutionResult } {
+  const citations = extractAndParseCitations(text, context);
+  const resolution = resolveCitations(citations, resolverOptions);
+  return { citations, resolution };
 }
 
 export interface ParsedFootnote {

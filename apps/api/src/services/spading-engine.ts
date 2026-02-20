@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { extractAndParseCitations } from '@legalcitation/citation-parser';
+import { extractParseAndResolve, cleanText } from '@legalcitation/citation-parser';
 import { runFullAnalysis, calculateScore } from '@legalcitation/rule-engine';
 import type {
   ParsedCitation,
@@ -11,6 +11,7 @@ import { getDb, schema } from '../db/index.js';
 import { cachedVerifyCaseCitation } from './verification-cache.js';
 import { matchCitationToSource } from './source-matcher.js';
 import { emitProgress, cleanupProgress } from './spading-progress.js';
+import { buildLogicTrace } from './logic-trace.js';
 import type { PageMapping } from './document-processor.js';
 
 const BATCH_SIZE = 5;
@@ -140,10 +141,7 @@ async function processCitation(
   let status: AnnotationStatus = 'pending';
   let verifiedCitation: string | null = null;
   let discrepancies: unknown[] = [];
-  const logicTrace: string[] = [
-    `Identified as a ${citation.type} citation.`,
-    `Checked against ${issues.length} Bluebook rules.`,
-  ];
+  const logicTrace: string[] = buildLogicTrace(citation, issues);
   let matchedDocumentId: string | null = null;
   let matchedPageNumber: number | null = null;
   let matchedTextSnippet: string | null = null;
@@ -207,7 +205,7 @@ async function processCitation(
       verifiedCitation = verification.verifiedCitation || null;
       discrepancies = verification.discrepancies || [];
       logicTrace.push(...verification.logicTrace);
-    } catch (err) {
+    } catch {
       logicTrace.push('AI verification temporarily unavailable.');
     }
   }
@@ -279,16 +277,19 @@ export async function runSpadingPipeline(projectId: string): Promise<void> {
       throw new Error('Journal document not found.');
     }
 
-    const journalText = journalDoc.extractedText;
+    const rawJournalText = journalDoc.extractedText;
 
-    // Step 2: Parse all citations
+    // Clean text from PDF/OCR artifacts before extraction
+    const { cleaned: journalText } = cleanText(rawJournalText, ['inline_whitespace', 'underscores']);
+
+    // Step 2: Parse and resolve all citations
     emitProgress(projectId, {
       progress: 10,
-      currentStep: 'Parsing citations...',
+      currentStep: 'Parsing and resolving citations...',
       status: 'processing',
     });
 
-    const parsedCitations = extractAndParseCitations(journalText, 'citation_sentence');
+    const { citations: parsedCitations, resolution } = extractParseAndResolve(journalText, 'citation_sentence');
 
     if (parsedCitations.length === 0) {
       await db
@@ -328,8 +329,8 @@ export async function runSpadingPipeline(projectId: string): Promise<void> {
       status: 'processing',
     });
 
-    // Run rule engine on all citations at once (includes context rules)
-    const issueMap = runFullAnalysis(parsedCitations, journalText);
+    // Run rule engine on all citations with resolution data (includes context rules)
+    const issueMap = runFullAnalysis(parsedCitations, journalText, resolution);
 
     // Step 3: Load source documents
     emitProgress(projectId, {

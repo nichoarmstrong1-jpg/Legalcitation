@@ -1,15 +1,17 @@
 import { Router, type Request, type Response } from 'express';
-import { extractAndParseCitations, normalizeCitationInput, extractFootnoteCitations } from '@legalcitation/citation-parser';
+import { extractParseAndResolve, normalizeCitationInput, extractFootnoteCitations, resolveCitations } from '@legalcitation/citation-parser';
 import { runFullAnalysis, runFootnoteAnalysis, calculateScore } from '@legalcitation/rule-engine';
-import type { AnalyzedCitation, CaseComponents, CitationContext, ValidationIssue, DocumentCitationMap, ParsedCitation } from '@legalcitation/shared';
+import type { AnalyzedCitation, CaseComponents, CitationContext, DocumentCitationMap, ParsedCitation } from '@legalcitation/shared';
 import { stripMarkersWithOffsetMap } from '@legalcitation/shared';
 import { validateAnalyzeText } from '../middleware/validation.js';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
 import { logCitationCheck } from '../services/citation-logger.js';
 import { matchPinpointToDocument } from '../services/pinpoint-matcher.js';
 import { generateShortForms, generateShortFormSuggestions } from '../services/short-form-generator.js';
+import { buildLogicTrace } from '../services/logic-trace.js';
 
 export const analyzeRouter = Router();
+
 
 /**
  * POST /api/analyze — Analyze text with multiple citations (in-text mode)
@@ -33,12 +35,14 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
     const { stripped, toOriginal } = stripMarkersWithOffsetMap(text);
     const hasMarkers = stripped.length !== text.length;
 
-    // Try standard extraction first, then normalized
-    let parsed = extractAndParseCitations(stripped, context);
+    // Try standard extraction with resolution first, then normalized
+    let { citations: parsed, resolution } = extractParseAndResolve(stripped, context);
     if (parsed.length === 0) {
       const normalized = normalizeCitationInput(stripped);
       if (normalized !== stripped) {
-        parsed = extractAndParseCitations(normalized, context);
+        const result = extractParseAndResolve(normalized, context);
+        parsed = result.citations;
+        resolution = result.resolution;
       }
     }
 
@@ -75,14 +79,15 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
       }
     }
 
-    // Run rules on all citations (including context rules)
-    const issueMap = runFullAnalysis(parsed, text);
+    // Run rules on all citations (including context rules) with resolution data
+    const issueMap = runFullAnalysis(parsed, text, resolution);
 
     // Build analyzed citation results
     const results: AnalyzedCitation[] = parsed.map(citation => {
       const issues = issueMap.get(citation.id) || [];
       const score = calculateScore(issues);
-      const errorCount = issues.filter((i: ValidationIssue) => i.severity === 'error').length;
+
+      const logicTrace = buildLogicTrace(citation, issues, resolution);
 
       const analyzed: AnalyzedCitation = {
         parsed: citation,
@@ -90,13 +95,7 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
         verificationStatus: 'pending',
         discrepancies: [],
         referenceExamples: [],
-        logicTrace: [
-          `Identified as a ${citation.type} citation.`,
-          `Checked against ${issues.length} Bluebook and Indigo Book rules.`,
-          ...(errorCount > 0
-            ? [`Found ${errorCount} formatting issue${errorCount !== 1 ? 's' : ''} requiring correction.`]
-            : ['No formatting issues found — citation format looks correct.']),
-        ],
+        logicTrace,
         score,
       };
 
@@ -260,14 +259,21 @@ analyzeRouter.post('/footnotes', validateAnalyzeText, async (req: Request, res: 
       footnoteCount: parsedFootnotes.length,
     };
 
-    // Run footnote analysis
-    const { issueMap, integrityReport } = runFootnoteAnalysis(docMap, text);
+    // Resolve citations across all footnotes for accurate cross-reference validation
+    const resolution = resolveCitations(allCitations);
+
+    // Run footnote analysis with resolution data
+    const { issueMap, integrityReport } = runFootnoteAnalysis(docMap, text, resolution);
 
     // Build analyzed citation results
     const results: AnalyzedCitation[] = allCitations.map(citation => {
       const issues = issueMap.get(citation.id) || [];
       const score = calculateScore(issues);
-      const errorCount = issues.filter((i: ValidationIssue) => i.severity === 'error').length;
+      const logicTrace = buildLogicTrace(citation, issues, resolution);
+      // Prepend footnote-specific context
+      if (citation.footnoteContext) {
+        logicTrace.unshift(`Located in footnote ${citation.footnoteContext.footnoteNumber} (citation ${citation.footnoteContext.positionInFootnote + 1} of ${citation.footnoteContext.totalInFootnote}).`);
+      }
 
       return {
         parsed: citation,
@@ -275,13 +281,7 @@ analyzeRouter.post('/footnotes', validateAnalyzeText, async (req: Request, res: 
         verificationStatus: 'pending' as const,
         discrepancies: [],
         referenceExamples: [],
-        logicTrace: [
-          `Identified as a ${citation.type} citation in footnote ${citation.footnoteContext?.footnoteNumber ?? '?'}.`,
-          `Checked against ${issues.length} Bluebook rules (including footnote-context rules).`,
-          ...(errorCount > 0
-            ? [`Found ${errorCount} issue${errorCount !== 1 ? 's' : ''} requiring correction.`]
-            : ['No formatting issues found.']),
-        ],
+        logicTrace,
         score,
       };
     });

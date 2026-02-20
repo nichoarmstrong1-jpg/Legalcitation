@@ -2,12 +2,18 @@ import { v4 as uuid } from 'uuid';
 import type { ParsedCitation, ShortFormComponents, CitationContext } from '@legalcitation/shared';
 
 /**
- * Parse Id. citations.
+ * Parse Id./Ibid. citations.
  *
  * Forms:
  *   Id.
+ *   Ibid.
  *   Id. at 405.
  *   Id. at 405–10.
+ *   Id. ¶ 34
+ *   Id. at *10
+ *   Id. at pp. 45, 64
+ *   Id. § 5.2(a)
+ *   Id. at 119:12-14
  */
 export function parseIdCitation(
   rawText: string,
@@ -16,9 +22,30 @@ export function parseIdCitation(
 ): ParsedCitation | null {
   const text = rawText.trim();
 
-  const idPattern = /^(Id\.)\s*(?:at\s+([\d–,\s-]+(?:n\.\d+)?))?\.?$/i;
-  const match = text.match(idPattern);
-  if (!match) return null;
+  // Match Id. or Ibid. (with optional formatting markers like *Id.*)
+  const idStem = /^\*?(?:Id|Ibid)\.\*?/i;
+  if (!idStem.test(text)) return null;
+
+  // Strip the stem and trailing period to get the pin cite portion
+  const afterStem = text.replace(idStem, '').replace(/\.?\s*$/, '').trim();
+
+  let pinCite: string | undefined;
+
+  if (afterStem) {
+    // "at <pincite>" form — handles digits, *, pp., pg., p., page:paragraph, footnote refs
+    const atMatch = afterStem.match(/^at\s+(?:p(?:p|g|age)?\.?\s*)?(.+)$/i);
+    if (atMatch) {
+      pinCite = atMatch[1].trim();
+    } else {
+      // Direct symbol form: ¶ 34, § 5.2(a)
+      const symbolMatch = afterStem.match(/^([¶§]§?\s*.+)$/);
+      if (symbolMatch) {
+        pinCite = symbolMatch[1].trim();
+      } else {
+        return null;
+      }
+    }
+  }
 
   return {
     id: uuid(),
@@ -28,7 +55,7 @@ export function parseIdCitation(
     position,
     components: {
       type: 'id',
-      pinCite: match[2]?.trim(),
+      pinCite,
     } as ShortFormComponents,
   };
 }
@@ -47,7 +74,7 @@ export function parseSupraCitation(
 ): ParsedCitation | null {
   const text = rawText.trim();
 
-  const supraPattern = /^(.+?),?\s+supra\s*(?:note\s+(\d+))?\s*(?:,\s*at\s+([\d–,\s-]+))?\.?$/i;
+  const supraPattern = /^(.+?),?\s+supra\s*(?:note\s+(\d+))?\s*(?:,\s*at\s+(?:p(?:p|g|age)?\.?\s*)?([*]*[\d]+[\d–\-:,\s&*]*))?\.?$/i;
   const match = text.match(supraPattern);
   if (!match) return null;
 

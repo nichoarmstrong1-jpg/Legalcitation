@@ -4,6 +4,10 @@ import type {
   StatuteComponents,
   BookComponents,
   ArticleComponents,
+  RestatementComponents,
+  InternetComponents,
+  AiSourceComponents,
+  UnpublishedComponents,
   ShortFormEntry,
   ShortFormSuggestion,
   AnalyzedCitation,
@@ -27,6 +31,14 @@ export function generateShortForms(citation: ParsedCitation): ShortFormEntry[] {
       return generateRegulationShortForms();
     case 'constitution':
       return generateConstitutionShortForms();
+    case 'restatement':
+      return generateRestatementShortForms(citation.components as RestatementComponents);
+    case 'internet':
+      return generateInternetShortForms(citation.components as InternetComponents);
+    case 'ai_source':
+      return generateAiSourceShortForms();
+    case 'unpublished':
+      return generateUnpublishedShortForms(citation.components as UnpublishedComponents);
     default:
       return [];
   }
@@ -184,6 +196,87 @@ function generateConstitutionShortForms(): ShortFormEntry[] {
       label: 'Id. Citation',
       whenToUse: 'Use when citing the EXACT same constitutional provision as the immediately preceding citation.',
       whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+    },
+  ];
+}
+
+function generateRestatementShortForms(comp: RestatementComponents): ShortFormEntry[] {
+  return [
+    {
+      form: '*Id.*',
+      type: 'id',
+      label: 'Id. Citation',
+      whenToUse: 'Use when citing the EXACT same restatement provision as the immediately preceding citation.',
+      whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+      warnings: ['Id. must be italicized, including the period.'],
+    },
+    {
+      form: `*Id.* § ${comp.section || '[section]'}`,
+      type: 'id_pinpoint',
+      label: 'Id. with Section',
+      whenToUse: 'Use when citing the same restatement but a different section.',
+      whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+      warnings: ['Use § (not "at") before section numbers for restatements.'],
+    },
+  ];
+}
+
+function generateInternetShortForms(comp: InternetComponents): ShortFormEntry[] {
+  const author = comp.author || comp.title?.split(/\s+/).slice(0, 3).join(' ') || 'Source';
+  return [
+    {
+      form: '*Id.*',
+      type: 'id',
+      label: 'Id. Citation',
+      whenToUse: 'Use when citing the EXACT same internet source as the immediately preceding citation.',
+      whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+      warnings: ['Id. must be italicized, including the period.'],
+    },
+    {
+      form: `${author}, *supra* note [N]`,
+      type: 'supra',
+      label: 'Supra Form',
+      whenToUse: 'Use after the full citation has been given once AND there are intervening citations.',
+      whereToPlace: `Replace [N] with the footnote number where this source was first cited in full.`,
+      warnings: ['Only use in footnotes, not in main text.'],
+    },
+  ];
+}
+
+function generateAiSourceShortForms(): ShortFormEntry[] {
+  return [
+    {
+      form: '*Id.*',
+      type: 'id',
+      label: 'Id. Citation',
+      whenToUse: 'Use when citing the EXACT same AI-generated source as the immediately preceding citation.',
+      whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+      warnings: [
+        'Id. must be italicized, including the period.',
+        'AI citations (R. 18.3) are new in the 22nd edition — verify your journal accepts this format.',
+      ],
+    },
+  ];
+}
+
+function generateUnpublishedShortForms(comp: UnpublishedComponents): ShortFormEntry[] {
+  const author = comp.author || 'Author';
+  return [
+    {
+      form: '*Id.*',
+      type: 'id',
+      label: 'Id. Citation',
+      whenToUse: 'Use when citing the EXACT same unpublished source as the immediately preceding citation.',
+      whereToPlace: 'Use immediately after the full citation with no intervening citations.',
+      warnings: ['Id. must be italicized, including the period.'],
+    },
+    {
+      form: `${author}, *supra* note [N], at [page]`,
+      type: 'supra',
+      label: 'Supra Form',
+      whenToUse: 'Use after the full citation has been given once AND there are intervening citations.',
+      whereToPlace: `Replace [N] with the footnote number where ${author} was first cited in full.`,
+      warnings: ['Only use in footnotes, not in main text.'],
     },
   ];
 }

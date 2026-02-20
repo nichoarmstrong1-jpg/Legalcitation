@@ -9,3 +9,4 @@ export { parseInternetCitation } from './internet-parser.js';
 export { parseAiSourceCitation } from './ai-source-parser.js';
 export { parseUnpublishedCitation } from './unpublished-parser.js';
 export { parseIdCitation, parseSupraCitation, parseInfraCitation } from './short-form-parser.js';
+export { detectReferenceCitations } from './reference-parser.js';

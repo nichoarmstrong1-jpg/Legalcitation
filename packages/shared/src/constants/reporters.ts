@@ -12,6 +12,10 @@ export interface ReporterEntry {
   series?: number;
   startYear?: number;
   endYear?: number;
+  variations?: string[];
+  citeType?: 'federal' | 'state' | 'regional' | 'specialty' | 'neutral';
+  regexTemplate?: string;
+  isNominative?: boolean;
 }
 
 // --- Federal Reporters ---
@@ -147,10 +151,13 @@ export const STATE_REPORTERS: ReporterEntry[] = [
 
 // --- All reporters combined for lookup ---
 
+import { ALL_EXTENDED_REPORTERS } from './reporters-extended.js';
+
 export const ALL_REPORTERS = [
   ...FEDERAL_REPORTERS,
   ...REGIONAL_REPORTERS,
   ...STATE_REPORTERS,
+  ...ALL_EXTENDED_REPORTERS,
 ];
 
 /** Set of all valid reporter abbreviations for quick lookup */
@@ -162,6 +169,136 @@ export const VALID_REPORTER_ABBREVIATIONS = new Set(
 export const REPORTER_MAP = new Map(
   ALL_REPORTERS.map(r => [r.abbreviation, r])
 );
+
+/**
+ * Reporter variation map — maps common misspellings, spacing variations,
+ * and alternative forms to their canonical abbreviation.
+ * Ported from Free Law Project's reporters-db variations data.
+ */
+export const REPORTER_VARIATIONS: Map<string, string> = new Map([
+  // United States Reports
+  ['U. S.', 'U.S.'],
+  ['US', 'U.S.'],
+  ['U.S', 'U.S.'],
+
+  // Supreme Court Reporter
+  ['S.Ct.', 'S. Ct.'],
+  ['S. Ct', 'S. Ct.'],
+  ['SCt', 'S. Ct.'],
+
+  // Lawyers' Edition
+  ['L.Ed.', 'L. Ed.'],
+  ['L. Ed', 'L. Ed.'],
+  ['L.Ed.2d', 'L. Ed. 2d'],
+  ['L. Ed.2d', 'L. Ed. 2d'],
+
+  // Federal Reporter
+  ['F', 'F.'],
+  ['F 2d', 'F.2d'],
+  ['F. 2d', 'F.2d'],
+  ['F 3d', 'F.3d'],
+  ['F. 3d', 'F.3d'],
+  ['F 4th', 'F.4th'],
+  ['F. 4th', 'F.4th'],
+
+  // Federal Supplement
+  ['F.Supp.', 'F. Supp.'],
+  ['F Supp', 'F. Supp.'],
+  ['F.Supp.2d', 'F. Supp. 2d'],
+  ['F Supp 2d', 'F. Supp. 2d'],
+  ['F.Supp.3d', 'F. Supp. 3d'],
+  ['F Supp 3d', 'F. Supp. 3d'],
+
+  // Atlantic
+  ['A. 2d', 'A.2d'],
+  ['A 2d', 'A.2d'],
+  ['A. 3d', 'A.3d'],
+  ['A 3d', 'A.3d'],
+
+  // North Eastern
+  ['N.E. 2d', 'N.E.2d'],
+  ['NE2d', 'N.E.2d'],
+  ['N.E. 3d', 'N.E.3d'],
+  ['NE3d', 'N.E.3d'],
+
+  // North Western
+  ['N.W. 2d', 'N.W.2d'],
+  ['NW2d', 'N.W.2d'],
+
+  // Pacific
+  ['P. 2d', 'P.2d'],
+  ['P 2d', 'P.2d'],
+  ['P. 3d', 'P.3d'],
+  ['P 3d', 'P.3d'],
+
+  // South Eastern
+  ['S.E. 2d', 'S.E.2d'],
+  ['SE2d', 'S.E.2d'],
+
+  // Southern
+  ['So.2d', 'So. 2d'],
+  ['So.3d', 'So. 3d'],
+
+  // South Western
+  ['S.W. 2d', 'S.W.2d'],
+  ['SW2d', 'S.W.2d'],
+  ['S.W. 3d', 'S.W.3d'],
+  ['SW3d', 'S.W.3d'],
+
+  // California
+  ['Cal.2d', 'Cal. 2d'],
+  ['Cal.3d', 'Cal. 3d'],
+  ['Cal.4th', 'Cal. 4th'],
+  ['Cal.5th', 'Cal. 5th'],
+  ['Cal.App.', 'Cal. App.'],
+  ['Cal.App.2d', 'Cal. App. 2d'],
+  ['Cal.App.3d', 'Cal. App. 3d'],
+  ['Cal.App.4th', 'Cal. App. 4th'],
+  ['Cal.App.5th', 'Cal. App. 5th'],
+  ['Cal.Rptr.', 'Cal. Rptr.'],
+  ['Cal.Rptr.2d', 'Cal. Rptr. 2d'],
+  ['Cal.Rptr.3d', 'Cal. Rptr. 3d'],
+
+  // New York
+  ['NY', 'N.Y.'],
+  ['NY2d', 'N.Y.2d'],
+  ['NY3d', 'N.Y.3d'],
+  ['NYS', 'N.Y.S.'],
+  ['NYS2d', 'N.Y.S.2d'],
+  ['NYS3d', 'N.Y.S.3d'],
+  ['AD', 'A.D.'],
+  ['AD2d', 'A.D.2d'],
+  ['AD3d', 'A.D.3d'],
+
+  // Illinois
+  ['Ill.2d', 'Ill. 2d'],
+  ['Ill.App.', 'Ill. App.'],
+  ['Ill.App.2d', 'Ill. App. 2d'],
+  ['Ill.App.3d', 'Ill. App. 3d'],
+
+  // Ohio
+  ['Ohio St.2d', 'Ohio St. 2d'],
+  ['Ohio St.3d', 'Ohio St. 3d'],
+  ['Ohio App.2d', 'Ohio App. 2d'],
+  ['Ohio App.3d', 'Ohio App. 3d'],
+
+  // Bankruptcy
+  ['BR', 'B.R.'],
+  ['B.R', 'B.R.'],
+
+  // Federal Rules Decisions
+  ['FRD', 'F.R.D.'],
+  ['F.R.D', 'F.R.D.'],
+
+  // Military
+  ['MJ', 'M.J.'],
+  ['M.J', 'M.J.'],
+
+  // Federal Appendix
+  ["F.App'x", "F. App'x"],
+  ['F. Appx', "F. App'x"],
+  ["F.Appx", "F. App'x"],
+]);
 
 /**
  * Reporters that imply Supreme Court (no court designation needed)

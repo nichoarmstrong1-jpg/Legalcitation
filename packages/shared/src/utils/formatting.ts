@@ -85,12 +85,28 @@ export function stripMarkersWithOffsetMap(text: string): {
   // Maps each index in original text to the corresponding index in stripped text
   const originalToStripped: number[] = new Array(text.length + 1);
 
+  // Pre-compute which positions are formatting markers vs literal characters.
+  // Underscores in sequences of 2+ (like "___" for placeholder pages) are kept.
+  const isMarker = new Uint8Array(text.length);
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '*') {
+      isMarker[i] = 1;
+    } else if (ch === '_') {
+      // Only treat as marker if NOT part of a consecutive underscore run (placeholder pages)
+      const prevIsUnderscore = i > 0 && text[i - 1] === '_';
+      const nextIsUnderscore = i + 1 < text.length && text[i + 1] === '_';
+      if (!prevIsUnderscore && !nextIsUnderscore) {
+        isMarker[i] = 1;
+      }
+    }
+  }
+
   let strippedIdx = 0;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
     originalToStripped[i] = strippedIdx;
-    if (ch === '*' || ch === '_') {
-      // Skip marker characters
+    if (isMarker[i]) {
       continue;
     }
     stripped.push(ch);

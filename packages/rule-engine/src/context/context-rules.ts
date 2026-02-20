@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid';
-import type { ValidationIssue, ParsedCitation } from '@legalcitation/shared';
+import type { ValidationIssue, ParsedCitation, ResolutionResult } from '@legalcitation/shared';
 
 /**
  * Tracks hereinafter designations across the document.
@@ -15,7 +15,7 @@ interface HereinafterDesignation {
  * Analyzes citations as a sequence to check Id. usage, short form proximity,
  * hereinafter consistency, and source-type-aware Id. validation.
  */
-export function validateContext(citations: ParsedCitation[]): Map<string, ValidationIssue[]> {
+export function validateContext(citations: ParsedCitation[], resolution?: ResolutionResult): Map<string, ValidationIssue[]> {
   const issueMap = new Map<string, ValidationIssue[]>();
   const hereinafterMap = new Map<string, HereinafterDesignation>();
 
@@ -37,11 +37,11 @@ export function validateContext(citations: ParsedCitation[]): Map<string, Valida
     const issues: ValidationIssue[] = [];
 
     if (citation.type === 'id') {
-      validateIdContext(citations, i, issues);
+      validateIdContext(citations, i, issues, resolution);
     }
 
     if (citation.type === 'short_form') {
-      validateShortFormContext(citations, i, issues);
+      validateShortFormContext(citations, i, issues, resolution);
     }
 
     // Detect long-form misuse (full citation where short form would suffice)
@@ -87,7 +87,8 @@ export function validateContext(citations: ParsedCitation[]): Map<string, Valida
 function validateIdContext(
   citations: ParsedCitation[],
   index: number,
-  issues: ValidationIssue[]
+  issues: ValidationIssue[],
+  resolution?: ResolutionResult
 ): void {
   const citation = citations[index];
 
@@ -104,40 +105,77 @@ function validateIdContext(
     return;
   }
 
-  // Check that the immediately preceding citation is a valid antecedent
-  const prev = citations[index - 1];
-  if (prev.type === 'id') {
-    // Consecutive Id. is fine — both refer to the same original source
-    // Find the original antecedent for traceability
-    for (let j = index - 2; j >= 0; j--) {
-      if (citations[j].type !== 'id') {
-        issues.push({
-          id: uuid(),
-          rule: 'R. 4.1',
-          source: 'Context',
-          severity: 'suggestion',
-          message: `Id. refers to: ${citations[j].rawText.slice(0, 80)}${citations[j].rawText.length > 80 ? '...' : ''}`,
-          suggestion: 'Correct usage of Id. — refers to the same source as the preceding Id. chain.',
-          antecedentIndex: j,
-          antecedentText: citations[j].rawText,
-        });
-        break;
-      }
+  // If resolution data is available, use it for precise antecedent identification
+  if (resolution && citation.resolvedResourceId) {
+    const resource = resolution.resources.get(citation.resolvedResourceId);
+    if (resource) {
+      const antecedentCitation = findFullCitationForResource(citations, index, citation.resolvedResourceId);
+      const antecedentIdx = antecedentCitation ? citations.indexOf(antecedentCitation) : -1;
+      const displayName = resource.plaintiff
+        ? (resource.defendant ? `${resource.plaintiff} v. ${resource.defendant}` : resource.plaintiff)
+        : resource.canonicalCitation.slice(0, 60);
+      const locationInfo = resource.volume && resource.reporter
+        ? `, ${resource.volume} ${resource.reporter} ${resource.page || ''}`.trim()
+        : '';
+
+      issues.push({
+        id: uuid(),
+        rule: 'R. 4.1',
+        source: 'Context',
+        severity: 'suggestion',
+        message: `Id. refers to ${displayName}${locationInfo} (resolved via citation chain analysis).`,
+        suggestion: 'Id. correctly refers to the immediately preceding authority.',
+        antecedentIndex: antecedentIdx >= 0 ? antecedentIdx : undefined,
+        antecedentText: antecedentCitation?.rawText,
+      });
     }
-    return;
+  } else {
+    // Fall back to positional antecedent detection
+    const prev = citations[index - 1];
+    if (prev.type === 'id') {
+      for (let j = index - 2; j >= 0; j--) {
+        if (citations[j].type !== 'id') {
+          issues.push({
+            id: uuid(),
+            rule: 'R. 4.1',
+            source: 'Context',
+            severity: 'suggestion',
+            message: `Id. refers to: ${citations[j].rawText.slice(0, 80)}${citations[j].rawText.length > 80 ? '...' : ''}`,
+            suggestion: 'Correct usage of Id. — refers to the same source as the preceding Id. chain.',
+            antecedentIndex: j,
+            antecedentText: citations[j].rawText,
+          });
+          break;
+        }
+      }
+      return;
+    }
+
+    issues.push({
+      id: uuid(),
+      rule: 'R. 4.1',
+      source: 'Context',
+      severity: 'suggestion',
+      message: `Id. refers to citation #${index}: ${prev.rawText.slice(0, 80)}${prev.rawText.length > 80 ? '...' : ''}`,
+      suggestion: 'Id. correctly refers to the immediately preceding citation.',
+      antecedentIndex: index - 1,
+      antecedentText: prev.rawText,
+    });
   }
 
-  // Add traceability: tell user what Id. refers to
-  issues.push({
-    id: uuid(),
-    rule: 'R. 4.1',
-    source: 'Context',
-    severity: 'suggestion',
-    message: `Id. refers to citation #${index}: ${prev.rawText.slice(0, 80)}${prev.rawText.length > 80 ? '...' : ''}`,
-    suggestion: 'Id. correctly refers to the immediately preceding citation.',
-    antecedentIndex: index - 1,
-    antecedentText: prev.rawText,
-  });
+  // Unresolved Id. with resolution available = ambiguous or broken chain
+  if (resolution && !citation.resolvedResourceId) {
+    issues.push({
+      id: uuid(),
+      rule: 'R. 4.1',
+      source: 'Context',
+      severity: 'warning',
+      message: 'Could not determine the antecedent for this "Id." reference. The preceding citation may be ambiguous or the pinpoint page may be too far from the original.',
+      suggestion: 'Consider using a full short form citation (e.g., party name + reporter + "at" + page) for clarity.',
+    });
+  }
+
+  const prev = citations[index - 1];
 
   // Source-type-aware Id. validation: check that Id. pincite format matches source type
   if (prev.type === 'statute' || prev.type === 'regulation') {
@@ -222,19 +260,78 @@ function validateIdContext(
 }
 
 /**
+ * Find the full citation that corresponds to a resolved resource.
+ */
+function findFullCitationForResource(
+  citations: ParsedCitation[],
+  beforeIndex: number,
+  resourceId: string
+): ParsedCitation | null {
+  for (let i = beforeIndex - 1; i >= 0; i--) {
+    if (
+      citations[i].resolvedResourceId === resourceId &&
+      !['id', 'supra', 'infra', 'short_form'].includes(citations[i].type)
+    ) {
+      return citations[i];
+    }
+  }
+  return null;
+}
+
+/**
  * Validate short form case citations in context:
  * - Must have a full citation within the preceding ~5 citations
  */
 function validateShortFormContext(
   citations: ParsedCitation[],
   index: number,
-  issues: ValidationIssue[]
+  issues: ValidationIssue[],
+  resolution?: ResolutionResult
 ): void {
   const citation = citations[index];
   const components = citation.components as { type: string; partyName?: string };
 
   if (components.type !== 'short_case' || !components.partyName) return;
 
+  // If resolution data is available, use it for precise matching
+  if (resolution && citation.resolvedResourceId) {
+    const resource = resolution.resources.get(citation.resolvedResourceId);
+    const antecedent = findFullCitationForResource(citations, index, citation.resolvedResourceId);
+    if (resource && antecedent) {
+      const antecedentIdx = citations.indexOf(antecedent);
+      const distance = index - antecedentIdx;
+      const displayName = resource.plaintiff
+        ? (resource.defendant ? `${resource.plaintiff} v. ${resource.defendant}` : resource.plaintiff)
+        : resource.canonicalCitation.slice(0, 60);
+
+      if (distance <= 5) {
+        issues.push({
+          id: uuid(),
+          rule: 'R. 10.9',
+          source: 'Context',
+          severity: 'suggestion',
+          message: `Short form "${components.partyName}" correctly refers to ${displayName} (citation #${antecedentIdx + 1}, ${distance} back). Verified via resolution.`,
+          suggestion: 'Correct usage of short form citation.',
+          antecedentIndex: antecedentIdx,
+          antecedentText: antecedent.rawText,
+        });
+      } else {
+        issues.push({
+          id: uuid(),
+          rule: 'R. 10.9',
+          source: 'Context',
+          severity: 'warning',
+          message: `Short form "${components.partyName}" refers to ${displayName}, but the full citation is ${distance} citation${distance !== 1 ? 's' : ''} back (citation #${antecedentIdx + 1}). This may be too far for easy reference.`,
+          suggestion: 'Consider re-citing in full since the full citation is more than 5 citations back.',
+          antecedentIndex: antecedentIdx,
+          antecedentText: antecedent.rawText,
+        });
+      }
+      return;
+    }
+  }
+
+  // Fall back to positional substring matching
   // Look backward for a full case citation with a matching party name (within 5)
   const lookback = Math.max(0, index - 5);
   let nearAntecedentIdx: number | null = null;

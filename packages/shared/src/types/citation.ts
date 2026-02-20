@@ -45,6 +45,7 @@ export interface CaseComponents {
   docketNumber?: string;
   database?: string;
   electronicReportNumber?: string;
+  parallelGroupId?: string;
 }
 
 export interface StatuteComponents {
@@ -198,7 +199,29 @@ export interface ParsedCitation {
   position: { start: number; end: number };
   components: CitationComponents;
   footnoteContext?: FootnoteContext;
+  resolvedResourceId?: string;
 }
+
+export interface CitationResource {
+  id: string;
+  canonicalCitation: string;
+  plaintiff?: string;
+  defendant?: string;
+  volume?: string;
+  reporter?: string;
+  page?: string;
+  court?: string;
+  year?: string;
+}
+
+export interface ResolutionResult {
+  resources: Map<string, CitationResource>;
+  citationToResource: Map<string, string>;
+  unresolvedCitations: string[];
+}
+
+export type ResolveFn<T extends ParsedCitation = ParsedCitation> =
+  (citation: T, resolvedFullCites: CitationResource[], lastResolution: CitationResource | null) => CitationResource | null;
 
 export interface ValidationIssue {
   id: string;

@@ -12,9 +12,9 @@ import type {
   AiSourceComponents,
   UnpublishedComponents,
   ValidationIssue,
-  CitationContext,
   DocumentCitationMap,
   DocumentIntegrityReport,
+  ResolutionResult,
 } from '@legalcitation/shared';
 
 import { validateCaseName } from './bluebook/case-name-rules.js';
@@ -65,6 +65,8 @@ import { validateCrossReferences } from './context/cross-reference-validator.js'
 
 export { RULE_EXPLANATIONS } from './explanations.js';
 export type { RuleExplanation } from './explanations.js';
+export { getComponentRules } from './component-rules-map.js';
+export type { ComponentRuleMapping } from './component-rules-map.js';
 export { validateContext } from './context/context-rules.js';
 export { validateCitationOrder } from './bluebook/citation-order-rules.js';
 export { validateFootnoteContext } from './context/footnote-rules.js';
@@ -219,10 +221,13 @@ export function runAllRules(citation: ParsedCitation): ValidationIssue[] {
 
 /**
  * Run all rules including context-aware validation on a list of citations.
+ * When resolution data is provided, context validators use it for more
+ * accurate Id./supra/short-form chain validation.
  */
 export function runFullAnalysis(
   citations: ParsedCitation[],
-  sourceText?: string
+  sourceText?: string,
+  resolution?: ResolutionResult
 ): Map<string, ValidationIssue[]> {
   const issueMap = new Map<string, ValidationIssue[]>();
 
@@ -238,8 +243,8 @@ export function runFullAnalysis(
     issueMap.set(citation.id, issues);
   }
 
-  // Context rules (cross-citation checks)
-  const contextIssues = validateContext(citations);
+  // Context rules (cross-citation checks) — pass resolution for accurate antecedent identification
+  const contextIssues = validateContext(citations, resolution);
   for (const [id, issues] of contextIssues) {
     const existing = issueMap.get(id) || [];
     issueMap.set(id, [...existing, ...issues]);
@@ -289,7 +294,8 @@ function mergeIssues(
  */
 export function runFootnoteAnalysis(
   docMap: DocumentCitationMap,
-  sourceText?: string
+  sourceText?: string,
+  resolution?: ResolutionResult
 ): { issueMap: Map<string, ValidationIssue[]>; integrityReport: DocumentIntegrityReport } {
   const issueMap = new Map<string, ValidationIssue[]>();
   const allCitations = docMap.allCitations;
@@ -303,8 +309,8 @@ export function runFootnoteAnalysis(
     issueMap.set(citation.id, issues);
   }
 
-  // Flat context rules (Id. chains, short form proximity)
-  const contextIssues = validateContext(allCitations);
+  // Flat context rules (Id. chains, short form proximity) — pass resolution data
+  const contextIssues = validateContext(allCitations, resolution);
   mergeIssues(issueMap, contextIssues);
 
   // Footnote-specific context rules
