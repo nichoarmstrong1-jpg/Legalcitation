@@ -1,4 +1,8 @@
-import 'dotenv/config';
+import { config as dotenvConfig } from 'dotenv';
+import { resolve } from 'path';
+
+dotenvConfig({ path: resolve(process.cwd(), '.env') });
+dotenvConfig({ path: resolve(process.cwd(), '../../.env') });
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -155,6 +159,7 @@ app.get('/api/health', (_req, res) => {
     services: {
       database: isDatabaseConfigured() ? 'configured' : 'not configured',
       anthropic: process.env.ANTHROPIC_API_KEY ? 'configured' : 'not configured',
+      courtlistener: process.env.COURTLISTENER_API_TOKEN ? 'configured' : 'not configured',
       google_oauth: process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not configured',
       apple_oauth: process.env.APPLE_CLIENT_ID ? 'configured' : 'not configured',
       microsoft_oauth: process.env.MICROSOFT_CLIENT_ID ? 'configured' : 'not configured',
@@ -175,6 +180,7 @@ runMigrations()
       }
       console.log(`  Database: ${isDatabaseConfigured() ? 'connected' : 'NOT configured (auth disabled)'}`);
       console.log(`  Anthropic: ${process.env.ANTHROPIC_API_KEY ? 'configured' : 'NOT configured (verification disabled)'}`);
+      console.log(`  CourtListener: ${process.env.COURTLISTENER_API_TOKEN ? 'configured' : 'NOT configured (case lookup disabled)'}`);
     });
   })
   .catch((err) => {

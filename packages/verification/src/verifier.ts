@@ -16,9 +16,9 @@ export interface FullVerificationResult {
 
 /**
  * Verify a case citation using a multi-provider strategy:
- * 1. Try CourtListener (free, no key needed)
- * 2. Try Caselaw Access Project as fallback
- * 3. Use Claude AI as final verifier
+ * 1. CourtListener v4 citation-lookup (PRIMARY — exact match by volume/reporter/page against 18M+ citations)
+ * 2. Harvard Caselaw Access Project (secondary fallback)
+ * 3. Claude AI (cross-reference + Bluebook formatting expertise)
  * 4. Cross-reference results for highest confidence
  *
  * All trace messages are law-student-facing — no technical API jargon.
@@ -31,7 +31,7 @@ export async function verifyCaseCitation(
 
   allTrace.push('Running case law verification across multiple databases...');
 
-  // Step 1: Try external databases first (CourtListener + Caselaw) in parallel
+  // Step 1: CourtListener (primary) + Caselaw (secondary) in parallel
   const [courtListenerResult, caselawResult] = await Promise.allSettled([
     verifyWithCourtListener(components).catch(() => null),
     verifyWithCaselaw(components).catch(() => null),
@@ -40,7 +40,6 @@ export async function verifyCaseCitation(
   const clResult = courtListenerResult.status === 'fulfilled' ? courtListenerResult.value : null;
   const capResult = caselawResult.status === 'fulfilled' ? caselawResult.value : null;
 
-  // Collect external verification results
   let externalVerified = false;
   let externalCitation: string | undefined;
   const externalDiscrepancies: CitationDiscrepancy[] = [];
@@ -50,10 +49,12 @@ export async function verifyCaseCitation(
     confirmedSources++;
     externalCitation = clResult.verifiedCitation;
     externalDiscrepancies.push(...clResult.discrepancies);
-    allTrace.push('Case found and verified in CourtListener database.');
+    allTrace.push(...clResult.logicTrace);
   } else if (clResult && clResult.status === 'partial_match') {
     confirmedSources += 0.5;
-    allTrace.push('Partial match found in CourtListener.');
+    allTrace.push(...clResult.logicTrace);
+  } else if (clResult && clResult.status === 'not_found') {
+    allTrace.push(...clResult.logicTrace);
   }
 
   if (capResult && capResult.status === 'verified') {
@@ -61,13 +62,13 @@ export async function verifyCaseCitation(
     confirmedSources++;
     if (!externalCitation) externalCitation = capResult.citation;
     externalDiscrepancies.push(...capResult.discrepancies);
-    allTrace.push('Case found and verified in Harvard Caselaw Access Project.');
+    allTrace.push('Case also verified in Harvard Caselaw Access Project.');
   } else if (capResult && capResult.status === 'partial_match') {
     confirmedSources += 0.5;
     allTrace.push('Partial match found in Harvard Caselaw Access Project.');
   }
 
-  // Step 2: Run Claude AI verification
+  // Step 2: Claude AI verification for cross-referencing + Bluebook expertise
   try {
     const claudeResult = await verifyWithClaude(components);
     allTrace.push(...claudeResult.logicTrace);
@@ -75,13 +76,11 @@ export async function verifyCaseCitation(
     if (claudeResult.status === 'verified') {
       confirmedSources++;
 
-      // Cross-reference: if external sources disagree with Claude, flag it
       if (externalVerified && externalDiscrepancies.length > 0 && claudeResult.discrepancies.length === 0) {
         allTrace.push('Note: External databases found discrepancies that AI verification did not flag. Review carefully.');
       }
 
       const allDiscrepancies = [...claudeResult.discrepancies, ...externalDiscrepancies];
-      // Deduplicate discrepancies by component
       const seen = new Set<string>();
       const uniqueDiscrepancies = allDiscrepancies.filter(d => {
         const key = d.component;
@@ -94,7 +93,7 @@ export async function verifyCaseCitation(
         status: 'verified',
         discrepancies: uniqueDiscrepancies,
         referenceExamples: [],
-        verifiedCitation: claudeResult.verifiedCitation || externalCitation,
+        verifiedCitation: externalCitation || claudeResult.verifiedCitation,
         logicTrace: allTrace,
         provider: confirmedSources >= 2 ? 'multi-source' : 'primary',
         confidence: Math.min(confirmedSources, 3),
@@ -106,18 +105,17 @@ export async function verifyCaseCitation(
         status: externalVerified ? 'verified' : 'partial_match',
         discrepancies: [...claudeResult.discrepancies, ...externalDiscrepancies],
         referenceExamples: [],
-        verifiedCitation: claudeResult.verifiedCitation || externalCitation,
+        verifiedCitation: externalCitation || claudeResult.verifiedCitation,
         logicTrace: allTrace,
         provider: externalVerified ? 'multi-source' : 'primary',
         confidence: confirmedSources,
       };
     }
 
-    // Format-only mode (no API key configured)
+    // Format-only mode (no Anthropic API key configured)
     if (claudeResult.status === 'pending') {
-      // If external sources verified it, use that result even without Claude
       if (externalVerified) {
-        allTrace.push('Verified via external case law databases. AI verification unavailable.');
+        allTrace.push('Verified via external case law databases.');
         return {
           status: 'verified',
           discrepancies: externalDiscrepancies,
@@ -195,7 +193,6 @@ export async function verifyCaseCitation(
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('[verifier] verifyCaseCitation error:', message, error);
 
-    // If external sources verified, use that
     if (externalVerified) {
       allTrace.push('AI verification failed, but case verified via external databases.');
       return {

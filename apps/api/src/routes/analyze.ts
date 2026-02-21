@@ -1,15 +1,14 @@
 import { Router, type Request, type Response } from 'express';
 import { extractParseAndResolve, normalizeCitationInput, extractFootnoteCitations, resolveCitations, parseSingleSpan, mergeAdditionalCitations } from '@legalcitation/citation-parser';
-import { runFullAnalysis, runFootnoteAnalysis, calculateScore } from '@legalcitation/rule-engine';
-import type { AnalyzedCitation, CaseComponents, CitationContext, DocumentCitationMap, ParsedCitation } from '@legalcitation/shared';
+import { runFullAnalysis, runFootnoteAnalysis } from '@legalcitation/rule-engine';
+import type { CaseComponents, CitationContext, DocumentCitationMap, ParsedCitation } from '@legalcitation/shared';
 import { stripMarkersWithOffsetMap } from '@legalcitation/shared';
 import { detectMissedCitations, type LLMDetectedSpan } from '@legalcitation/verification';
 import { validateAnalyzeText } from '../middleware/validation.js';
-import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
 import { logCitationCheck } from '../services/citation-logger.js';
 import { matchPinpointToDocument } from '../services/pinpoint-matcher.js';
-import { generateShortForms, generateShortFormSuggestions } from '../services/short-form-generator.js';
-import { buildLogicTrace } from '../services/logic-trace.js';
+import { generateShortFormSuggestions } from '../services/short-form-generator.js';
+import { processVerifiedCitations } from '../services/process-citation.js';
 import { v4 as uuid } from 'uuid';
 
 /**
@@ -40,7 +39,7 @@ export const analyzeRouter = Router();
 
 /**
  * POST /api/analyze — Analyze text with multiple citations (in-text mode)
- * Applies normalization when standard extraction finds nothing.
+ * Every citation gets the same treatment as a single citation in the builder.
  */
 analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response) => {
   try {
@@ -55,12 +54,11 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
       return;
     }
 
-    // Strip formatting markers before detection so positions are clean,
-    // then translate positions back to the original marker-inclusive text
+    // Strip formatting markers before detection so positions are clean
     const { stripped, toOriginal } = stripMarkersWithOffsetMap(text);
     const hasMarkers = stripped.length !== text.length;
 
-    // Try standard extraction with resolution first, then normalized
+    // Extract and parse citations with resolution
     let { citations: parsed, resolution } = extractParseAndResolve(stripped, context);
     if (parsed.length === 0) {
       const normalized = normalizeCitationInput(stripped);
@@ -73,35 +71,7 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
 
     // Translate positions back to original text coordinates if markers were present
     if (hasMarkers) {
-      for (const citation of parsed) {
-        if (citation.position) {
-          citation.position = {
-            start: toOriginal(citation.position.start),
-            end: toOriginal(citation.position.end),
-          };
-          const mappedStart = citation.position.start;
-          const mappedEnd = citation.position.end;
-          if (
-            Number.isFinite(mappedStart) &&
-            Number.isFinite(mappedEnd) &&
-            mappedStart >= 0 &&
-            mappedEnd > mappedStart &&
-            mappedEnd <= text.length
-          ) {
-            // Preserve marker boundaries around mapped spans (e.g., *Id.*)
-            // so typeface checks and UI rendering can retain italics/underline.
-            let rawStart = mappedStart;
-            let rawEnd = mappedEnd;
-            if (rawStart > 0 && (text[rawStart - 1] === '*' || text[rawStart - 1] === '_')) {
-              rawStart -= 1;
-            }
-            if (rawEnd < text.length && (text[rawEnd] === '*' || text[rawEnd] === '_')) {
-              rawEnd += 1;
-            }
-            citation.rawText = text.slice(rawStart, rawEnd);
-          }
-        }
-      }
+      translatePositions(parsed, text, toOriginal);
     }
 
     // LLM detection pass: find citations the regex missed
@@ -138,84 +108,30 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
       console.error('LLM detection pass error (non-fatal):', err);
     }
 
-    // Run rules on all citations (including context rules) with resolution data
+    // Run context-aware rules (signal ordering, citation ordering, Id./supra chains)
     const issueMap = runFullAnalysis(parsed, text, resolution);
 
-    // Build analyzed citation results
-    const results: AnalyzedCitation[] = parsed.map(citation => {
-      const issues = issueMap.get(citation.id) || [];
-      const score = calculateScore(issues);
-
-      const logicTrace = buildLogicTrace(citation, issues, resolution);
-
-      const isLlmDetected = llmDetectedIds.has(citation.id);
-      if (isLlmDetected) {
-        const explanation = llmExplanations.get(citation.id);
-        if (explanation) {
-          logicTrace.unshift(explanation);
-        }
-      }
-
-      const analyzed: AnalyzedCitation = {
-        parsed: citation,
-        issues,
-        verificationStatus: 'pending',
-        discrepancies: [],
-        referenceExamples: [],
-        logicTrace,
-        score,
-        detectionSource: isLlmDetected ? 'llm' : 'regex',
-        detectionExplanation: isLlmDetected ? llmExplanations.get(citation.id) : undefined,
-      };
-
-      const shortForms = generateShortForms(citation);
-      if (shortForms.length > 0) {
-        analyzed.shortForms = shortForms;
-      }
-
-      return analyzed;
+    // Process EVERY citation through the shared pipeline — identical to builder
+    const results = await processVerifiedCitations(parsed, issueMap, {
+      resolution,
+      documentIds,
     });
 
-    // Verify case citations in parallel
-    await Promise.all(results.map(async (analyzed) => {
-      if (analyzed.parsed.type !== 'case') return;
-
-      const components = analyzed.parsed.components as CaseComponents;
-
-      try {
-        const verification = await cachedVerifyCaseCitation(components);
-        analyzed.verificationStatus = verification.status;
-        analyzed.discrepancies = verification.discrepancies;
-        analyzed.referenceExamples = verification.referenceExamples;
-        analyzed.verifiedCitation = verification.verifiedCitation;
-        analyzed.logicTrace.push(...verification.logicTrace);
-      } catch (err) {
-        console.error('Verification error in /analyze:', err);
-        analyzed.verificationStatus = 'pending';
-        analyzed.logicTrace.push('External verification temporarily unavailable. Bluebook formatting rules still checked.');
-      }
-
-      if (components.pinCite && documentIds && documentIds.length > 0) {
-        for (const docId of documentIds) {
-          try {
-            const match = await matchPinpointToDocument(
-              components.pinCite,
-              docId,
-              components.firstPage
-            );
-            if (match && match.matched) {
-              analyzed.pinpointMatch = match;
-              analyzed.logicTrace.push(
-                `Pinpoint page verified against uploaded source "${match.documentName}".`
-              );
-              break;
-            }
-          } catch {
-            // Non-critical — continue without pinpoint match
-          }
+    // Overlay LLM detection metadata onto results
+    for (const result of results) {
+      const isLlmDetected = llmDetectedIds.has(result.parsed.id);
+      if (isLlmDetected) {
+        result.detectionSource = 'llm';
+        result.detectionExplanation = llmExplanations.get(result.parsed.id);
+        const explanation = llmExplanations.get(result.parsed.id);
+        if (explanation) {
+          result.logicTrace.unshift(explanation);
         }
       }
-    }));
+    }
+
+    // Post-processing: pinpoint matching for case citations with pinCites
+    await addPinpointMatches(results, documentIds);
 
     // Post-processing: detect duplicate case citations and suggest short forms
     const shortFormSuggestions = generateShortFormSuggestions(results, text);
@@ -231,7 +147,6 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
       }
     }
 
-    // Even if no citations found, return 200 with empty results (never 400 for in-text)
     logCitationCheck({
       userId: req.user?.userId,
       mode: 'in_text',
@@ -251,7 +166,7 @@ analyzeRouter.post('/', validateAnalyzeText, async (req: Request, res: Response)
 
 /**
  * POST /api/analyze/footnotes — Analyze text with footnote-structured citations
- * Parses footnote boundaries, validates cross-references, and checks ordering.
+ * Every citation gets the same treatment as a single citation in the builder.
  */
 analyzeRouter.post('/footnotes', validateAnalyzeText, async (req: Request, res: Response) => {
   try {
@@ -284,33 +199,7 @@ analyzeRouter.post('/footnotes', validateAnalyzeText, async (req: Request, res: 
     // Translate positions back if markers were present
     if (hasMarkers) {
       for (const fn of parsedFootnotes) {
-        for (const citation of fn.citations) {
-          if (citation.position) {
-            citation.position = {
-              start: toOriginal(citation.position.start),
-              end: toOriginal(citation.position.end),
-            };
-            const mappedStart = citation.position.start;
-            const mappedEnd = citation.position.end;
-            if (
-              Number.isFinite(mappedStart) &&
-              Number.isFinite(mappedEnd) &&
-              mappedStart >= 0 &&
-              mappedEnd > mappedStart &&
-              mappedEnd <= text.length
-            ) {
-              let rawStart = mappedStart;
-              let rawEnd = mappedEnd;
-              if (rawStart > 0 && (text[rawStart - 1] === '*' || text[rawStart - 1] === '_')) {
-                rawStart -= 1;
-              }
-              if (rawEnd < text.length && (text[rawEnd] === '*' || text[rawEnd] === '_')) {
-                rawEnd += 1;
-              }
-              citation.rawText = text.slice(rawStart, rawEnd);
-            }
-          }
-        }
+        translatePositions(fn.citations, text, toOriginal);
       }
     }
 
@@ -328,64 +217,30 @@ analyzeRouter.post('/footnotes', validateAnalyzeText, async (req: Request, res: 
       footnoteCount: parsedFootnotes.length,
     };
 
-    // Resolve citations across all footnotes for accurate cross-reference validation
+    // Resolve citations across all footnotes
     const resolution = resolveCitations(allCitations);
 
     // Run footnote analysis with resolution data
     const { issueMap, integrityReport } = runFootnoteAnalysis(docMap, text, resolution);
 
-    // Build analyzed citation results
-    const results: AnalyzedCitation[] = allCitations.map(citation => {
-      const issues = issueMap.get(citation.id) || [];
-      const score = calculateScore(issues);
-      const logicTrace = buildLogicTrace(citation, issues, resolution);
-      // Prepend footnote-specific context
-      if (citation.footnoteContext) {
-        logicTrace.unshift(`Located in footnote ${citation.footnoteContext.footnoteNumber} (citation ${citation.footnoteContext.positionInFootnote + 1} of ${citation.footnoteContext.totalInFootnote}).`);
-      }
-
-      return {
-        parsed: citation,
-        issues,
-        verificationStatus: 'pending' as const,
-        discrepancies: [],
-        referenceExamples: [],
-        logicTrace,
-        score,
-      };
+    // Process EVERY citation through the shared pipeline — identical to builder
+    const results = await processVerifiedCitations(allCitations, issueMap, {
+      resolution,
+      documentIds,
     });
 
-    // Verify case citations in parallel
-    await Promise.all(results.map(async (analyzed) => {
-      if (analyzed.parsed.type !== 'case') return;
-
-      const components = analyzed.parsed.components as CaseComponents;
-      try {
-        const verification = await cachedVerifyCaseCitation(components);
-        analyzed.verificationStatus = verification.status;
-        analyzed.discrepancies = verification.discrepancies;
-        analyzed.referenceExamples = verification.referenceExamples;
-        analyzed.verifiedCitation = verification.verifiedCitation;
-        analyzed.logicTrace.push(...verification.logicTrace);
-      } catch {
-        analyzed.verificationStatus = 'pending';
-        analyzed.logicTrace.push('External verification temporarily unavailable.');
+    // Add footnote-specific context to logic traces
+    for (const result of results) {
+      if (result.parsed.footnoteContext) {
+        const fn = result.parsed.footnoteContext;
+        result.logicTrace.unshift(
+          `Located in footnote ${fn.footnoteNumber} (citation ${fn.positionInFootnote + 1} of ${fn.totalInFootnote}).`,
+        );
       }
+    }
 
-      if (components.pinCite && documentIds && documentIds.length > 0) {
-        for (const docId of documentIds) {
-          try {
-            const match = await matchPinpointToDocument(components.pinCite, docId, components.firstPage);
-            if (match && match.matched) {
-              analyzed.pinpointMatch = match;
-              break;
-            }
-          } catch {
-            // Non-critical
-          }
-        }
-      }
-    }));
+    // Post-processing: pinpoint matching
+    await addPinpointMatches(results, documentIds);
 
     const footnoteSummary = parsedFootnotes.map(fn => ({
       number: fn.footnoteNumber,
@@ -417,3 +272,73 @@ analyzeRouter.post('/footnotes', validateAnalyzeText, async (req: Request, res: 
   }
 });
 
+// --- Shared helpers ---
+
+function translatePositions(
+  citations: ParsedCitation[],
+  originalText: string,
+  toOriginal: (pos: number) => number,
+): void {
+  for (const citation of citations) {
+    if (!citation.position) continue;
+
+    citation.position = {
+      start: toOriginal(citation.position.start),
+      end: toOriginal(citation.position.end),
+    };
+
+    const mappedStart = citation.position.start;
+    const mappedEnd = citation.position.end;
+
+    if (
+      Number.isFinite(mappedStart) &&
+      Number.isFinite(mappedEnd) &&
+      mappedStart >= 0 &&
+      mappedEnd > mappedStart &&
+      mappedEnd <= originalText.length
+    ) {
+      let rawStart = mappedStart;
+      let rawEnd = mappedEnd;
+      if (rawStart > 0 && (originalText[rawStart - 1] === '*' || originalText[rawStart - 1] === '_')) {
+        rawStart -= 1;
+      }
+      if (rawEnd < originalText.length && (originalText[rawEnd] === '*' || originalText[rawEnd] === '_')) {
+        rawEnd += 1;
+      }
+      citation.rawText = originalText.slice(rawStart, rawEnd);
+    }
+  }
+}
+
+async function addPinpointMatches(
+  results: Array<{ parsed: ParsedCitation; pinpointMatch?: { documentId: string; documentName: string; matched: boolean; pages: Array<{ pageNumber: number; found: boolean; textSnippet?: string }> }; logicTrace: string[] }>,
+  documentIds?: string[],
+): Promise<void> {
+  if (!documentIds || documentIds.length === 0) return;
+
+  await Promise.all(results.map(async (analyzed) => {
+    if (analyzed.parsed.type !== 'case') return;
+
+    const components = analyzed.parsed.components as CaseComponents;
+    if (!components.pinCite) return;
+
+    for (const docId of documentIds) {
+      try {
+        const match = await matchPinpointToDocument(
+          components.pinCite,
+          docId,
+          components.firstPage,
+        );
+        if (match && match.matched) {
+          analyzed.pinpointMatch = match;
+          analyzed.logicTrace.push(
+            `Pinpoint page verified against uploaded source "${match.documentName}".`,
+          );
+          break;
+        }
+      } catch {
+        // Non-critical
+      }
+    }
+  }));
+}

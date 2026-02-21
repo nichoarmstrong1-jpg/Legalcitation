@@ -1,19 +1,19 @@
 import { Router, type Request, type Response } from 'express';
 import { extractAndParseCitations, normalizeCitationInput } from '@legalcitation/citation-parser';
 import { runAllRules, calculateScore } from '@legalcitation/rule-engine';
-import { buildCitationWithClaude, searchCasesWithClaude } from '@legalcitation/verification';
-import type { AnalyzedCitation, CaseComponents, ValidationIssue, ShortFormEntry } from '@legalcitation/shared';
-import { validateSearch, validateBuild } from '../middleware/validation.js';
+import { buildCitationWithClaude, searchCasesWithClaude, searchCourtListenerCases } from '@legalcitation/verification';
+import type { CaseComponents, ValidationIssue } from '@legalcitation/shared';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
+import { validateSearch, validateBuild } from '../middleware/validation.js';
 import { logCitationCheck } from '../services/citation-logger.js';
-import { buildLogicTrace } from '../services/logic-trace.js';
+import { processVerifiedCitation } from '../services/process-citation.js';
 
 export const buildRouter = Router();
 
 /**
  * POST /api/build/search — Search for cases matching free text.
+ * Uses CourtListener search API (ground truth) + Claude AI (formatting/summaries) in parallel.
  * Returns up to 5 results for the user to pick from.
- * Uses Claude API for case search.
  */
 buildRouter.post('/search', validateSearch, async (req: Request, res: Response) => {
   try {
@@ -24,38 +24,40 @@ buildRouter.post('/search', validateSearch, async (req: Request, res: Response) 
       return;
     }
 
-    const searchResult = await searchCasesWithClaude(query);
+    // Run CourtListener search and Claude search in parallel
+    const [clResults, claudeResult] = await Promise.allSettled([
+      searchCourtListenerCases(query).catch(() => []),
+      searchCasesWithClaude(query),
+    ]);
 
-    if (searchResult && searchResult.results.length > 0) {
-      logCitationCheck({
-        userId: (req as any).user?.userId,
-        mode: 'builder_search',
-        inputText: query,
-        results: searchResult.results,
-        citationCount: searchResult.results.length,
-      });
-      res.json({
-        results: searchResult.results,
-        logicTrace: searchResult.logicTrace,
-      });
-      return;
+    const courtListenerHits = clResults.status === 'fulfilled' ? clResults.value : [];
+    const claudeData = claudeResult.status === 'fulfilled' ? claudeResult.value : null;
+    const claudeHits = claudeData?.results || [];
+
+    const mergedResults = mergeSearchResults(courtListenerHits, claudeHits);
+    const logicTrace: string[] = [];
+
+    if (courtListenerHits.length > 0) {
+      logicTrace.push(`Found ${courtListenerHits.length} case(s) in CourtListener database.`);
+    }
+    if (claudeData?.logicTrace) {
+      logicTrace.push(...claudeData.logicTrace);
+    }
+    if (mergedResults.length === 0) {
+      logicTrace.push('No matching cases found. Try a more specific search query.');
+    } else {
+      logicTrace.push(`Returning ${mergedResults.length} result(s).`);
     }
 
-    // Claude returned no results or is unavailable
     logCitationCheck({
       userId: (req as any).user?.userId,
       mode: 'builder_search',
       inputText: query,
-      results: [],
-      citationCount: 0,
+      results: mergedResults,
+      citationCount: mergedResults.length,
     });
-    res.json({
-      results: [],
-      logicTrace: [
-        ...(searchResult?.logicTrace || []),
-        'No matching cases found. Try a more specific search query.',
-      ],
-    });
+
+    res.json({ results: mergedResults, logicTrace });
   } catch (error) {
     console.error('Search error:', error);
     res.status(500).json({ error: 'Case search failed' });
@@ -64,7 +66,7 @@ buildRouter.post('/search', validateSearch, async (req: Request, res: Response) 
 
 /**
  * POST /api/build — Generate a citation from free text input.
- * Uses Claude API to intelligently construct and verify citations.
+ * Uses the shared processVerifiedCitation() for identical treatment to the checker.
  */
 buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
   try {
@@ -78,7 +80,7 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
     const logicTrace: string[] = [];
     logicTrace.push(`Received free text input: "${input.slice(0, 100)}${input.length > 100 ? '...' : ''}"`);
 
-    // First try to extract any existing citations from the input (with normalization)
+    // First try to extract any existing citations from the input
     let parsed = extractAndParseCitations(input, 'citation_sentence');
     if (parsed.length === 0) {
       const normalized = normalizeCitationInput(input);
@@ -91,82 +93,11 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
     }
 
     if (parsed.length > 0) {
-      const target = parsed[0];
-      const issues = runAllRules(target);
-      const score = calculateScore(issues);
+      // Use shared processVerifiedCitation — identical to checker
+      const analyzed = await processVerifiedCitation(parsed[0]);
 
-      // Use shared logic trace builder for consistent, detailed output
-      const detailedTrace = buildLogicTrace(target, issues);
-      logicTrace.push(...detailedTrace);
-
-      const analyzed: AnalyzedCitation = {
-        parsed: target,
-        issues,
-        verificationStatus: 'pending',
-        discrepancies: [],
-        referenceExamples: [],
-        logicTrace,
-        score,
-      };
-
-      if (target.type === 'case') {
-        const components = target.components as CaseComponents;
-
-        try {
-          const verification = await cachedVerifyCaseCitation(components);
-          analyzed.verificationStatus = verification.status;
-          analyzed.discrepancies = verification.discrepancies;
-          analyzed.verifiedCitation = verification.verifiedCitation;
-          analyzed.logicTrace.push(...verification.logicTrace);
-        } catch (err) {
-          console.error('Build verification error:', err);
-          analyzed.logicTrace.push('External verification temporarily unavailable.');
-        }
-
-        // Generate short form citations for case citations
-        const shortParty = components.partyOne;
-        const shortForms: ShortFormEntry[] = [
-          {
-            form: '*Id.*',
-            type: 'id',
-            label: 'Id. Citation',
-            whenToUse: 'Use when citing the EXACT same source as the immediately preceding citation, with no other citations in between. The preceding citation must cite only ONE authority (no semicolons).',
-            whereToPlace: `Use this immediately after the full citation of ${shortParty} appears, as long as no other source is cited between them.`,
-            warnings: [
-              'Never use Id. if the preceding citation contains multiple sources separated by semicolons.',
-              'Id. must be italicized, including the period.',
-              'Capitalize "Id." only when it begins a citation sentence.',
-            ],
-          },
-          {
-            form: '*Id.* at [pinpoint page]',
-            type: 'id_pinpoint',
-            label: 'Id. with Pinpoint',
-            whenToUse: 'Use when citing the same source as the immediately preceding citation but referencing a DIFFERENT specific page. Replace [pinpoint page] with the actual page number.',
-            whereToPlace: `Use after the full citation of ${shortParty} when you need to reference a specific page different from the one in the full citation.`,
-            warnings: [
-              'Use "at" before page numbers but NOT before § or ¶ symbols.',
-              'Do not create a double period: "Id. at 205." is correct, not "Id.. at 205."',
-            ],
-          },
-        ];
-
-        if (components.volume && components.reporter) {
-          shortForms.push({
-            form: `*${shortParty}*, ${components.volume} ${components.reporter} at [pinpoint page]`,
-            type: 'short_case',
-            label: 'Short Case Form',
-            whenToUse: 'Use after the full citation has been given once AND there are intervening citations to other sources (making Id. unavailable). Use only the first party name.',
-            whereToPlace: `Use for any subsequent reference to this case when other citations appear between this reference and the last citation to ${shortParty}.`,
-            warnings: [
-              'Only use after the full citation has appeared at least once in the same document.',
-              'The short form must appear within approximately 5 citations of the most recent full citation to this source.',
-            ],
-          });
-        }
-
-        analyzed.shortForms = shortForms;
-      }
+      // Prepend the input-level trace before the citation-level trace
+      analyzed.logicTrace = [...logicTrace, ...analyzed.logicTrace];
 
       logCitationCheck({
         userId: (req as any).user?.userId,
@@ -188,7 +119,6 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
     if (claudeResult) {
       logicTrace.push(...claudeResult.logicTrace);
 
-      // Run rules on the Claude-built citation to get an accurate score
       let builtIssues: ValidationIssue[] = [];
       let builtScore = 90;
       const builtParsed = extractAndParseCitations(claudeResult.citation, 'citation_sentence');
@@ -247,7 +177,6 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
         logicTrace.push(...verification.logicTrace);
 
         if (verification.verifiedCitation) {
-          // Run rules on the verified citation for accurate scoring
           let verifiedIssues: ValidationIssue[] = [];
           let verifiedScore = verification.status === 'verified' ? 100 : 50;
           const verifiedParsed = extractAndParseCitations(verification.verifiedCitation, 'citation_sentence');
@@ -318,3 +247,72 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Citation build failed' });
   }
 });
+
+// --- Search result merging ---
+
+interface MergedSearchResult {
+  caseName: string;
+  citation: string;
+  year: string;
+  court: string;
+  summary: string;
+  confidence: number;
+  source: 'courtlistener' | 'claude' | 'both';
+}
+
+function mergeSearchResults(
+  clHits: Array<{ caseName: string; citations: string[]; court: string; dateFiled: string; snippet: string }>,
+  claudeHits: Array<{ caseName: string; citation: string; year: string; court: string; summary: string; confidence: number }>,
+): MergedSearchResult[] {
+  const results: MergedSearchResult[] = [];
+  const seenCitations = new Set<string>();
+
+  // CourtListener results first (ground truth — these cases definitely exist)
+  for (const cl of clHits) {
+    const primaryCitation = cl.citations[0] || '';
+    const year = cl.dateFiled?.split('-')[0] || '';
+    const key = primaryCitation.toLowerCase();
+
+    if (key && seenCitations.has(key)) continue;
+    if (key) seenCitations.add(key);
+
+    // Check if Claude also returned this case
+    const claudeMatch = claudeHits.find(ch =>
+      ch.caseName.toLowerCase().includes(cl.caseName.split(' v')[0]?.toLowerCase().trim() || '___') ||
+      (primaryCitation && ch.citation.includes(primaryCitation))
+    );
+
+    results.push({
+      caseName: cl.caseName,
+      citation: primaryCitation ? `*${cl.caseName}*, ${primaryCitation} (${year}).` : `*${cl.caseName}*`,
+      year,
+      court: cl.court,
+      summary: claudeMatch?.summary || cl.snippet || '',
+      confidence: claudeMatch ? Math.min(claudeMatch.confidence + 10, 100) : 85,
+      source: claudeMatch ? 'both' : 'courtlistener',
+    });
+  }
+
+  // Add Claude-only results that weren't in CourtListener
+  for (const ch of claudeHits) {
+    const citeParts = ch.citation.replace(/\*/g, '').match(/\d+\s+\S+\s+\d+/);
+    const citeKey = citeParts ? citeParts[0].toLowerCase() : ch.citation.toLowerCase();
+
+    if (seenCitations.has(citeKey)) continue;
+    seenCitations.add(citeKey);
+
+    results.push({
+      caseName: ch.caseName,
+      citation: ch.citation,
+      year: ch.year,
+      court: ch.court,
+      summary: ch.summary,
+      confidence: ch.confidence,
+      source: 'claude',
+    });
+  }
+
+  return results
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 5);
+}
