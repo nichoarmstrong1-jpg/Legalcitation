@@ -2,11 +2,12 @@ import { Router, type Request, type Response } from 'express';
 import { extractAndParseCitations, normalizeCitationInput } from '@legalcitation/citation-parser';
 import { runAllRules, calculateScore } from '@legalcitation/rule-engine';
 import { buildCitationWithClaude, searchCasesWithClaude } from '@legalcitation/verification';
-import type { AnalyzedCitation, CaseComponents, ValidationIssue, ShortFormEntry } from '@legalcitation/shared';
-import { validateSearch, validateBuild } from '../middleware/validation.js';
+import type { AnalyzedCitation, CaseComponents, ValidationIssue, ShortFormEntry, CitationTypeId } from '@legalcitation/shared';
+import { validateSearch, validateBuild, validateFromUrl, validateCheckUrl } from '../middleware/validation.js';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
 import { logCitationCheck } from '../services/citation-logger.js';
 import { buildLogicTrace } from '../services/logic-trace.js';
+import { resolveUrl, identifySource } from '../services/url-resolver.js';
 
 export const buildRouter = Router();
 
@@ -17,7 +18,7 @@ export const buildRouter = Router();
  */
 buildRouter.post('/search', validateSearch, async (req: Request, res: Response) => {
   try {
-    const { query } = req.body as { query: string };
+    const { query, citationType } = req.body as { query: string; citationType?: CitationTypeId };
 
     if (!query || typeof query !== 'string') {
       res.status(400).json({ error: 'Search query is required' });
@@ -29,7 +30,7 @@ buildRouter.post('/search', validateSearch, async (req: Request, res: Response) 
     if (searchResult && searchResult.results.length > 0) {
       logCitationCheck({
         userId: (req as any).user?.userId,
-        mode: 'builder_search',
+        mode: citationType ? `builder_search:${citationType}` : 'builder_search',
         inputText: query,
         results: searchResult.results,
         citationCount: searchResult.results.length,
@@ -44,7 +45,7 @@ buildRouter.post('/search', validateSearch, async (req: Request, res: Response) 
     // Claude returned no results or is unavailable
     logCitationCheck({
       userId: (req as any).user?.userId,
-      mode: 'builder_search',
+      mode: citationType ? `builder_search:${citationType}` : 'builder_search',
       inputText: query,
       results: [],
       citationCount: 0,
@@ -68,21 +69,66 @@ buildRouter.post('/search', validateSearch, async (req: Request, res: Response) 
  */
 buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
   try {
-    const { input } = req.body as { input: string };
+    const { input, citationType, fields } = req.body as {
+      input?: string;
+      citationType?: CitationTypeId;
+      fields?: Record<string, string>;
+    };
 
-    if (!input || typeof input !== 'string') {
-      res.status(400).json({ error: 'Input text is required' });
+    if (!input && !fields) {
+      res.status(400).json({ error: 'Either input text or fields are required' });
       return;
     }
 
+    // Manual mode: construct citation from provided field components
+    if (fields && !input) {
+      const fieldSummary = Object.entries(fields)
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(', ');
+      const prompt = citationType
+        ? `Build a Bluebook ${citationType} citation from these components: ${fieldSummary}`
+        : `Build a Bluebook citation from these components: ${fieldSummary}`;
+
+      const claudeResult = await buildCitationWithClaude(prompt);
+      if (claudeResult) {
+        res.json({
+          citation: claudeResult.citation,
+          shortForm: claudeResult.shortForms?.[0] ?? null,
+          footnote: claudeResult.citation,
+          sourceUrl: null,
+          components: fields,
+          missingFields: [],
+          confidence: 0.8,
+          suggestManual: false,
+        });
+        return;
+      }
+
+      res.json({
+        citation: null,
+        shortForm: null,
+        footnote: null,
+        sourceUrl: null,
+        components: fields,
+        missingFields: [],
+        confidence: 0,
+        suggestManual: true,
+      });
+      return;
+    }
+
+    // At this point input is guaranteed to be a string (we returned above if !input && !fields, and if fields && !input)
+    const inputText = input as string;
+
     const logicTrace: string[] = [];
-    logicTrace.push(`Received free text input: "${input.slice(0, 100)}${input.length > 100 ? '...' : ''}"`);
+    logicTrace.push(`Received free text input: "${inputText.slice(0, 100)}${inputText.length > 100 ? '...' : ''}"`);
 
     // First try to extract any existing citations from the input (with normalization)
-    let parsed = extractAndParseCitations(input, 'citation_sentence');
+    let parsed = extractAndParseCitations(inputText, 'citation_sentence');
     if (parsed.length === 0) {
-      const normalized = normalizeCitationInput(input);
-      if (normalized !== input) {
+      const normalized = normalizeCitationInput(inputText);
+      if (normalized !== inputText) {
         parsed = extractAndParseCitations(normalized, 'citation_sentence');
         if (parsed.length > 0) {
           logicTrace.push('Applied input normalization to fix common formatting issues.');
@@ -171,7 +217,7 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
       logCitationCheck({
         userId: (req as any).user?.userId,
         mode: 'builder',
-        inputText: input,
+        inputText: inputText,
         results: analyzed,
         citationCount: 1,
         averageScore: analyzed.score,
@@ -183,7 +229,7 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
     // No parseable citation — try Claude API to build one
     logicTrace.push('No standard citation found. Using AI-powered citation builder...');
 
-    const claudeResult = await buildCitationWithClaude(input);
+    const claudeResult = await buildCitationWithClaude(inputText);
 
     if (claudeResult) {
       logicTrace.push(...claudeResult.logicTrace);
@@ -211,7 +257,7 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
       logCitationCheck({
         userId: (req as any).user?.userId,
         mode: 'builder',
-        inputText: input,
+        inputText: inputText,
         results: builtResult,
         citationCount: 1,
         averageScore: builtScore,
@@ -223,12 +269,12 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
     // Claude not available — try to build from context clues
     logicTrace.push('AI builder not available. Attempting manual extraction...');
 
-    const partyMatch = input.match(/(.+?)\s+v\.?\s+(.+?)(?:\s+(\d{4}))?$/i);
+    const partyMatch = inputText.match(/(.+?)\s+v\.?\s+(.+?)(?:\s+(\d{4}))?$/i);
 
     if (partyMatch) {
       const partyOne = partyMatch[1].trim();
       const partyTwo = partyMatch[2].trim().replace(/\s+\d{4}$/, '');
-      const year = partyMatch[3] || input.match(/\b(\d{4})\b/)?.[1] || '';
+      const year = partyMatch[3] || inputText.match(/\b(\d{4})\b/)?.[1] || '';
 
       logicTrace.push(`Identified parties: "${partyOne}" v. "${partyTwo}"`);
       if (year) logicTrace.push(`Year: ${year}`);
@@ -317,4 +363,129 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
     console.error('Build error:', error);
     res.status(500).json({ error: 'Citation build failed' });
   }
+});
+
+/**
+ * POST /api/build/from-url — Resolve a URL to citation metadata, then format via Claude.
+ */
+buildRouter.post('/from-url', validateFromUrl, async (req: Request, res: Response) => {
+  try {
+    const { url, citationType } = req.body as { url: string; citationType?: CitationTypeId };
+
+    const resolved = await resolveUrl(url);
+
+    if (!resolved.accessible || Object.keys(resolved.metadata).length === 0) {
+      res.json({
+        citation: null,
+        shortForm: null,
+        footnote: null,
+        sourceUrl: url,
+        components: {},
+        missingFields: [],
+        confidence: 0,
+        suggestManual: true,
+      });
+      return;
+    }
+
+    const metaSummary = Object.entries(resolved.metadata)
+      .filter(([, v]) => v)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(', ');
+    const prompt = citationType
+      ? `Build a Bluebook ${citationType} citation from this ${resolved.source} source. URL: ${url}. Metadata: ${metaSummary}`
+      : `Build a Bluebook citation from this ${resolved.source} source. URL: ${url}. Metadata: ${metaSummary}`;
+
+    const claudeResult = await buildCitationWithClaude(prompt);
+
+    if (claudeResult) {
+      const missingFields = Object.entries(resolved.metadata)
+        .filter(([, v]) => !v)
+        .map(([k]) => k);
+
+      res.json({
+        citation: claudeResult.citation,
+        shortForm: claudeResult.shortForms?.[0] ?? null,
+        footnote: claudeResult.citation,
+        sourceUrl: url,
+        components: resolved.metadata,
+        missingFields,
+        confidence: missingFields.length === 0 ? 0.9 : 0.6,
+        suggestManual: missingFields.length > 2,
+      });
+      return;
+    }
+
+    res.json({
+      citation: null,
+      shortForm: null,
+      footnote: null,
+      sourceUrl: url,
+      components: resolved.metadata,
+      missingFields: [],
+      confidence: 0,
+      suggestManual: true,
+    });
+  } catch (error) {
+    console.error('From-URL error:', error);
+    res.status(500).json({ error: 'URL citation build failed' });
+  }
+});
+
+/**
+ * POST /api/build/check-url — Instant URL source identification + accessibility check.
+ * Called as the user types a URL for instant feedback.
+ */
+buildRouter.post('/check-url', validateCheckUrl, async (req: Request, res: Response) => {
+  try {
+    const { url } = req.body as { url: string };
+    const start = performance.now();
+
+    const identified = identifySource(url);
+    if (identified) {
+      const elapsed = Math.round(performance.now() - start);
+      res.json({
+        accessible: true,
+        source: identified.source,
+        identifier: identified.identifier,
+        resolveTimeMs: elapsed,
+      });
+      return;
+    }
+
+    // No pattern match — do a HEAD request with 3s timeout
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    try {
+      const headRes = await fetch(url, {
+        method: 'HEAD',
+        redirect: 'follow',
+        signal: controller.signal,
+      });
+      const elapsed = Math.round(performance.now() - start);
+      res.json({
+        accessible: headRes.ok,
+        resolveTimeMs: elapsed,
+      });
+    } catch {
+      const elapsed = Math.round(performance.now() - start);
+      res.json({
+        accessible: false,
+        resolveTimeMs: elapsed,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (error) {
+    console.error('Check-URL error:', error);
+    res.status(500).json({ error: 'URL check failed' });
+  }
+});
+
+/**
+ * POST /api/build/from-pdf — Extract citation from uploaded PDF.
+ * TODO: Implement PDF text extraction and citation building
+ */
+buildRouter.post('/from-pdf', (_req: Request, res: Response) => {
+  res.status(501).json({ error: 'PDF extraction coming soon' });
 });

@@ -18,13 +18,27 @@ export const validateAnalyzeText = [
 ];
 
 export const validateBuild = [
-  body('input').isString().trim().isLength({ min: 1, max: 50000 })
+  body('input').optional().isString().trim().isLength({ min: 1, max: 50000 })
     .withMessage('Input must be between 1 and 50,000 characters'),
+  body('citationType').optional().isString(),
+  body('fields').optional().isObject(),
   handleValidationErrors,
 ];
 
 export const validateSearch = [
   body('query').isString().trim().isLength({ min: 1, max: 500 })
     .withMessage('Query must be between 1 and 500 characters'),
+  body('citationType').optional().isString(),
+  handleValidationErrors,
+];
+
+export const validateFromUrl = [
+  body('url').isURL().withMessage('A valid URL is required'),
+  body('citationType').optional().isString(),
+  handleValidationErrors,
+];
+
+export const validateCheckUrl = [
+  body('url').isURL().withMessage('A valid URL is required'),
   handleValidationErrors,
 ];
