@@ -15,6 +15,22 @@ export type CitationType =
   | 'infra'
   | 'unknown';
 
+export type CitationTypeId =
+  | CitationType
+  | 'journal_article'
+  | 'report'
+  | 'legislative'
+  | 'website'
+  | 'newspaper'
+  | 'social_media'
+  | 'audio_video'
+  | 'brief'
+  | 'record'
+  | 'treaty'
+  | 'services'
+  | 'tribal'
+  | 'archival';
+
 export type CitationContext =
   | 'textual_sentence'
   | 'citation_sentence'
