@@ -25,6 +25,7 @@ function getClient(): Anthropic {
   if (!client) {
     client = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY || '',
+      maxRetries: 8,
     });
   }
   return client;
@@ -52,7 +53,7 @@ export async function verifyWithClaude(
     return { status: 'pending', discrepancies: [], logicTrace: trace };
   }
 
-  const timeout = withTimeout(30000);
+  const timeout = withTimeout(120000);
 
   try {
     const caseName = components.partyTwo
@@ -249,7 +250,7 @@ export async function searchCasesWithClaude(
     return null;
   }
 
-  const timeout = withTimeout(30000);
+  const timeout = withTimeout(120000);
 
   try {
     trace.push(`Searching case law for "${freeText.slice(0, 80)}${freeText.length > 80 ? '...' : ''}"...`);
@@ -362,7 +363,7 @@ export async function buildCitationWithClaude(
     return null;
   }
 
-  const timeout = withTimeout(30000);
+  const timeout = withTimeout(120000);
 
   try {
     trace.push(`Building Bluebook citation for "${freeText.slice(0, 80)}${freeText.length > 80 ? '...' : ''}"...`);

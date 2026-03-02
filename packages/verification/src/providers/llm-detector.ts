@@ -27,6 +27,7 @@ function getClient(): Anthropic {
   if (!client) {
     client = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY || '',
+      maxRetries: 8,
     });
   }
   return client;
@@ -58,7 +59,7 @@ export async function detectMissedCitations(
     return { spans: [], logicTrace: trace };
   }
 
-  const timeout = withTimeout(20000);
+  const timeout = withTimeout(120000);
 
   try {
     const spanList = existingSpans.length > 0
