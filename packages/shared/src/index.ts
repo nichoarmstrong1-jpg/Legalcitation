@@ -20,6 +20,7 @@ export * from './constants/periodicals.js';
 export * from './constants/arbitral-reporters.js';
 export * from './constants/court-documents.js';
 export * from './constants/ai-models.js';
+export * from './constants/citation-types.js';
 
 // Utils
 export * from './utils/formatting.js';
