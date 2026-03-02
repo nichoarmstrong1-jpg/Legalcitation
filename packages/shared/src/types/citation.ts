@@ -10,6 +10,8 @@ export type CitationType =
   | 'website'
   | 'newspaper'
   | 'ai_source'
+  | 'social_media'
+  | 'audio_video'
   | 'unpublished'
   | 'short_form'
   | 'id'
@@ -187,6 +189,56 @@ export interface AiSourceComponents {
   generatedByModel?: string;
 }
 
+export interface SocialMediaComponents {
+  subtype: 'visual_audio' | 'textual' | 'profile' | 'repost' | 'federated';
+  /** "Video", "Image", etc. — required for visual/audio subtype */
+  contentType?: string;
+  posterName?: string;
+  handle?: string;
+  platform: string;
+  /** Platform subdivision, e.g., "r/LawSchool" for Reddit */
+  platformSubdivision?: string;
+  title?: string;
+  caption?: string;
+  date?: string;
+  time?: string;
+  timezone?: string;
+  url?: string;
+  archiveUrl?: string;
+  onFileWith?: string;
+  /** Original poster name for reposts (R. 18.10.1(d)) */
+  originalPoster?: string;
+  originalHandle?: string;
+  /** Federated instance, e.g., "mastodon.social" (R. 18.10.1(e)) */
+  fedInstance?: string;
+}
+
+export interface AudioVideoComponents {
+  subtype: 'film' | 'tv_series' | 'live_stream' | 'web_video'
+    | 'physical_audio' | 'streaming_audio' | 'unpublished_audio'
+    | 'web_audio' | 'episodic';
+  creator?: string;
+  title: string;
+  episodeTitle?: string;
+  /** Access medium: "Blu-ray", "DVD", "YouTube", "Spotify", etc. */
+  medium?: string;
+  publisher?: string;
+  network?: string;
+  platform?: string;
+  date?: string;
+  year?: string;
+  /** Pinpoint timestamp: "1:00:25", "34:19", etc. */
+  timestamp?: string;
+  url?: string;
+  onFileWith?: string;
+  recordingCompany?: string;
+  collectionTitle?: string;
+  /** Whether the track was released as a single (R. 18.8.1(a)) */
+  isSingle?: boolean;
+  /** Whether the content is commercial or noncommercial */
+  isCommercial?: boolean;
+}
+
 export interface UnpublishedComponents {
   subtype: 'manuscript' | 'working_paper' | 'dissertation' | 'letter' | 'email' | 'interview' | 'speech' | 'forthcoming';
   author: string;
@@ -250,6 +302,8 @@ export type CitationComponents =
   | InternetComponents
   | NewspaperComponents
   | AiSourceComponents
+  | SocialMediaComponents
+  | AudioVideoComponents
   | UnpublishedComponents
   | ShortFormComponents;
 

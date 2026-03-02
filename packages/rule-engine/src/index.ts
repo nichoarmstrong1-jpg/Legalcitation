@@ -11,6 +11,8 @@ import type {
   InternetComponents,
   NewspaperComponents,
   AiSourceComponents,
+  SocialMediaComponents,
+  AudioVideoComponents,
   UnpublishedComponents,
   ValidationIssue,
   DocumentCitationMap,
@@ -61,6 +63,8 @@ import { validateInternet } from './bluebook/internet-rules.js';
 import { validateWebsite } from './bluebook/website-rules.js';
 import { validateNewspaper } from './bluebook/newspaper-rules.js';
 import { validateAiSource } from './bluebook/ai-source-rules.js';
+import { validateSocialMedia } from './bluebook/social-media-rules.js';
+import { validateAudioVideo } from './bluebook/audio-video-rules.js';
 import { validateUnpublished } from './bluebook/unpublished-rules.js';
 import { validateCitationOrder } from './bluebook/citation-order-rules.js';
 import { validateFootnoteContext } from './context/footnote-rules.js';
@@ -193,6 +197,16 @@ export function runBluebookRules(citation: ParsedCitation): ValidationIssue[] {
     case 'ai_source': {
       const components = citation.components as AiSourceComponents;
       issues.push(...validateAiSource(components, citation.rawText));
+      break;
+    }
+    case 'social_media': {
+      const components = citation.components as SocialMediaComponents;
+      issues.push(...validateSocialMedia(components, citation.rawText));
+      break;
+    }
+    case 'audio_video': {
+      const components = citation.components as AudioVideoComponents;
+      issues.push(...validateAudioVideo(components, citation.rawText));
       break;
     }
     case 'unpublished': {
@@ -375,6 +389,28 @@ const RULE_WEIGHTS: Record<string, number> = {
   'R. 17.1': 1.1,       // Unpublished source errors
   'R. 18.2.1(d)': 2.0,  // Archive requirement (22nd ed. critical change)
   'R. 18.3': 1.5,       // AI citation format (new in 22nd ed.)
+  'R. 18.3(a)': 1.5,    // LLM citation format
+  'R. 18.3(b)': 1.3,    // Search result citation format
+  'R. 18.3(c)': 1.3,    // AI-generated content parenthetical
+  'R. 18.7': 1.1,       // Videographic media
+  'R. 18.7.1': 1.1,     // Film citations
+  'R. 18.7.2': 1.1,     // Television series
+  'R. 18.7.3': 1.1,     // Live streaming
+  'R. 18.7.4': 1.1,     // Web-based videos
+  'R. 18.8': 1.1,       // Audio recordings
+  'R. 18.8.1(a)': 1.1,  // Physical commercial audio
+  'R. 18.8.1(b)': 1.1,  // Physical noncommercial audio
+  'R. 18.8.1(c)': 1.0,  // Episodic recordings
+  'R. 18.8.2': 1.0,     // Audio streaming services
+  'R. 18.8.3': 1.1,     // Unpublished audio recordings
+  'R. 18.8.4': 1.0,     // Websites containing audio
+  'R. 18.10': 1.2,      // Social media citations
+  'R. 18.10.1': 1.2,    // Social media platforms
+  'R. 18.10.1(a)': 1.2, // Visual/audio content
+  'R. 18.10.1(b)': 1.0, // Textual content
+  'R. 18.10.1(c)': 1.0, // Profiles
+  'R. 18.10.1(d)': 1.2, // Reposts
+  'R. 18.10.1(e)': 1.1, // Federated social media
   'R. 1.4': 1.2,        // Citation ordering
   'R. 4.2': 1.5,        // Supra note reference errors
   'R. 3.5': 1.2,        // Infra reference errors
