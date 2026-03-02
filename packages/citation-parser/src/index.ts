@@ -269,6 +269,56 @@ export function extractFootnoteCitations(text: string): ParsedFootnote[] {
 }
 
 /**
+ * Parse a single citation span (e.g., from LLM detection) through the parser pipeline.
+ * Tries each parser in priority order and returns the first match.
+ */
+export function parseSingleSpan(
+  spanText: string,
+  position: { start: number; end: number },
+  fullText: string,
+): ParsedCitation | null {
+  const context = classifyContext(fullText, position.start, position.end, spanText);
+
+  return parseCaseCitation(spanText, position, context)
+    || parseShortCaseCitation(spanText, position, context)
+    || parseIdCitation(spanText, position, context)
+    || parseSupraCitation(spanText, position, context)
+    || parseInfraCitation(spanText, position, context)
+    || parseStatuteCitation(spanText, position, context)
+    || parseConstitutionCitation(spanText, position, context)
+    || parseRegulationCitation(spanText, position, context)
+    || parseArticleCitation(spanText, position, context)
+    || parseRestatementCitation(spanText, position, context)
+    || parseBookCitation(spanText, position, context)
+    || parseInternetCitation(spanText, position, context)
+    || parseAiSourceCitation(spanText, position, context)
+    || parseUnpublishedCitation(spanText, position, context)
+    || null;
+}
+
+/**
+ * Merge additional citation spans into an existing parsed citation list.
+ * Deduplicates by position overlap — keeps existing citations when spans overlap.
+ */
+export function mergeAdditionalCitations(
+  existing: ParsedCitation[],
+  additional: ParsedCitation[],
+): ParsedCitation[] {
+  const merged = [...existing];
+
+  for (const newCitation of additional) {
+    const overlaps = existing.some(
+      e => newCitation.position.start < e.position.end && newCitation.position.end > e.position.start,
+    );
+    if (!overlaps) {
+      merged.push(newCitation);
+    }
+  }
+
+  return merged.sort((a, b) => a.position.start - b.position.start);
+}
+
+/**
  * Split citation strings on semicolons.
  * Returns segments with their offsets in the original text.
  * If text has no semicolons or doesn't look like a citation string, returns the whole text.

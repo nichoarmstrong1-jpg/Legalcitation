@@ -115,6 +115,19 @@ export function AnalysisSidebar({ citation, formatStyle }: AnalysisSidebarProps)
 
   return (
     <div className="space-y-4">
+      {/* Detection explanation for non-standard citation forms */}
+      {citation.detectionExplanation && (
+        <div className="card border border-primary-200 bg-primary-50/50">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-primary-600 shrink-0 mt-0.5" />
+            <div>
+              <div className="text-[10px] font-bold text-primary-700 uppercase tracking-wider mb-1">Unusual Citation Form Detected</div>
+              <p className="text-xs text-primary-800 leading-relaxed">{citation.detectionExplanation}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Corrected Citation — Primary Result */}
       {correctedText && (
         <div className="card border-2 border-verified-200 bg-gradient-to-br from-verified-50 to-white shadow-glow-green animate-result-reveal">
