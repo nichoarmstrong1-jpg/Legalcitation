@@ -1,7 +1,11 @@
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import type { CitationTypeId } from '../types/citation';
 import { BASE_PROMPT } from './base-prompt';
+
+const __filename_esm = fileURLToPath(import.meta.url);
+const __dirname_esm = dirname(__filename_esm);
 
 const TYPE_RULE_MAP: Record<string, { file: string; rule: string; bRule: string; title: string }> = {
   case: { file: 'case.md', rule: 'R. 10', bRule: 'B10', title: 'Cases' },
@@ -24,7 +28,7 @@ const TYPE_RULE_MAP: Record<string, { file: string; rule: string; bRule: string;
   treaty: { file: 'treaty.md', rule: 'R. 21', bRule: 'B21', title: 'International Materials' },
 };
 
-const RULES_DIR = join(__dirname, '../data/bluebook-rules');
+const RULES_DIR = join(__dirname_esm, '../data/bluebook-rules');
 
 function loadRuleText(typeId: CitationTypeId): string {
   const info = TYPE_RULE_MAP[typeId];

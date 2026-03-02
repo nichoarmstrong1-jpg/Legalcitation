@@ -20,6 +20,7 @@ export function validateCaseName(
   footnoteContext?: FootnoteContext
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  if (!components.partyOne) return issues;
   const fullName = components.partyTwo
     ? `${components.partyOne} v. ${components.partyTwo}`
     : components.partyOne;

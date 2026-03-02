@@ -192,9 +192,16 @@ export async function checkCitation(
 
   let components: Record<string, string> = {};
   if (extractText) {
-    const extracted = parseJsonResponse<{ components?: Record<string, string> }>(extractText);
-    if (extracted?.components) {
-      components = extracted.components;
+    const extracted = parseJsonResponse<Record<string, unknown>>(extractText);
+    if (extracted) {
+      if (extracted.components && typeof extracted.components === 'object' && !Array.isArray(extracted.components)) {
+        components = extracted.components as Record<string, string>;
+      } else {
+        const { confidence: _c, missingFields: _m, citation: _ci, shortForm: _s, footnote: _f, courtDoc: _d, ...rest } = extracted;
+        components = Object.fromEntries(
+          Object.entries(rest).filter(([, v]) => typeof v === 'string'),
+        ) as Record<string, string>;
+      }
       trace.push(`Extracted ${Object.keys(components).length} components.`);
     }
   }
@@ -210,9 +217,17 @@ export async function checkCitation(
     components: components as unknown as CitationComponents,
   };
 
-  const ruleIssues = runAllRules(parsed);
-  const ruleScore = calculateScore(ruleIssues);
-  trace.push(`Rule engine: ${ruleIssues.length} issue(s), score ${ruleScore}/100.`);
+  let ruleIssues: ValidationIssue[] = [];
+  let ruleScore = 100;
+  try {
+    ruleIssues = runAllRules(parsed);
+    ruleScore = calculateScore(ruleIssues);
+    trace.push(`Rule engine: ${ruleIssues.length} issue(s), score ${ruleScore}/100.`);
+  } catch (ruleError) {
+    const msg = ruleError instanceof Error ? ruleError.message : 'Unknown error';
+    console.error('[citation-checker] Rule engine error:', msg);
+    trace.push(`Rule engine encountered an error: ${msg}. Using AI check only.`);
+  }
 
   // Step 3: Claude semantic check with Bluebook context
   trace.push('Running AI semantic check...');

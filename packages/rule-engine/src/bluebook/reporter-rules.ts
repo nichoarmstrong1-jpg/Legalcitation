@@ -15,8 +15,8 @@ const PREFERRED_REPORTERS: Record<string, string[]> = {
  */
 export function validateReporter(components: CaseComponents): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  if (!components.reporter) return issues;
 
-  // Check reporter abbreviation is valid
   if (!VALID_REPORTER_ABBREVIATIONS.has(components.reporter)) {
     // Check for common misspellings
     const suggestion = findClosestReporter(components.reporter);

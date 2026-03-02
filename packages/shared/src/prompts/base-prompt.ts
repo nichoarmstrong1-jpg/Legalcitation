@@ -1,7 +1,11 @@
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-const RULES_DIR = join(__dirname, '../data/bluebook-rules');
+const __filename_esm = fileURLToPath(import.meta.url);
+const __dirname_esm = dirname(__filename_esm);
+
+const RULES_DIR = join(__dirname_esm, '../data/bluebook-rules');
 
 function loadGeneralRules(): string {
   const filePath = join(RULES_DIR, 'general-rules.md');

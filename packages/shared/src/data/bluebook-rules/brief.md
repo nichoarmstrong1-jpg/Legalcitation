@@ -94,5 +94,5 @@ But: The liquid left on the floor by Defendant caused Plaintiff to lose her bala
 
 ## White Pages (Full Academic Rules)
 ### Rule 10.8.3 Court Documents
-[Paste R. 10.8.3 text — covers briefs, motions, complaints, etc.]
+See Bluepages B17 above for the primary rules governing court document citations. The White Pages Rule 10.8.3 provides additional guidance for academic citation of court filings.
 

@@ -9,8 +9,12 @@ import type {
 } from '@legalcitation/shared';
 import { buildPrompt } from '@legalcitation/shared/prompts';
 import { existsSync, readFileSync } from 'fs';
-import { join, resolve } from 'path';
+import { dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { v4 as uuid } from 'uuid';
+
+const __filename_esm = fileURLToPath(import.meta.url);
+const __dirname_esm = dirname(__filename_esm);
 
 // --- Types ---
 
@@ -63,7 +67,7 @@ function toRuleEngineType(typeId: CitationTypeId): CitationType {
 
 // --- Bluebook context loading ---
 
-const DATA_BASE_PATH = resolve(__dirname, '../../../../packages/shared/src/data');
+const DATA_BASE_PATH = resolve(__dirname_esm, '../../../../packages/shared/src/data');
 
 const TYPE_RULE_FILE_MAP: Record<string, string> = {
   case: 'case.md',
@@ -255,8 +259,8 @@ export async function buildCitation(
       };
     }
 
-    const extracted = parseJsonResponse<ExtractionResult>(responseText);
-    if (!extracted || !extracted.components) {
+    const extracted = parseJsonResponse<Record<string, unknown>>(responseText);
+    if (!extracted) {
       trace.push('Could not parse AI extraction response.');
       return {
         components: {},
@@ -269,13 +273,23 @@ export async function buildCitation(
       };
     }
 
-    components = extracted.components;
-    extractionConfidence = extracted.confidence ?? 0.7;
-    missingFields = extracted.missingFields ?? [];
-    citation = extracted.citation;
-    shortForm = extracted.shortForm;
-    footnote = extracted.footnote;
-    courtDoc = extracted.courtDoc;
+    // Claude may return components nested or at the top level
+    if (extracted.components && typeof extracted.components === 'object' && !Array.isArray(extracted.components)) {
+      components = extracted.components as Record<string, string>;
+    } else {
+      // Treat the whole response as components, pulling out known meta fields
+      const { confidence: _c, missingFields: _m, citation: _ci, shortForm: _s, footnote: _f, courtDoc: _d, ...rest } = extracted;
+      components = Object.fromEntries(
+        Object.entries(rest).filter(([, v]) => typeof v === 'string'),
+      ) as Record<string, string>;
+    }
+
+    extractionConfidence = typeof extracted.confidence === 'number' ? extracted.confidence : 0.7;
+    missingFields = Array.isArray(extracted.missingFields) ? (extracted.missingFields as string[]) : [];
+    citation = typeof extracted.citation === 'string' ? extracted.citation : undefined;
+    shortForm = typeof extracted.shortForm === 'string' ? extracted.shortForm : undefined;
+    footnote = typeof extracted.footnote === 'string' ? extracted.footnote : undefined;
+    courtDoc = typeof extracted.courtDoc === 'string' ? extracted.courtDoc : undefined;
     trace.push(`Extracted ${Object.keys(components).length} components (confidence: ${extractionConfidence}).`);
     if (missingFields.length > 0) {
       trace.push(`Missing fields: ${missingFields.join(', ')}`);
@@ -287,9 +301,18 @@ export async function buildCitation(
   const parsed = constructParsedCitation(rawText, typeId, components);
 
   // Step 3: Run all rules (deterministic, <10ms)
-  const issues = runAllRules(parsed);
-  const score = calculateScore(issues);
-  trace.push(`Rule engine found ${issues.length} issue(s). Score: ${score}/100.`);
+  let issues: ValidationIssue[] = [];
+  let score = 0;
+  try {
+    issues = runAllRules(parsed);
+    score = calculateScore(issues);
+    trace.push(`Rule engine found ${issues.length} issue(s). Score: ${score}/100.`);
+  } catch (ruleError) {
+    const msg = ruleError instanceof Error ? ruleError.message : 'Unknown error';
+    console.error('[citation-pipeline] Rule engine error:', msg);
+    trace.push(`Rule engine encountered an error: ${msg}. Continuing with AI results only.`);
+    score = Math.round(extractionConfidence * 100);
+  }
 
   // Step 4: Check for errors that need re-prompting
   const errors = issues.filter((i) => i.severity === 'error');
