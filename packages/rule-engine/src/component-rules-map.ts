@@ -91,6 +91,31 @@ export const AI_SOURCE_COMPONENT_RULES: Record<string, ComponentRuleMapping> = {
   onFileWith: { rule: 'R. 18.3', label: 'On File With' },
 };
 
+export const WEBSITE_COMPONENT_RULES: Record<string, ComponentRuleMapping> = {
+  author: { rule: 'R. 18.2.2(a)', label: 'Author' },
+  title: { rule: 'R. 18.2.2(b)', label: 'Page Title' },
+  websiteName: { rule: 'R. 18.2.2(b)(i)', label: 'Website Name' },
+  subdivision: { rule: 'R. 18.2.2(b)(ii)', label: 'Subdivision' },
+  url: { rule: 'R. 18.2.2(d)', label: 'URL' },
+  archiveUrl: { rule: 'R. 18.2.1(d)', label: 'Archive URL' },
+  date: { rule: 'R. 18.2.2(c)', label: 'Date' },
+  timestamp: { rule: 'R. 18.2.2(c)', label: 'Timestamp' },
+  lastVisited: { rule: 'R. 18.2.2(c)', label: 'Last Visited' },
+};
+
+export const NEWSPAPER_COMPONENT_RULES: Record<string, ComponentRuleMapping> = {
+  author: { rule: 'R. 16.6(a)', label: 'Author' },
+  title: { rule: 'R. 16.6', label: 'Article Title' },
+  newspaperName: { rule: 'R. 16.6', label: 'Newspaper Name' },
+  date: { rule: 'R. 16.6', label: 'Date' },
+  page: { rule: 'R. 16.6(a)', label: 'Page' },
+  section: { rule: 'R. 16.6(a)(ii)', label: 'Section' },
+  designation: { rule: 'R. 16.6(a)(i)', label: 'Designation' },
+  placeOfPublication: { rule: 'R. 16.6(b)', label: 'Place of Publication' },
+  url: { rule: 'R. 16.6(f)', label: 'URL' },
+  archiveUrl: { rule: 'R. 18.2.1(d)', label: 'Archive URL' },
+};
+
 export const UNPUBLISHED_COMPONENT_RULES: Record<string, ComponentRuleMapping> = {
   author: { rule: 'R. 17.1', label: 'Author' },
   title: { rule: 'R. 17.1', label: 'Title' },
@@ -99,6 +124,12 @@ export const UNPUBLISHED_COMPONENT_RULES: Record<string, ComponentRuleMapping> =
   degree: { rule: 'R. 17.2.2', label: 'Degree' },
   workingPaperNumber: { rule: 'R. 17.4', label: 'Paper Number' },
   onFileWith: { rule: 'R. 17.2.1', label: 'On File With' },
+  recipientName: { rule: 'R. 17.2.3', label: 'Recipient' },
+  documentNature: { rule: 'R. 17.2.3', label: 'Document Type' },
+  location: { rule: 'R. 17.2.5', label: 'Location' },
+  eventDescription: { rule: 'R. 17.2.6', label: 'Event' },
+  forthcomingYear: { rule: 'R. 17.3', label: 'Forthcoming Year' },
+  manuscriptPage: { rule: 'R. 17.3', label: 'Manuscript Page' },
 };
 
 export const SHORT_FORM_COMPONENT_RULES: Record<string, ComponentRuleMapping> = {
@@ -119,6 +150,8 @@ export function getComponentRules(citationType?: string): Record<string, Compone
     case 'book': return BOOK_COMPONENT_RULES;
     case 'restatement': return RESTATEMENT_COMPONENT_RULES;
     case 'internet': return INTERNET_COMPONENT_RULES;
+    case 'website': return WEBSITE_COMPONENT_RULES;
+    case 'newspaper': return NEWSPAPER_COMPONENT_RULES;
     case 'ai_source': return AI_SOURCE_COMPONENT_RULES;
     case 'unpublished': return UNPUBLISHED_COMPONENT_RULES;
     case 'id':

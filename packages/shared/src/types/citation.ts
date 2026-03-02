@@ -7,6 +7,8 @@ export type CitationType =
   | 'book'
   | 'restatement'
   | 'internet'
+  | 'website'
+  | 'newspaper'
   | 'ai_source'
   | 'unpublished'
   | 'short_form'
@@ -139,6 +141,35 @@ export interface InternetComponents {
   archiveUrl?: string;
   lastVisited?: string;
   pinCite?: string;
+  /** Timestamp for web sources (e.g., "15:31 ET") per R. 18.2.2(c) */
+  timestamp?: string;
+  /** Time zone designation (e.g., "ET", "PT") per R. 18.2.2(c) */
+  timezone?: string;
+  /** Blog or subdivision name within a larger site (e.g., "Volokh Conspiracy") per R. 18.2.2(b)(ii) */
+  subdivision?: string;
+}
+
+export interface NewspaperComponents {
+  author?: string;
+  title: string;
+  newspaperName: string;
+  date: string;
+  /** Page designation for print editions (e.g., "A1") per R. 16.6(a) */
+  page?: string;
+  /** Section designation when needed to identify page (e.g., "§ 6") per R. 16.6(a)(ii) */
+  section?: string;
+  /** URL for online-only newspaper articles per R. 16.6(f) */
+  url?: string;
+  /** Perma.cc or other archive URL per R. 18.2.1(d) */
+  archiveUrl?: string;
+  /** "Editorial", "Opinion", or "Letter to the Editor" per R. 16.6(a)(i) */
+  designation?: string;
+  /** Place of publication if not clear from newspaper name per R. 16.6(b) */
+  placeOfPublication?: string;
+  /** Wire service name (e.g., "Associated Press") per R. 16.6(d) */
+  wireService?: string;
+  /** Whether article is online-only (no print edition) */
+  onlineOnly?: boolean;
 }
 
 export interface AiSourceComponents {
@@ -157,7 +188,7 @@ export interface AiSourceComponents {
 }
 
 export interface UnpublishedComponents {
-  subtype: 'manuscript' | 'working_paper' | 'dissertation';
+  subtype: 'manuscript' | 'working_paper' | 'dissertation' | 'letter' | 'email' | 'interview' | 'speech' | 'forthcoming';
   author: string;
   title: string;
   page?: string;
@@ -167,6 +198,28 @@ export interface UnpublishedComponents {
   degree?: string;
   onFileWith?: string;
   pinCite?: string;
+  /** Recipient name for letters/memoranda/emails per R. 17.2.3 */
+  recipientName?: string;
+  /** Recipient title/affiliation for letters/memoranda/emails per R. 17.2.3 */
+  recipientTitle?: string;
+  /** Document nature: "Letter", "Memorandum", "Press Release", "E-mail" per R. 17.2.3–.4 */
+  documentNature?: string;
+  /** Location for in-person interviews per R. 17.2.5 */
+  location?: string;
+  /** Timestamp for emails (e.g., "06:15 ET") per R. 17.2.4 */
+  timestamp?: string;
+  /** Time zone for emails per R. 17.2.4 */
+  timezone?: string;
+  /** Speaker/interviewee title per R. 17.2.5–.6 */
+  speakerTitle?: string;
+  /** Event description for speeches/addresses per R. 17.2.6 */
+  eventDescription?: string;
+  /** Interviewer name when author did not conduct interview per R. 17.2.5 */
+  interviewerName?: string;
+  /** Year of expected publication for forthcoming works per R. 17.3 */
+  forthcomingYear?: string;
+  /** Manuscript page for pincites in forthcoming publications per R. 17.3 */
+  manuscriptPage?: string;
 }
 
 export interface ShortFormComponents {
@@ -195,6 +248,7 @@ export type CitationComponents =
   | BookComponents
   | RestatementComponents
   | InternetComponents
+  | NewspaperComponents
   | AiSourceComponents
   | UnpublishedComponents
   | ShortFormComponents;

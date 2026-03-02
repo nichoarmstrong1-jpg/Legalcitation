@@ -9,6 +9,7 @@ import type {
   BookComponents,
   RestatementComponents,
   InternetComponents,
+  NewspaperComponents,
   AiSourceComponents,
   UnpublishedComponents,
   ValidationIssue,
@@ -57,6 +58,8 @@ import { validateArticle } from './bluebook/article-rules.js';
 import { validateBook } from './bluebook/book-rules.js';
 import { validateRestatement } from './bluebook/restatement-rules.js';
 import { validateInternet } from './bluebook/internet-rules.js';
+import { validateWebsite } from './bluebook/website-rules.js';
+import { validateNewspaper } from './bluebook/newspaper-rules.js';
 import { validateAiSource } from './bluebook/ai-source-rules.js';
 import { validateUnpublished } from './bluebook/unpublished-rules.js';
 import { validateCitationOrder } from './bluebook/citation-order-rules.js';
@@ -175,6 +178,16 @@ export function runBluebookRules(citation: ParsedCitation): ValidationIssue[] {
     case 'internet': {
       const components = citation.components as InternetComponents;
       issues.push(...validateInternet(components, citation.rawText));
+      break;
+    }
+    case 'website': {
+      const components = citation.components as InternetComponents;
+      issues.push(...validateWebsite(components, citation.rawText));
+      break;
+    }
+    case 'newspaper': {
+      const components = citation.components as NewspaperComponents;
+      issues.push(...validateNewspaper(components, citation.rawText));
       break;
     }
     case 'ai_source': {
