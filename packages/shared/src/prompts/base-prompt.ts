@@ -5,7 +5,9 @@ import { fileURLToPath } from 'url';
 const __filename_esm = fileURLToPath(import.meta.url);
 const __dirname_esm = dirname(__filename_esm);
 
-const RULES_DIR = join(__dirname_esm, '../data/bluebook-rules');
+// Both src/prompts/ and dist/prompts/ are 2 levels below the package root
+const PKG_ROOT = join(__dirname_esm, '../..');
+const RULES_DIR = join(PKG_ROOT, 'src/data/bluebook-rules');
 
 function loadGeneralRules(): string {
   const filePath = join(RULES_DIR, 'general-rules.md');

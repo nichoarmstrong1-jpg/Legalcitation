@@ -32,6 +32,7 @@ WORKDIR /app
 COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/packages/shared/package.json packages/shared/
 COPY --from=builder /app/packages/shared/dist packages/shared/dist
+COPY --from=builder /app/packages/shared/src/data packages/shared/src/data
 COPY --from=builder /app/packages/citation-parser/package.json packages/citation-parser/
 COPY --from=builder /app/packages/citation-parser/dist packages/citation-parser/dist
 COPY --from=builder /app/packages/rule-engine/package.json packages/rule-engine/
