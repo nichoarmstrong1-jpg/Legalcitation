@@ -1,7 +1,12 @@
-# Newspapers — Bluebook B16 + Rule 16.6
+# Periodical Materials — Bluebook B16 + Rule 16
 
 ## Bluepages (Practitioner Rules)
+
 ### B16 Periodical Materials
+[Property, 73 Yale L.J. 733, 737–38 (1964) (discussing the importance of government largess).
+
+
+#### B16.1 Full Citation
 [B16.1 Full Citation (pp. 24–25)
 A full citation of periodical material includes the following elements: (1) the full name(s) of the author(s) as written in the publication; (2) the title of the article (underlined or italicized); (3) the abbreviated name of the publication; (4) a pincite; and (5) the date of publication. The basic citation may differ depending on the type of periodical cited. For further guidance, see rule 16.
 
@@ -35,7 +40,9 @@ B16.1.4 – Newspaper Articles
 Abigail Sullivan Moore, This Is Your Brain on Drugs, N.Y. Times, Oct. 29, 2014, at A1.
 
 
-Doug Esser, UW Library Freezes Bedbugs Off Infested Books, Seattle Times, Dec. 7, 2012, at A2. B16.2 Short Form Citation (p.25)
+Doug Esser, UW Library Freezes Bedbugs Off Infested Books, Seattle Times, Dec. 7, 2012, at A2.]
+#### B16.2 Short Form Citation
+[B16.2 Short Form Citation (p.25)
 After providing a full citation of a periodical, you should use “id.” or “supra” in subsequent citations. Use “id.” to refer to periodical material cited in the immediately preceding citation. Otherwise, use the “supra” form introduced in Bluepages B15.2.
 
 
@@ -48,7 +55,197 @@ When your document includes citations of more than one source by the same author
 Llewellyn, Remarks, supra, at 401–06.]
 
 ## White Pages (Full Academic Rules)
-### Rule 16.6 Newspapers
+
+### Rule 16: Periodical Materials
+["Charles A. Reich" → author's full name
+"The New Property" → title of article
+"73" → journal volume no.
+"Yale L.J." → abbreviation of journal
+"733" → page on which article begins
+"737–38" → span of specific pages cited
+"(1964)" → date of publication
+"(discussing the importance of government largess)" → parenthetical describing content of pages cited
+Citation of an entire magazine article:
+Robert J. Samuelson, A Slow Fix for the Banks, Newsweek, Feb. 18, 1991, at 55.
+"Robert J. Samuelson" → author's full name
+"A Slow Fix for the Banks" → title of article
+"Newsweek" → name of magazine
+"Feb. 18, 1991" → cover date of issue
+"at" → separates date from page no.
+"55" → first page of article
+Citation of a signed newspaper article:
+Seth Mydans, Los Angeles Police Chief Removed for 60 Days in Inquiry on Beating, N.Y. Times, Apr. 5, 1991, at A1.
+"Seth Mydans" → author's full name
+"Los Angeles Police Chief Removed for 60 Days in Inquiry on Beating" → headline
+"N.Y. Times" → abbreviation of newspaper
+"Apr. 5, 1991" → date of article
+"at" → separates date from page no.
+"A1" → page on which article appears
+Subsections:
+16.1 Basic Citation Forms
+16.2 Author
+16.3 Title
+16.4 Consecutively Paginated Journals
+16.5 Nonconsecutively Paginated Journals and Magazines
+16.6 Newspapers
+16.7 Special Citation Forms
+16.8 Electronic Media and Online Sources
+16.9 Short Citation Forms]
+]
+#### 16.1 Basic Citation Forms
+[Here is the entire page converted to plain text, with the chart flattened:
+
+---
+
+**16.1 Basic Citation Forms (pp. 165–66)**
+
+Article in consecutively paginated journal — Elizabeth F. Emens, *Integrating Accommodation*, 156 U. Pa. L. Rev. 839, 894 (2008).
+
+Article in nonconsecutively paginated journal or magazine — Benjamin Wittes, *Without Precedent*, Atl. Monthly, Sep. 2005, at 39, 40.
+
+Newspaper article — Scott Martelle, *ID Law Keeps Nuns, Students from Polls*, L.A. Times, May 7, 2008, at A14.
+
+Online newspaper article — Pamela Mendels, *A Case of Spam and Free Speech at Intel*, N.Y. Times (Dec. 11, 1998), http://www.nytimes.com/library/tech/98/12/cyber/cyberlaw/11law.html [https://perma.cc/SNK9-KJ32].
+
+Signed student-written law review note — Bradford R. Clark, Note, *Judicial Review of Congressional Section Five Action: The Fallacy of Reverse Incorporation*, 84 Colum. L. Rev. 1969, 1986 (1984).
+
+Unsigned student-written comment — Case Comment, *Fairness Standards for SEC Approval of Mergers*: Collins v. SEC, 90 Harv. L. Rev. 453 (1976).
+
+Student-written book review — Sharon Dolovich, Book Note, *Leaving the Law Behind*, 20 Harv. Women's L.J. 313, 329 (1997) (reviewing Patricia J. Williams, The Rooster's Egg: On the Persistence of Prejudice (1995)).
+
+Non-student-written book review — Jane E. Stromseth, *Understanding Constitutional War Powers Today: Why Methodology Matters*, 106 Yale L.J. 845 (1996) (reviewing Louis Fisher, Presidential War Power (1995)).
+
+Symposium — Symposium, *The Presidency and Congress: Constitutionally Separated and Shared Powers*, 68 Wash. U. L.Q. 485, 640–51 (1990).
+
+Specially designated article in consecutively paginated journal — John M. Golden, Commentary, *"Patent Trolls" and Patent Remedies*, 85 Tex. L. Rev. 2111, 2113 (2007).
+
+Noncommercially distributed newsletter — Douglas Gary Lichtman, *Patent Holdouts in the Standard-Setting Process*, Acad. Advisory Council Bull. (Progress & Freedom Found., D.C.), May 2006, at 4.
+
+Follow rule 16.4 or rule 16.5 to cite articles, essays, commentaries, and all other materials contained within periodicals. Where the periodical is organized by volume, and page numbers continue throughout the volume, it is a consecutively paginated periodical and should be cited according to rule 16.4. Where the periodical is paginated separately for each issue and the first page of every issue is 1, it is a nonconsecutively paginated periodical and should be cited according to rule 16.5.
+
+Cite newspapers according to rule 16.6.
+
+Special citation forms for non-student-written book reviews, student-written law review materials, symposia, colloquia, surveys, commentaries and other special designations, multipart articles, annotations, proceedings, regular publications by institutes, ABA Section Reports, and noncommercially distributed periodicals such as newsletters are given in rule 16.7.
+
+Cite sources in electronic media and online sources using rule 16.8.
+
+Follow rule 16.9 for short citation forms.
+
+Capitalize the titles of works cited according to rule 8(a).
+
+The name of the periodical should appear in small capitals whether it is a journal, magazine, or newspaper, and should be abbreviated according to tables T6 (case names, institutional author names, and periodical titles), T13 (institutional names in periodical titles), and T10 (geographic abbreviations).
+
+For purposes of this rule, the date of the publication is the cover date of the periodical.
+]
+#### 16.2 Author
+[16.2 Author (p.166)
+For signed materials appearing in periodicals (including student-written materials), follow rule 15.1, but print in ordinary roman type. Thus:
+
+
+
+Kim Lane Scheppele, Foreword: Telling Stories, 87 Mich. L. Rev. 2073, 2082 (1989).
+
+
+Robert P. Inman & Michael A. Fitts, Political Institutions and Fiscal Policy: Evidence from the U.S. Historical Record, 6 J.L. Econ. & Org. 79, 79–82 (1990).
+
+
+Paul Butler et al., Race, Law and Justice: The Rehnquist Court and the American Dilemma, 45 Am. U. L. Rev. 567, 569 (1996).
+
+
+Georgette C. Poindexter, LizabethAnn Rogovoy & Susan Wachter, Selling Municipal Property Tax Receivables: Economics, Privatization, and Public Policy in an Era of Urban Distress, 30 Conn. L. Rev. 157 (1997).
+
+
+R. Gregory Cochran, Comment, Is the Shrink’s Role Shrinking? The Ambiguity of Federal Rule of Criminal Procedure 12.2 Concerning Government Psychiatric Testimony in Negativing Cases, 147 U. Pa. L. Rev. 1403 (1999).
+
+
+Peter Carlson, Tales Out of Law School; Repeat After Us: It’s Nothing Like ‘L.A. Law,’ Wash. Post, July 2, 1989, at W13.]
+#### 16.3 Title
+[16.3 Title (pp. 166–67)
+Cite the full periodical title as it appears on the title page but capitalize according to rule 8 (unless the title is not in English, as described in rule 20.2.2(b)). Do not abbreviate words or omit articles in the title. Use italics:
+
+
+
+Edward B. Rock, The Logic and (Uncertain) Significance of Institutional Shareholder Activism, 79 Geo. L.J. 445 (1991).
+
+
+Cecilia Lacey O’Connell, Comment, The Role of the Objector and the Current Circuit Court Confusion Regarding Federal Rule of Civil Procedure 23.1: Should Non-Named Shareholders Be Permitted to Appeal Adverse Judgments?, 48 Cath. U. L. Rev. 939, 943–46 (1999).
+
+
+When the title contains a reference to material that would be italicized when appearing in the main text according to rule 2.2(a), such material should appear in ordinary roman type:
+
+
+
+Nathaniel A. Vitan, Book Note, Grounded Paratroopers: On Collins and Skover’s The Death of Discourse, 13 J.L. & Pol. 207, 210 (1997).
+
+
+Seth F. Kreimer, Does Pro-Choice Mean Pro-Kevorkian? An Essay on Roe, Casey, and the Right to Die, 44 Am. U. L. Rev. 803, 812 (1995).]
+#### 16.4 Consecutively Paginated Journals
+[16.4 Consecutively Paginated Journals (pp. 167–68)
+Cite works found within periodicals that are consecutively paginated throughout an entire volume by author, title of work, volume number, periodical name, first page of the work, page or pages on which specific material appears (rule 3.2(a)), and year enclosed in parentheses at the end of the citation. Consult tables T6, T10, and T13 to abbreviate the names of periodicals:
+
+
+
+David Rudovsky, Police Abuse: Can the Violence Be Contained?, 27 Harv. C.R.-C.L. L. Rev. 465, 500 (1992).
+
+
+Richard A. Epstein, The Supreme Court, 1987 Term—Foreword: Unconstitutional Conditions, State Power, and the Limits of Consent, 102 Harv. L. Rev. 4, 44 (1988).
+
+
+Kenneth W. Tsang et al., A Cluster of Cases of Severe Acute Respiratory Syndrome in Hong Kong, 348 NEJM 1977, 1977 (2003).
+
+
+Pauline M. Ippolito & Alan D. Mathios, New Food Labeling Regulations and the Flow of Nutrition Information to Consumers, 12 J. Pub. Pol’y & Mktg. 188 (1993).
+
+
+Some journals maintain separate but consecutive pagination with different page numbering systems. Cite these journals as indicated above, but include the special numbering:
+
+
+
+Kenneth R. Feinberg, Mediation—A Preferred Method of Dispute Resolution, 16 Pepp. L. Rev. S5, S14 n.19 (1989).
+
+
+Some journals publish special annual issues that do not conform to their consecutive pagination system. Cite these as indicated above but indicate the special issue designation parenthetically and use the numbering from the special issue:
+
+
+
+John Ferejohn & Charles Shipan, Congressional Influence on Bureaucracy, 6 J.L. Econ. & Org. (Special Issue) 1 (1990).
+
+
+George A. Akerlof, Procrastination and Obedience, 81 Am. Econ. Rev. (Papers & Proc.) 1 (1991).
+
+
+If the periodical has no volume number but is nonetheless consecutively paginated throughout each volume, use the year of publication as the volume number and omit the parenthetical reference to the year:
+
+
+
+Thomas R. McCoy & Barry Friedman, Conditional Spending: Federalism’s Trojan Horse, 1988 Sup. Ct. Rev. 85, 100.
+
+
+Stephen D. Sugarman, Using Private Schools to Promote Public Values, 1991 U. Chi. Legal F. 171.]
+#### 16.5 Nonconsecutively Paginated Journals and Magazines
+[16.5 Nonconsecutively Paginated Journals and Magazines (p.168)
+Works appearing in periodicals that are separately paginated within each issue should be cited by author, title of work, periodical name, date of issue as it appears on the cover, the word “at” (rule 3.2(a)), first page of work, and, if applicable, page or pages on which specific material appears. If there is no author listed, begin the citation with the title of the piece. Consult tables T6, T10, and T13 to abbreviate the names of periodicals:
+
+
+
+Barbara Ward, Progress for a Small Planet, Harv. Bus. Rev., Sep.–Oct. 1979, at 89, 90.
+
+
+Barbara Ehrenreich, Iranscam: The Real Meaning of Oliver North, Ms., May 1987, at 24, 24.
+
+
+Joan B. Kelly, Mediated and Adversarial Divorce: Respondents’ Perceptions of Their Processes and Outcomes, Mediation Q., Summer 1989, at 71.
+
+
+Damages for a Deadly Cloud: The Bhopal Tragedy Will Cost Union Carbide $470 Million, Time, Feb. 27, 1989, at 53.
+
+
+If no date of issue is available, provide the issue number in its place and indicate the volume number before the title of the periodical per rule 16.4; also include the year and month of copyright, if available:
+
+
+
+Charles E. Mueller, The American Who Wants to Give Away His Country but Doesn't Know That's What He's Voting for, 34 Antitrust L. & Econ. Rev., no. 1, 2008, at 1, 7.]
+#### 16.6 Newspapers
 [16.6 Newspapers (pp. 168–70)
 (a) In general.
  Materials appearing in newspapers are generally cited in the same manner as those found in nonconsecutively paginated periodicals (rule 16.5) with three exceptions: (i) when appropriate, designate the work as an “Editorial,” “Opinion,” or “Letter to the Editor,” in ordinary roman type, after the author’s name but before the title, or at the beginning of the citation if there is no author; (ii) after the date, give the designation of the section in which the piece is found in a parenthetical if necessary to identify the page unambiguously; and (iii) give only the first page of the piece and do not indicate the location of specific material. Substitute “Letter to the Editor” or another designation for the title when no separate title is provided. Citations to signed articles should include the author’s full name (rule 16.2); citations to unsigned pieces should begin with the title of the piece:
@@ -111,9 +308,7 @@ John M. Broder, Geography Is Dividing Democrats over Energy, N.Y. Times, Jan. 27
 
 
 becomes: John M. Broder, Geography Is Dividing Democrats over Energy, N.Y. Times (Jan. 27, 2009), http://www.nytimes.com/2009/01/27/science/earth/27coal.html (on file with author).]
-
-####Rule 16.7 Special Citation Forms
-
+#### 16.7 Special Citation Forms
 [16.7 Special Citation Forms (pp. 170–74)
 16.7.1 – Student-Written Law Review Materials
 (a) Signed, student-written materials.
@@ -310,8 +505,24 @@ Indictment of Pregnant Woman for Drug Use Dismissed, Reprod. Rts. Update (ACLU/R
 
 
 Recent Grants, FCD Update (Found. for Child Dev., New York, N.Y.), Dec. 1990, at 1, 7.]
+#### 16.8 Electronic Media and Online Sources
+[16.8 Electronic Media and Online Sources (pp. 174–75)
+(a) Commercial electronic databases.
+ When citing periodical materials to a database, provide a complete citation to the document according to rule 16 and a citation to the database. If the database assigns a unique identifier or code to each document within the database, include that identifier or code to assist the reader in locating the document cited.
+Some sources are available in two forms, electronic and paper. To facilitate access to the source, it is permissible to include a direct citation to a commercial electronic database:
 
-####16.9 Short citation Forms
+
+
+T.R. Fehrenbach, TV’s Alamo Tale Fairly Accurate, S.A. Express-News, Mar. 17, 1996, at A1, 1996 WL 2824823.
+
+
+Justice Minister Calls for Solving International Legal Conflicts, Japan Econ. Newswire Plus, Apr. 22, 1991, at 1, DIALOG, File No. 612.
+
+
+(b) Internet and online sources.
+ Where a print version is accessible, citation should be made to the print source. Where, however, the print source is difficult or impossible to obtain, or the governing authority has designated the electronic source as the official version, citation should be made to the electronic source with consideration of rule 18’s principles on authentication. If a periodical source is only available online, cite to it directly in accordance with rule 18.2.2. If the digital source has a Digital Object Identifier (DOI), the DOI may be appended in brackets at the end of the citation as a rule 18.2.1(d) archival tool:
+Randy Kommey & Madeleine Fombad, Strategies for Knowledge Sharing Among Rice Farmers: A Ghanaian Perspective, 21 Eʟᴇᴄ. J. Kɴᴏᴡʟᴇᴅɢᴇ Mɢᴍᴛ. 114 (2023), https://academic-publishing.org/index.php/ejkm/article/view/2803/2144 [https://doi.org/10.34190/ejkm.21.2.2803].]
+#### 16.9 Short Citation Forms
 [16.9 Short Citation Forms (pp. 175–76)
 Once a work in a periodical has been cited in full, use “id.” or “supra” to refer to it in subsequent citations.
 
@@ -352,3 +563,4 @@ Once a work in a periodical has been cited in full, use “id.” or “supra”
 
 
 For materials available only online, use the normal short form appropriate for the source. A URL need not be repeated after a full citation.]
+
