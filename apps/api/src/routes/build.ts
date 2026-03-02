@@ -1,12 +1,21 @@
-import { Router, type Request, type Response } from 'express';
 import { extractAndParseCitations, normalizeCitationInput } from '@legalcitation/citation-parser';
-import { runAllRules, calculateScore } from '@legalcitation/rule-engine';
+import { calculateScore, runAllRules } from '@legalcitation/rule-engine';
+import type { CaseComponents, CitationTypeId, ValidationIssue } from '@legalcitation/shared';
 import { buildCitationWithClaude, searchCasesWithClaude, searchCourtListenerCases } from '@legalcitation/verification';
-import type { CaseComponents, ValidationIssue } from '@legalcitation/shared';
-import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
-import { validateSearch, validateBuild } from '../middleware/validation.js';
+import { Router, type Request, type Response } from 'express';
+import {
+    validateBuild,
+    validateBuildBatch,
+    validateBuildCheck,
+    validateBuildFromUrl,
+    validateSearch,
+} from '../middleware/validation.js';
+import { checkCitation } from '../services/citation-checker.js';
 import { logCitationCheck } from '../services/citation-logger.js';
+import { buildCitation } from '../services/citation-pipeline.js';
 import { processVerifiedCitation } from '../services/process-citation.js';
+import { resolveUrl } from '../services/url-resolver.js';
+import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
 
 export const buildRouter = Router();
 
@@ -66,21 +75,44 @@ buildRouter.post('/search', validateSearch, async (req: Request, res: Response) 
 
 /**
  * POST /api/build — Generate a citation from free text input.
- * Uses the shared processVerifiedCitation() for identical treatment to the checker.
+ * When citationType is provided, uses the two-layer pipeline (Claude + rule engine).
+ * Otherwise falls back to the legacy flow (parser + processVerifiedCitation).
  */
 buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
   try {
-    const { input } = req.body as { input: string };
+    const { input, citationType, style, fields } = req.body as {
+      input: string;
+      citationType?: CitationTypeId;
+      style?: 'law_review' | 'court_doc';
+      fields?: Record<string, string>;
+    };
 
     if (!input || typeof input !== 'string') {
       res.status(400).json({ error: 'Input text is required' });
       return;
     }
 
+    // New pipeline: when citationType is provided, use the two-layer build
+    if (citationType) {
+      const mode = fields ? 'manual' : 'search';
+      const result = await buildCitation(input, citationType, mode, style ?? 'court_doc', fields);
+
+      logCitationCheck({
+        userId: (req as any).user?.userId,
+        mode: 'builder',
+        inputText: input,
+        results: result,
+        citationCount: 1,
+        averageScore: Math.round(result.confidence * 100),
+      });
+      res.json(result);
+      return;
+    }
+
+    // Legacy flow: no citationType specified
     const logicTrace: string[] = [];
     logicTrace.push(`Received free text input: "${input.slice(0, 100)}${input.length > 100 ? '...' : ''}"`);
 
-    // First try to extract any existing citations from the input
     let parsed = extractAndParseCitations(input, 'citation_sentence');
     if (parsed.length === 0) {
       const normalized = normalizeCitationInput(input);
@@ -93,10 +125,7 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
     }
 
     if (parsed.length > 0) {
-      // Use shared processVerifiedCitation — identical to checker
       const analyzed = await processVerifiedCitation(parsed[0]);
-
-      // Prepend the input-level trace before the citation-level trace
       analyzed.logicTrace = [...logicTrace, ...analyzed.logicTrace];
 
       logCitationCheck({
@@ -111,7 +140,6 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
       return;
     }
 
-    // No parseable citation — try Claude API to build one
     logicTrace.push('No standard citation found. Using AI-powered citation builder...');
 
     const claudeResult = await buildCitationWithClaude(input);
@@ -150,7 +178,6 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
       return;
     }
 
-    // Claude not available — try to build from context clues
     logicTrace.push('AI builder not available. Attempting manual extraction...');
 
     const partyMatch = input.match(/(.+?)\s+v\.?\s+(.+?)(?:\s+(\d{4}))?$/i);
@@ -245,6 +272,100 @@ buildRouter.post('/', validateBuild, async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Build error:', error);
     res.status(500).json({ error: 'Citation build failed' });
+  }
+});
+
+/**
+ * POST /api/build/from-url — Build a citation from a URL.
+ * Resolves the URL to get metadata, then runs the two-layer pipeline.
+ */
+buildRouter.post('/from-url', validateBuildFromUrl, async (req: Request, res: Response) => {
+  try {
+    const { url, citationType, style } = req.body as {
+      url: string;
+      citationType?: CitationTypeId;
+      style?: 'law_review' | 'court_doc';
+    };
+
+    const resolved = await resolveUrl(url);
+    const typeId: CitationTypeId = citationType ?? 'website';
+    const preExtracted = Object.keys(resolved.metadata).length > 0 ? resolved.metadata : undefined;
+
+    const result = await buildCitation(url, typeId, 'url', style ?? 'court_doc', preExtracted);
+    result.sourceUrl = url;
+
+    logCitationCheck({
+      userId: (req as any).user?.userId,
+      mode: 'builder',
+      inputText: url,
+      results: result,
+      citationCount: 1,
+      averageScore: Math.round(result.confidence * 100),
+    });
+
+    res.json({ ...result, resolvedSource: resolved.source, resolveTimeMs: resolved.resolveTimeMs });
+  } catch (error) {
+    console.error('Build from URL error:', error);
+    res.status(500).json({ error: 'Citation build from URL failed' });
+  }
+});
+
+/**
+ * POST /api/build/check — Check/validate an existing citation.
+ * Uses both the deterministic rule engine and Claude semantic check.
+ */
+buildRouter.post('/check', validateBuildCheck, async (req: Request, res: Response) => {
+  try {
+    const { citation, citationType, style } = req.body as {
+      citation: string;
+      citationType: CitationTypeId;
+      style?: 'law_review' | 'court_doc';
+    };
+
+    const result = await checkCitation(citation, citationType, style ?? 'court_doc');
+
+    logCitationCheck({
+      userId: (req as any).user?.userId,
+      mode: 'builder',
+      inputText: citation,
+      results: result,
+      citationCount: 1,
+      averageScore: result.overallScore,
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Citation check error:', error);
+    res.status(500).json({ error: 'Citation check failed' });
+  }
+});
+
+/**
+ * POST /api/build/batch — Build multiple citations in parallel.
+ * Processes up to 20 citations with a concurrency limit of 3.
+ */
+buildRouter.post('/batch', validateBuildBatch, async (req: Request, res: Response) => {
+  try {
+    const { citations, style } = req.body as {
+      citations: Array<{ input: string; typeId: CitationTypeId }>;
+      style?: 'law_review' | 'court_doc';
+    };
+
+    const concurrencyLimit = 3;
+    const results: Array<Awaited<ReturnType<typeof buildCitation>>> = [];
+
+    for (let i = 0; i < citations.length; i += concurrencyLimit) {
+      const batch = citations.slice(i, i + concurrencyLimit);
+      const batchResults = await Promise.all(
+        batch.map((c) => buildCitation(c.input, c.typeId, 'search', style ?? 'court_doc')),
+      );
+      results.push(...batchResults);
+    }
+
+    res.json({ results });
+  } catch (error) {
+    console.error('Batch build error:', error);
+    res.status(500).json({ error: 'Batch citation build failed' });
   }
 });
 

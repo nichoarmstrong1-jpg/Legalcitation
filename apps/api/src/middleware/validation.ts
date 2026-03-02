@@ -1,5 +1,5 @@
+import type { NextFunction, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
-import type { Request, Response, NextFunction } from 'express';
 
 function handleValidationErrors(req: Request, res: Response, next: NextFunction) {
   const errors = validationResult(req);
@@ -20,11 +20,39 @@ export const validateAnalyzeText = [
 export const validateBuild = [
   body('input').isString().trim().isLength({ min: 1, max: 50000 })
     .withMessage('Input must be between 1 and 50,000 characters'),
+  body('citationType').optional().isString(),
+  body('style').optional().isIn(['law_review', 'court_doc']),
+  body('fields').optional().isObject(),
   handleValidationErrors,
 ];
 
 export const validateSearch = [
   body('query').isString().trim().isLength({ min: 1, max: 500 })
     .withMessage('Query must be between 1 and 500 characters'),
+  handleValidationErrors,
+];
+
+export const validateBuildFromUrl = [
+  body('url').isString().trim().isURL().withMessage('A valid URL is required'),
+  body('citationType').optional().isString(),
+  body('style').optional().isIn(['law_review', 'court_doc']),
+  handleValidationErrors,
+];
+
+export const validateBuildCheck = [
+  body('citation').isString().trim().isLength({ min: 1, max: 50000 })
+    .withMessage('Citation must be between 1 and 50,000 characters'),
+  body('citationType').isString().withMessage('Citation type is required'),
+  body('style').optional().isIn(['law_review', 'court_doc']),
+  handleValidationErrors,
+];
+
+export const validateBuildBatch = [
+  body('citations').isArray({ min: 1, max: 20 })
+    .withMessage('Citations array is required (1-20 items)'),
+  body('citations.*.input').isString().trim().isLength({ min: 1, max: 50000 })
+    .withMessage('Each citation input must be between 1 and 50,000 characters'),
+  body('citations.*.typeId').isString().withMessage('Each citation must have a typeId'),
+  body('style').optional().isIn(['law_review', 'court_doc']),
   handleValidationErrors,
 ];
