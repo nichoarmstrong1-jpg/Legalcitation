@@ -3,25 +3,7 @@
  * blocked domain list, and category metadata.
  */
 
-export type CitationTypeId =
-  | 'case'
-  | 'statute'
-  | 'constitution'
-  | 'regulation'
-  | 'journal_article'
-  | 'book'
-  | 'report'
-  | 'restatement'
-  | 'legislative'
-  | 'website'
-  | 'newspaper'
-  | 'unpublished'
-  | 'ai_source'
-  | 'social_media'
-  | 'audio_video'
-  | 'brief'
-  | 'record'
-  | 'treaty';
+import type { CitationTypeId } from '../types/citation.js';
 
 export type CitationCategoryId = 'primary' | 'secondary' | 'online' | 'court_docs' | 'international';
 
