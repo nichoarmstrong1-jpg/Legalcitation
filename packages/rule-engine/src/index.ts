@@ -14,6 +14,9 @@ import type {
   SocialMediaComponents,
   AudioVideoComponents,
   UnpublishedComponents,
+  BriefComponents,
+  RecordComponents,
+  TreatyComponents,
   ValidationIssue,
   DocumentCitationMap,
   DocumentIntegrityReport,
@@ -66,6 +69,9 @@ import { validateAiSource } from './bluebook/ai-source-rules.js';
 import { validateSocialMedia } from './bluebook/social-media-rules.js';
 import { validateAudioVideo } from './bluebook/audio-video-rules.js';
 import { validateUnpublished } from './bluebook/unpublished-rules.js';
+import { validateBrief } from './bluebook/brief-rules.js';
+import { validateRecord } from './bluebook/record-rules.js';
+import { validateTreaty } from './bluebook/treaty-rules.js';
 import { validateCitationOrder } from './bluebook/citation-order-rules.js';
 import { validateFootnoteContext } from './context/footnote-rules.js';
 import { validateCrossReferences } from './context/cross-reference-validator.js';
@@ -212,6 +218,21 @@ export function runBluebookRules(citation: ParsedCitation): ValidationIssue[] {
     case 'unpublished': {
       const components = citation.components as UnpublishedComponents;
       issues.push(...validateUnpublished(components, citation.rawText));
+      break;
+    }
+    case 'brief': {
+      const components = citation.components as BriefComponents;
+      issues.push(...validateBrief(components, citation.rawText));
+      break;
+    }
+    case 'record': {
+      const components = citation.components as RecordComponents;
+      issues.push(...validateRecord(components, citation.rawText));
+      break;
+    }
+    case 'treaty': {
+      const components = citation.components as TreatyComponents;
+      issues.push(...validateTreaty(components, citation.rawText));
       break;
     }
   }
@@ -414,6 +435,14 @@ const RULE_WEIGHTS: Record<string, number> = {
   'R. 1.4': 1.2,        // Citation ordering
   'R. 4.2': 1.5,        // Supra note reference errors
   'R. 3.5': 1.2,        // Infra reference errors
+  'B17.1': 1.2,         // Court document formatting
+  'B17.1.1': 1.1,       // Court document abbreviation
+  'B17.1.2': 1.1,       // Court document pinpoint
+  'R. 10.8.3': 1.2,     // Court document citation format
+  'R. 21.4.1': 1.2,     // Treaty name
+  'R. 21.4.2': 1.1,     // Treaty parties
+  'R. 21.4.4': 1.2,     // Treaty date
+  'R. 21.4.5': 1.3,     // Treaty source
 };
 
 /**

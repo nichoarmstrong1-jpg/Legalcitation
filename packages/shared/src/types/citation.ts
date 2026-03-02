@@ -13,6 +13,9 @@ export type CitationType =
   | 'social_media'
   | 'audio_video'
   | 'unpublished'
+  | 'brief'
+  | 'record'
+  | 'treaty'
   | 'short_form'
   | 'id'
   | 'supra'
@@ -274,6 +277,40 @@ export interface UnpublishedComponents {
   manuscriptPage?: string;
 }
 
+export interface BriefComponents {
+  documentType: string;
+  caseName?: string;
+  docketNumber?: string;
+  court?: string;
+  filedDate?: string;
+  pinCite?: string;
+  electronicDocket?: string;
+  party?: string;
+}
+
+export interface RecordComponents {
+  documentType: string;
+  pinCite?: string;
+  caseName?: string;
+  docketNumber?: string;
+  court?: string;
+  date?: string;
+  electronicDocket?: string;
+  volume?: string;
+  exhibit?: string;
+}
+
+export interface TreatyComponents {
+  name: string;
+  parties?: string;
+  subdivision?: string;
+  dateOfSigning: string;
+  sources: string[];
+  enteredIntoForce?: string;
+  hereinafter?: string;
+  treatyType: 'bilateral' | 'multilateral' | 'founding';
+}
+
 export interface ShortFormComponents {
   type: 'id' | 'supra' | 'hereinafter' | 'short_case' | 'short_statute';
   pinCite?: string;
@@ -305,6 +342,9 @@ export type CitationComponents =
   | SocialMediaComponents
   | AudioVideoComponents
   | UnpublishedComponents
+  | BriefComponents
+  | RecordComponents
+  | TreatyComponents
   | ShortFormComponents;
 
 export interface FootnoteContext {

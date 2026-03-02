@@ -692,6 +692,256 @@ describe('end-to-end: parse → validate → score', () => {
   });
 });
 
+// ── B17 / R. 10.8.3: Briefs ──────────────────────────────────────
+
+import { validateBrief } from '../bluebook/brief-rules.js';
+import type { BriefComponents } from '@legalcitation/shared';
+
+function makeBriefComponents(overrides: Partial<BriefComponents> = {}): BriefComponents {
+  return {
+    documentType: 'Brief for Petitioner',
+    caseName: 'Smith v. Jones',
+    docketNumber: 'No. 22-123',
+    court: 'S. Ct.',
+    filedDate: 'Jan. 1, 2024',
+    pinCite: 'at 12',
+    ...overrides,
+  } as BriefComponents;
+}
+
+describe('B17 / R. 10.8.3 — Briefs', () => {
+  it('passes a well-formed brief citation', () => {
+    const components = makeBriefComponents();
+    const issues = validateBrief(components, "Brief for Petitioner at 12, Smith v. Jones, No. 22-123 (S. Ct. filed Jan. 1, 2024).");
+    const errors = issues.filter(i => i.severity === 'error');
+    expect(errors.length).toBe(0);
+  });
+
+  it('flags missing document type', () => {
+    const components = makeBriefComponents({ documentType: '' });
+    const issues = validateBrief(components);
+    const typeErrors = issues.filter(i => i.rule === 'B17.1' && i.message.includes('document type'));
+    expect(typeErrors.length).toBe(1);
+  });
+
+  it('flags unabbreviated document terms', () => {
+    const components = makeBriefComponents({ documentType: 'Memorandum in Support' });
+    const issues = validateBrief(components, 'Memorandum in Support of Motion to Dismiss at 5.');
+    const abbrIssues = issues.filter(i => i.rule === 'B17.1' && i.message.includes('abbreviated'));
+    expect(abbrIssues.length).toBeGreaterThan(0);
+  });
+
+  it('flags "p." in page reference', () => {
+    const components = makeBriefComponents({ pinCite: 'p. 12' });
+    const issues = validateBrief(components, "Brief for Petitioner p. 12.");
+    const pageErrors = issues.filter(i => i.rule === 'B17.1.2' && i.message.includes('p.'));
+    expect(pageErrors.length).toBe(1);
+  });
+
+  it('flags missing case name', () => {
+    const components = makeBriefComponents({ caseName: '' });
+    const issues = validateBrief(components);
+    const nameWarnings = issues.filter(i => i.rule === 'R. 10.8.3' && i.message.includes('case name'));
+    expect(nameWarnings.length).toBe(1);
+  });
+
+  it('flags docket number without "No." prefix', () => {
+    const components = makeBriefComponents({ docketNumber: '22-123' });
+    const issues = validateBrief(components, 'Brief for Petitioner at 12, Smith v. Jones, 22-123.');
+    const docketErrors = issues.filter(i => i.rule === 'R. 10.8.3' && i.message.includes('No.'));
+    expect(docketErrors.length).toBe(1);
+  });
+
+  it('flags unabbreviated month in date', () => {
+    const components = makeBriefComponents({ filedDate: 'January 1, 2024' });
+    const issues = validateBrief(components, 'Brief for Petitioner at 12 (S. Ct. filed January 1, 2024).');
+    const monthWarnings = issues.filter(i => i.message.includes('January'));
+    expect(monthWarnings.length).toBeGreaterThan(0);
+  });
+
+  it('suggests court and date when both missing', () => {
+    const components = makeBriefComponents({ court: undefined, filedDate: undefined });
+    const issues = validateBrief(components);
+    const suggestions = issues.filter(i => i.severity === 'suggestion' && i.message.includes('court'));
+    expect(suggestions.length).toBeGreaterThan(0);
+  });
+});
+
+// ── B17 / R. 10.8.3: Records & Transcripts ──────────────────────
+
+import { validateRecord } from '../bluebook/record-rules.js';
+import type { RecordComponents } from '@legalcitation/shared';
+
+function makeRecordComponents(overrides: Partial<RecordComponents> = {}): RecordComponents {
+  return {
+    documentType: 'Trial Tr.',
+    pinCite: 'at 45',
+    caseName: 'Smith v. Jones',
+    docketNumber: 'No. 22-123',
+    court: 'D. Mass.',
+    date: 'Jan. 1, 2024',
+    ...overrides,
+  } as RecordComponents;
+}
+
+describe('B17 / R. 10.8.3 — Records & Transcripts', () => {
+  it('passes a well-formed record citation', () => {
+    const components = makeRecordComponents();
+    const issues = validateRecord(components, 'Trial Tr. at 45, Smith v. Jones, No. 22-123 (D. Mass. Jan. 1, 2024).');
+    const errors = issues.filter(i => i.severity === 'error');
+    expect(errors.length).toBe(0);
+  });
+
+  it('flags missing document type', () => {
+    const components = makeRecordComponents({ documentType: '' });
+    const issues = validateRecord(components);
+    const typeErrors = issues.filter(i => i.rule === 'B17.1' && i.message.includes('document type'));
+    expect(typeErrors.length).toBe(1);
+  });
+
+  it('flags unabbreviated record types', () => {
+    const components = makeRecordComponents({ documentType: 'Trial Transcript' });
+    const issues = validateRecord(components, 'Trial Transcript at 45.');
+    const abbrIssues = issues.filter(i => i.rule === 'B17.1.1' && i.message.includes('abbreviated'));
+    expect(abbrIssues.length).toBeGreaterThan(0);
+  });
+
+  it('flags appellate record without "at"', () => {
+    const components = makeRecordComponents({ documentType: 'R.', pinCite: '5' });
+    const issues = validateRecord(components, 'R. 5.');
+    const atErrors = issues.filter(i => i.rule === 'B17.1.2' && i.message.includes('at'));
+    expect(atErrors.length).toBe(1);
+  });
+
+  it('suggests case context when missing', () => {
+    const components = makeRecordComponents({ caseName: undefined, docketNumber: undefined });
+    const issues = validateRecord(components);
+    const contextSuggestions = issues.filter(i => i.rule === 'R. 10.8.3' && i.message.includes('case name'));
+    expect(contextSuggestions.length).toBe(1);
+  });
+
+  it('flags "p." in page reference', () => {
+    const components = makeRecordComponents({ pinCite: 'p. 45' });
+    const issues = validateRecord(components, 'Trial Tr. p. 45.');
+    const pageErrors = issues.filter(i => i.rule === 'B17.1.2' && i.message.includes('p.'));
+    expect(pageErrors.length).toBe(1);
+  });
+});
+
+// ── R. 21 — Treaties ─────────────────────────────────────────────
+
+import { validateTreaty } from '../bluebook/treaty-rules.js';
+import type { TreatyComponents } from '@legalcitation/shared';
+
+function makeTreatyComponents(overrides: Partial<TreatyComponents> = {}): TreatyComponents {
+  return {
+    name: 'Convention on the Rights of the Child',
+    dateOfSigning: 'Nov. 20, 1989',
+    sources: ['1577 U.N.T.S. 3'],
+    treatyType: 'multilateral',
+    ...overrides,
+  } as TreatyComponents;
+}
+
+describe('R. 21 — Treaties', () => {
+  it('passes a well-formed multilateral treaty citation', () => {
+    const components = makeTreatyComponents();
+    const issues = validateTreaty(components, 'Convention on the Rights of the Child, Nov. 20, 1989, 1577 U.N.T.S. 3.');
+    const errors = issues.filter(i => i.severity === 'error');
+    expect(errors.length).toBe(0);
+  });
+
+  it('passes a well-formed bilateral treaty citation', () => {
+    const components = makeTreatyComponents({
+      name: 'Treaty of Friendship, Commerce and Navigation',
+      parties: 'Japan-U.S.',
+      dateOfSigning: 'Apr. 2, 1953',
+      sources: ['4 U.S.T. 2063'],
+      treatyType: 'bilateral',
+    });
+    const issues = validateTreaty(components, 'Treaty of Friendship, Commerce and Navigation, Japan-U.S., Apr. 2, 1953, 4 U.S.T. 2063.');
+    const errors = issues.filter(i => i.severity === 'error');
+    expect(errors.length).toBe(0);
+  });
+
+  it('flags missing treaty name', () => {
+    const components = makeTreatyComponents({ name: '' });
+    const issues = validateTreaty(components);
+    const nameErrors = issues.filter(i => i.rule === 'R. 21.4.1' && i.message.includes('name'));
+    expect(nameErrors.length).toBe(1);
+  });
+
+  it('flags missing date of signing', () => {
+    const components = makeTreatyComponents({ dateOfSigning: '' });
+    const issues = validateTreaty(components);
+    const dateErrors = issues.filter(i => i.rule === 'R. 21.4.4' && i.message.includes('date'));
+    expect(dateErrors.length).toBe(1);
+  });
+
+  it('flags missing treaty source', () => {
+    const components = makeTreatyComponents({ sources: [] });
+    const issues = validateTreaty(components);
+    const sourceErrors = issues.filter(i => i.rule === 'R. 21.4.5' && i.message.includes('source'));
+    expect(sourceErrors.length).toBe(1);
+  });
+
+  it('flags unrecognized treaty source abbreviation', () => {
+    const components = makeTreatyComponents({ sources: ['42 Fake Rep. 100'] });
+    const issues = validateTreaty(components);
+    const sourceWarnings = issues.filter(i => i.rule === 'R. 21.4.5' && i.message.includes('recognized'));
+    expect(sourceWarnings.length).toBe(1);
+  });
+
+  it('flags missing parties in bilateral treaty', () => {
+    const components = makeTreatyComponents({
+      treatyType: 'bilateral',
+      parties: undefined,
+    });
+    const issues = validateTreaty(components);
+    const partyErrors = issues.filter(i => i.rule === 'R. 21.4.2' && i.message.includes('parties'));
+    expect(partyErrors.length).toBe(1);
+  });
+
+  it('flags non-alphabetical party order in bilateral treaty', () => {
+    const components = makeTreatyComponents({
+      treatyType: 'bilateral',
+      parties: 'U.S.-Japan',
+    });
+    const issues = validateTreaty(components);
+    const orderWarnings = issues.filter(i => i.rule === 'R. 21.4.2' && i.message.includes('alphabetical'));
+    expect(orderWarnings.length).toBe(1);
+  });
+
+  it('flags parties listed in multilateral treaty', () => {
+    const components = makeTreatyComponents({
+      treatyType: 'multilateral',
+      parties: 'Japan-U.S.',
+    });
+    const issues = validateTreaty(components);
+    const partyWarnings = issues.filter(i => i.rule === 'R. 21.4.2' && i.message.includes('Multilateral'));
+    expect(partyWarnings.length).toBe(1);
+  });
+
+  it('flags unabbreviated "Article" in subdivision', () => {
+    const components = makeTreatyComponents({ subdivision: 'Article 5' });
+    const issues = validateTreaty(components, 'North Atlantic Treaty Article 5, Apr. 4, 1949, 63 Stat. 2241.');
+    const artWarnings = issues.filter(i => i.message.includes('"Article"') && i.message.includes('art.'));
+    expect(artWarnings.length).toBeGreaterThan(0);
+  });
+
+  it('skips date validation for founding documents', () => {
+    const components: TreatyComponents = {
+      name: 'U.N. Charter',
+      dateOfSigning: '',
+      sources: [],
+      treatyType: 'founding',
+    };
+    const issues = validateTreaty(components, 'U.N. Charter art. 94, ¶ 1.');
+    const dateErrors = issues.filter(i => i.rule === 'R. 21.4.4');
+    expect(dateErrors.length).toBe(0);
+  });
+});
+
 describe('context resolution for detected Id. antecedents', () => {
   it('links Id. to the immediately preceding detected full citation', () => {
     const text = [

@@ -132,6 +132,40 @@ export const UNPUBLISHED_COMPONENT_RULES: Record<string, ComponentRuleMapping> =
   manuscriptPage: { rule: 'R. 17.3', label: 'Manuscript Page' },
 };
 
+export const BRIEF_COMPONENT_RULES: Record<string, ComponentRuleMapping> = {
+  documentType: { rule: 'B17.1', label: 'Document Type' },
+  caseName: { rule: 'R. 10.8.3', label: 'Case Name' },
+  docketNumber: { rule: 'R. 10.8.3', label: 'Docket Number' },
+  court: { rule: 'R. 10.8.3', label: 'Court' },
+  filedDate: { rule: 'B17.1 / T12', label: 'Filing Date' },
+  pinCite: { rule: 'B17.1.2', label: 'Page Reference' },
+  electronicDocket: { rule: 'B17.1.4', label: 'Electronic Docket' },
+  party: { rule: 'B17.1.1', label: 'Party Designation' },
+};
+
+export const RECORD_COMPONENT_RULES: Record<string, ComponentRuleMapping> = {
+  documentType: { rule: 'B17.1', label: 'Document Type' },
+  pinCite: { rule: 'B17.1.2', label: 'Page Reference' },
+  caseName: { rule: 'R. 10.8.3', label: 'Case Name' },
+  docketNumber: { rule: 'R. 10.8.3', label: 'Docket Number' },
+  court: { rule: 'R. 10.8.3', label: 'Court' },
+  date: { rule: 'R. 10.8.3 / T12', label: 'Date' },
+  electronicDocket: { rule: 'B17.1.4', label: 'Electronic Docket' },
+  volume: { rule: 'B17.1.2', label: 'Volume' },
+  exhibit: { rule: 'B17.1.2', label: 'Exhibit' },
+};
+
+export const TREATY_COMPONENT_RULES: Record<string, ComponentRuleMapping> = {
+  name: { rule: 'R. 21.4.1', label: 'Treaty Name' },
+  parties: { rule: 'R. 21.4.2', label: 'Parties' },
+  subdivision: { rule: 'R. 21.4.3 / T16', label: 'Subdivision' },
+  dateOfSigning: { rule: 'R. 21.4.4 / T12', label: 'Date of Signing' },
+  sources: { rule: 'R. 21.4.5 / T4', label: 'Treaty Source' },
+  enteredIntoForce: { rule: 'R. 21.4.4', label: 'Entered into Force' },
+  hereinafter: { rule: 'R. 4.2(b)', label: 'Hereinafter' },
+  treatyType: { rule: 'R. 21.4', label: 'Treaty Type' },
+};
+
 export const SHORT_FORM_COMPONENT_RULES: Record<string, ComponentRuleMapping> = {
   type: { rule: 'R. 4', label: 'Short Form Type' },
   partyName: { rule: 'R. 10.9', label: 'Party Name' },
@@ -154,6 +188,9 @@ export function getComponentRules(citationType?: string): Record<string, Compone
     case 'newspaper': return NEWSPAPER_COMPONENT_RULES;
     case 'ai_source': return AI_SOURCE_COMPONENT_RULES;
     case 'unpublished': return UNPUBLISHED_COMPONENT_RULES;
+    case 'brief': return BRIEF_COMPONENT_RULES;
+    case 'record': return RECORD_COMPONENT_RULES;
+    case 'treaty': return TREATY_COMPONENT_RULES;
     case 'id':
     case 'supra':
     case 'infra':
