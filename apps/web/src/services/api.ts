@@ -187,6 +187,76 @@ export async function buildCitation(input: string): Promise<AnalyzedCitation> {
   return res.json();
 }
 
+export interface BuildResponse {
+  citation?: string;
+  shortForm?: string;
+  footnote?: string;
+  courtDoc?: string;
+  sourceUrl?: string;
+  components: Record<string, string>;
+  missingFields: string[];
+  confidence: number;
+  suggestManual: boolean;
+  validationIssues: ValidationIssue[];
+  corrections: Array<{ field: string; rule: string; before: string; after: string }>;
+  logicTrace: string[];
+}
+
+export async function buildCitationWithType(
+  input: string,
+  citationType: string,
+  fields?: Record<string, string>,
+): Promise<BuildResponse> {
+  const body: Record<string, unknown> = { input, citationType };
+  if (fields) body.fields = fields;
+
+  const res = await authenticatedFetch(`${API_BASE}/build`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => null);
+    throw new Error(errBody?.message || errBody?.error || `Build failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function buildFromUrl(
+  url: string,
+  citationType: string,
+): Promise<BuildResponse & { resolvedSource?: string; resolveTimeMs?: number }> {
+  const res = await authenticatedFetch(`${API_BASE}/build/from-url`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, citationType }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message || body?.error || `URL resolution failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export interface CheckUrlResponse {
+  accessible: boolean;
+  source?: string;
+  identifier?: string;
+  resolveTimeMs?: number;
+}
+
+export async function checkUrl(url: string): Promise<CheckUrlResponse> {
+  const res = await authenticatedFetch(`${API_BASE}/build/check-url`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  if (!res.ok) {
+    return { accessible: false };
+  }
+  return res.json();
+}
+
 export interface UploadError {
   error: string;
   suggestion?: string;
