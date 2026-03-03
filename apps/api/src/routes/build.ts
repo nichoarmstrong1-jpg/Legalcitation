@@ -14,7 +14,7 @@ import { checkCitation } from '../services/citation-checker.js';
 import { logCitationCheck } from '../services/citation-logger.js';
 import { buildCitation } from '../services/citation-pipeline.js';
 import { processVerifiedCitation } from '../services/process-citation.js';
-import { resolveUrl } from '../services/url-resolver.js';
+import { identifySource, resolveUrl } from '../services/url-resolver.js';
 import { cachedVerifyCaseCitation } from '../services/verification-cache.js';
 
 export const buildRouter = Router();
@@ -308,6 +308,60 @@ buildRouter.post('/from-url', validateBuildFromUrl, async (req: Request, res: Re
     console.error('Build from URL error:', error);
     res.status(500).json({ error: 'Citation build from URL failed' });
   }
+});
+
+/**
+ * POST /api/build/check-url — Quick URL accessibility and source identification.
+ * Returns instant pattern match result + HEAD check for unknown sources.
+ */
+buildRouter.post('/check-url', async (req: Request, res: Response) => {
+  try {
+    const { url } = req.body as { url: string };
+    if (!url || typeof url !== 'string') {
+      res.status(400).json({ error: 'URL is required' });
+      return;
+    }
+
+    const start = performance.now();
+    const identified = identifySource(url);
+
+    if (identified) {
+      res.json({
+        accessible: true,
+        source: identified.source,
+        identifier: identified.identifier,
+        resolveTimeMs: Math.round(performance.now() - start),
+      });
+      return;
+    }
+
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3000);
+      const headRes = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: controller.signal });
+      clearTimeout(timer);
+      res.json({
+        accessible: headRes.ok,
+        resolveTimeMs: Math.round(performance.now() - start),
+      });
+    } catch {
+      res.json({
+        accessible: false,
+        resolveTimeMs: Math.round(performance.now() - start),
+      });
+    }
+  } catch (error) {
+    console.error('Check URL error:', error);
+    res.status(500).json({ error: 'URL check failed' });
+  }
+});
+
+/**
+ * POST /api/build/from-pdf — Extract text from PDF and build citation.
+ * Stub: returns 501 Not Implemented for now.
+ */
+buildRouter.post('/from-pdf', (_req: Request, res: Response) => {
+  res.status(501).json({ error: 'PDF citation building is not yet implemented' });
 });
 
 /**

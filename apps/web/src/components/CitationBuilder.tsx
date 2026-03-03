@@ -1,14 +1,27 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { BookOpen, ChevronRight, FileText, Search, Copy, Check } from 'lucide-react';
-import { searchCases, buildCitation, analyzeText, type AnalyzedCitation, type CaseSearchResult } from '../services/api.ts';
-import { JOURNAL_ABBREVIATIONS } from '@legalcitation/shared';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  FileUp, PenTool, Loader2, AlertTriangle, Check, Search,
+} from 'lucide-react';
+import {
+  searchCases, buildCitation, buildCitationWithType, buildFromUrl, analyzeText,
+  type AnalyzedCitation, type CaseSearchResult, type BuildResponse,
+} from '../services/api.ts';
+import {
+  CITATION_TYPES, checkBlockedDomain, type CitationTypeConfig, type BlockedDomainInfo,
+} from '@legalcitation/shared';
 import { FileUploader } from './FileUploader.tsx';
 import { CitationGeneratingView } from './CitationGeneratingView.tsx';
 import { CaseLibrary } from './CaseLibrary.tsx';
 import { SourceViewer } from './SourceViewer.tsx';
 import { FormattedCitation } from './FormattedCitation.tsx';
-import { RichTextInput } from './RichTextInput.tsx';
+import { TypeDropdown } from './TypeDropdown.tsx';
+import { ManualPanel } from './ManualPanel.tsx';
+import { CitationResultCard, type CitationResult } from './CitationResultCard.tsx';
+import { CitationHistory } from './CitationHistory.tsx';
+import { TypeIcon } from './TypeIcon.tsx';
 import { trackEvent } from '../services/analytics.ts';
+
+type InputMode = 'search' | 'url' | 'manual';
 
 interface CitationBuilderProps {
   onResult: (result: AnalyzedCitation, input: string) => void;
@@ -17,111 +30,221 @@ interface CitationBuilderProps {
   onAuthOpen?: (message?: string) => void;
 }
 
+function isUrlInput(value: string): boolean {
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('www.');
+}
+
 export function CitationBuilder({ onResult, formatStyle, restoredInput, onAuthOpen }: CitationBuilderProps) {
-  const [input, setInput] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [building, setBuilding] = useState(false);
+  const [selectedType, setSelectedType] = useState<CitationTypeConfig>(CITATION_TYPES[0]);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const [inputMode, setInputMode] = useState<InputMode>('search');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStage, setProcessingStage] = useState<'' | 'searching' | 'extracting' | 'generating'>('');
   const [error, setError] = useState<string | null>(null);
+  const [manualFields, setManualFields] = useState<Record<string, string>>({});
+  const [urlStatus, setUrlStatus] = useState<null | 'checking' | 'blocked' | 'accessible' | 'error'>(null);
+  const [blockedInfo, setBlockedInfo] = useState<BlockedDomainInfo | null>(null);
+
+  const [result, setResult] = useState<CitationResult | null>(null);
+  const [resultTab, setResultTab] = useState<'cite' | 'shortform' | 'note'>('cite');
+  const [citationHistory, setCitationHistory] = useState<CitationResult[]>([]);
+
+  // Legacy search results state (for case search flow)
   const [searchResults, setSearchResults] = useState<CaseSearchResult[]>([]);
   const [searchTrace, setSearchTrace] = useState<string[]>([]);
-  const [selectedResult, setSelectedResult] = useState<CaseSearchResult | null>(null);
-  const [builtCitation, setBuiltCitation] = useState<AnalyzedCitation | null>(null);
+  const [selectedSearchResult, setSelectedSearchResult] = useState<CaseSearchResult | null>(null);
+  const [building, setBuilding] = useState(false);
+
   const [viewingDocId, setViewingDocId] = useState<string | null>(null);
   const [extractedCitations, setExtractedCitations] = useState<AnalyzedCitation[]>([]);
   const [extracting, setExtracting] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
-  const [journalQuery, setJournalQuery] = useState('');
-  const [showJournalDropdown, setShowJournalDropdown] = useState(false);
-  const [journalHighlightIdx, setJournalHighlightIdx] = useState(0);
-  const [copiedAbbrIdx, setCopiedAbbrIdx] = useState<number | null>(null);
-  const journalDropdownRef = useRef<HTMLDivElement>(null);
-  const journalDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [debouncedJournalQuery, setDebouncedJournalQuery] = useState('');
+  const [showUpload, setShowUpload] = useState(false);
 
-  const journalEntries = useMemo(
-    () => Object.entries(JOURNAL_ABBREVIATIONS).map(([full, abbr]) => ({ full, abbr })),
-    []
-  );
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const journalMatches = useMemo(() => {
-    if (debouncedJournalQuery.length < 1) return [];
-    const lower = debouncedJournalQuery.toLowerCase();
-    return journalEntries
-      .filter(({ full, abbr }) => full.toLowerCase().includes(lower) || abbr.toLowerCase().includes(lower))
-      .slice(0, 12);
-  }, [debouncedJournalQuery, journalEntries]);
+  const isExpanded = inputValue.length > 120 || inputValue.includes('\n');
 
-  // Debounce journal query for smoother typing
-  const handleJournalQueryChange = useCallback((value: string) => {
-    setJournalQuery(value);
-    setShowJournalDropdown(true);
-    setJournalHighlightIdx(0);
-    if (journalDebounceRef.current) clearTimeout(journalDebounceRef.current);
-    journalDebounceRef.current = setTimeout(() => setDebouncedJournalQuery(value), 150);
-  }, []);
-
-  const handleCopyAbbr = useCallback(async (abbr: string, idx: number) => {
-    try {
-      await navigator.clipboard.writeText(abbr);
-      setCopiedAbbrIdx(idx);
-      setTimeout(() => setCopiedAbbrIdx(null), 1500);
-    } catch {
-      // Silently fail
-    }
-  }, []);
-
+  // Auto-resize textarea
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (journalDropdownRef.current && !journalDropdownRef.current.contains(e.target as Node)) {
-        setShowJournalDropdown(false);
-      }
+    const el = textareaRef.current;
+    if (!el) return;
+    if (isExpanded) {
+      el.style.height = 'auto';
+      el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+    } else {
+      el.style.height = '44px';
     }
-    if (showJournalDropdown) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showJournalDropdown]);
+  }, [inputValue, isExpanded]);
+
+  // URL auto-detection
+  useEffect(() => {
+    if (isUrlInput(inputValue)) {
+      if (inputMode !== 'url') setInputMode('url');
+      const blocked = checkBlockedDomain(inputValue.trim());
+      if (blocked) {
+        setUrlStatus('blocked');
+        setBlockedInfo(blocked);
+      } else {
+        setUrlStatus('accessible');
+        setBlockedInfo(null);
+      }
+    } else if (inputMode === 'url') {
+      setInputMode('search');
+      setUrlStatus(null);
+      setBlockedInfo(null);
+    }
+  }, [inputValue, inputMode]);
 
   // Restore input from history
   useEffect(() => {
     if (restoredInput !== undefined) {
-      setInput(restoredInput);
+      setInputValue(restoredInput);
     }
   }, [restoredInput]);
 
-  const handleSearch = async (overrideQuery?: string) => {
-    const query = overrideQuery || input.trim();
-    if (!query) return;
-    setSearching(true);
+  const handleTypeSelect = useCallback((type: CitationTypeConfig) => {
+    setSelectedType(type);
+    setDropdownOpen(false);
+    setInputValue('');
+    setError(null);
+    setResult(null);
+    setSearchResults([]);
+    if (inputMode === 'manual') {
+      setManualFields({});
+    }
+  }, [inputMode]);
+
+  const buildResultFromResponse = useCallback((response: BuildResponse, usedInput: string, mode: InputMode): CitationResult => {
+    return {
+      id: Date.now(),
+      citation: response.citation || 'Citation could not be generated',
+      confidence: response.confidence,
+      type: selectedType,
+      sourceUrl: response.sourceUrl || null,
+      inputUsed: usedInput,
+      inputMode: mode,
+      timestamp: new Date(),
+      components: response.components,
+      shortForm: response.shortForm || null,
+      footnote: response.footnote || response.citation || '',
+      missingFields: response.missingFields,
+    };
+  }, [selectedType]);
+
+  const addToHistory = useCallback((newResult: CitationResult) => {
+    setCitationHistory(prev => [newResult, ...prev]);
+  }, []);
+
+  const handleCite = async () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed && inputMode !== 'manual') return;
+
+    setIsProcessing(true);
     setError(null);
     setSearchResults([]);
-    setSelectedResult(null);
-    setBuiltCitation(null);
 
     try {
-      const data = await searchCases(query);
-      setSearchResults(data.results);
-      setSearchTrace(data.logicTrace);
+      if (inputMode === 'url') {
+        setProcessingStage('extracting');
+        const response = await buildFromUrl(trimmed, selectedType.id);
+        const citResult = buildResultFromResponse(response, trimmed, 'url');
+        setResult(citResult);
+        addToHistory(citResult);
+        setResultTab('cite');
+        trackEvent('citation_build', { type: selectedType.id, mode: 'url' });
 
-      if (data.results.length === 0) {
-        setError('No matching cases found. Try a different search — e.g., a case name, topic, or partial citation.');
+        if (response.suggestManual) {
+          setInputMode('manual');
+          setManualFields(response.components);
+        }
+      } else if (isExpanded) {
+        setProcessingStage('extracting');
+        const response = await buildCitationWithType(trimmed, selectedType.id);
+        const citResult = buildResultFromResponse(response, trimmed, 'search');
+        setResult(citResult);
+        addToHistory(citResult);
+        setResultTab('cite');
+        trackEvent('citation_build', { type: selectedType.id, mode: 'paste' });
+
+        if (response.suggestManual) {
+          setInputMode('manual');
+          setManualFields(response.components);
+        }
+      } else {
+        setProcessingStage('searching');
+        // Short query: search then build
+        const data = await searchCases(trimmed);
+        setSearchResults(data.results);
+        setSearchTrace(data.logicTrace);
+
+        if (data.results.length === 0) {
+          // Fallback: try building directly with citationType
+          setProcessingStage('generating');
+          const response = await buildCitationWithType(trimmed, selectedType.id);
+          if (response.citation) {
+            const citResult = buildResultFromResponse(response, trimmed, 'search');
+            setResult(citResult);
+            addToHistory(citResult);
+            setResultTab('cite');
+
+            if (response.suggestManual) {
+              setInputMode('manual');
+              setManualFields(response.components);
+            }
+          } else {
+            setError('No matching results found. Try a different search or use manual entry.');
+          }
+        }
+        trackEvent('citation_search', { type: selectedType.id });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Search failed');
+      setError(err instanceof Error ? err.message : 'Citation build failed');
     } finally {
-      setSearching(false);
+      setIsProcessing(false);
+      setProcessingStage('');
     }
   };
 
-  const handleSelectResult = async (result: CaseSearchResult) => {
-    setSelectedResult(result);
+  const handleManualCite = async () => {
+    setIsProcessing(true);
+    setError(null);
+    setProcessingStage('generating');
+
+    try {
+      const fieldValues = Object.entries(manualFields)
+        .filter(([, v]) => v.trim())
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(', ');
+      const response = await buildCitationWithType(
+        fieldValues || inputValue.trim() || selectedType.label,
+        selectedType.id,
+        manualFields,
+      );
+      const citResult = buildResultFromResponse(response, fieldValues, 'manual');
+      setResult(citResult);
+      addToHistory(citResult);
+      setResultTab('cite');
+      trackEvent('citation_build', { type: selectedType.id, mode: 'manual' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Citation build failed');
+    } finally {
+      setIsProcessing(false);
+      setProcessingStage('');
+    }
+  };
+
+  const handleSelectSearchResult = async (searchResult: CaseSearchResult) => {
+    setSelectedSearchResult(searchResult);
     setBuilding(true);
     setError(null);
 
     try {
-      const data = await buildCitation(result.citation.replace(/\*/g, ''));
-      setBuiltCitation(data);
-      trackEvent('citation_build', { caseName: result.citation });
-      onResult(data, result.citation);
-      // Scroll to top so user sees the generated citation in the sidebar
+      const data = await buildCitation(searchResult.citation.replace(/\*/g, ''));
+      onResult(data, searchResult.citation);
+      trackEvent('citation_build', { caseName: searchResult.citation });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Build failed');
@@ -150,344 +273,327 @@ export function CitationBuilder({ onResult, formatStyle, restoredInput, onAuthOp
     }
   };
 
-  const handleExtractedCitationClick = (citation: AnalyzedCitation) => {
-    const rawText = citation.parsed?.rawText;
-    if (!rawText) return;
-    setInput(rawText);
-    handleSearch(rawText);
+  const handleCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Silently fail
+    }
   };
 
-  const handleClear = () => {
-    setInput('');
-    setSearchResults([]);
-    setSearchTrace([]);
-    setSelectedResult(null);
-    setBuiltCitation(null);
-    setExtractedCitations([]);
-    setUploadedFileName(null);
-    setError(null);
+  const handleEditFields = () => {
+    if (result) {
+      setManualFields(result.components);
+      setInputMode('manual');
+    }
   };
 
-  const renderFormattedCitation = (text: string) => {
-    return <FormattedCitation text={text} formatStyle={formatStyle} />;
+  const handleHistorySelect = (selectedResult: CitationResult) => {
+    setResult(selectedResult);
+    setResultTab('cite');
   };
+
+  const handleHistoryRemove = (id: number) => {
+    setCitationHistory(prev => prev.filter(c => c.id !== id));
+    if (result?.id === id) {
+      setResult(null);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      if (isExpanded) {
+        if (!e.shiftKey) return; // Allow normal newlines in expanded mode
+      } else {
+        e.preventDefault();
+        handleCite();
+      }
+    }
+  };
+
+  const processingLabel = processingStage === 'searching' ? 'Searching...'
+    : processingStage === 'extracting' ? 'Extracting...'
+    : processingStage === 'generating' ? 'Generating...'
+    : 'Processing...';
 
   return (
     <div className="space-y-5">
-      {/* Search Input */}
-      <div className="card">
-        <h2 className="text-lg font-semibold text-primary-900 mb-1">Citation Builder</h2>
-        <p className="text-sm text-surface-400 mb-5">
-          Enter a case name, topic, or partial citation below and we'll find the matching case and generate a properly formatted Bluebook citation for you.
-        </p>
+      {/* Header */}
+      <div className="text-center mb-2">
+        <h2 className="text-xl font-bold text-gray-900">Bluebook Citation Generator</h2>
+        <p className="text-sm text-gray-500 mt-1">Search, paste, or upload &mdash; we build the citation</p>
+      </div>
 
-        {/* Research Database Upload — Primary CTA */}
-        <div className="mb-5 p-5 bg-gradient-to-br from-primary-50 to-surface-50 border border-primary-100 rounded-2xl">
-          <div className="flex flex-col sm:flex-row items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center shrink-0 hidden sm:flex">
-              <BookOpen className="w-5 h-5 text-primary-600" />
-            </div>
-            <div className="flex-1">
-              <div className="text-sm font-semibold text-primary-900 mb-1">Upload a Case from Your Research Database</div>
-              <p className="text-xs text-primary-600 leading-relaxed mb-2">
-                Download the case as a PDF from <span className="font-semibold">Westlaw</span>, <span className="font-semibold">LexisNexis</span>, <span className="font-semibold">Google Scholar</span>, <span className="font-semibold">Fastcase</span>, <span className="font-semibold">Casetext</span>, or any legal database — then upload it here.
-              </p>
-              <div className="text-[11px] text-primary-500 mb-3 leading-relaxed">
-                <span className="font-semibold">How it works:</span> Open the case in your database &rarr; Download/Print as PDF &rarr; Upload below &rarr; We extract the citation details &rarr; Select the correct match &rarr; Get your citation.
+      {/* Main unified bar card */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-visible" data-tour="builder-input">
+        {/* The unified bar */}
+        <div className="flex items-stretch">
+          {/* Type dropdown trigger */}
+          <TypeDropdown
+            selectedType={selectedType}
+            onTypeSelect={handleTypeSelect}
+            isOpen={dropdownOpen}
+            onToggle={() => setDropdownOpen(prev => !prev)}
+          />
+
+          {/* Auto-expanding textarea */}
+          <div className="flex-1 relative flex items-center">
+            <textarea
+              ref={textareaRef}
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={selectedType.placeholder}
+              rows={1}
+              className={`w-full resize-none border-none focus:outline-none focus:ring-0 px-4 py-3 text-sm leading-relaxed placeholder:text-gray-400 ${
+                isExpanded ? 'font-mono text-[13px]' : ''
+              }`}
+              style={{
+                height: isExpanded ? undefined : '44px',
+                maxHeight: '200px',
+                overflowY: isExpanded ? 'auto' : 'hidden',
+              }}
+              disabled={isProcessing}
+            />
+            {isExpanded && (
+              <span className="absolute bottom-1 right-2 text-[10px] text-gray-400 bg-white px-1 rounded">
+                {inputValue.length} chars
+              </span>
+            )}
+          </div>
+
+          {/* Cite button */}
+          <button
+            onClick={handleCite}
+            disabled={(!inputValue.trim() && inputMode !== 'manual') || isProcessing || urlStatus === 'blocked'}
+            className="flex items-center gap-2 px-5 bg-gray-900 text-white text-sm font-medium rounded-r-2xl hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+          >
+            {isProcessing ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Search size={16} />
+            )}
+            <span className="hidden sm:inline">{isProcessing ? processingLabel : 'Cite'}</span>
+          </button>
+        </div>
+
+        {/* Below-bar section: warnings, processing status, secondary actions */}
+        <div className="px-4 pb-3">
+          {/* Blocked URL warning */}
+          {urlStatus === 'blocked' && blockedInfo && (
+            <div className="flex items-start gap-2 p-3 mt-2 bg-red-50 border border-red-200 rounded-xl">
+              <AlertTriangle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-red-700">
+                <span className="font-semibold">{blockedInfo.label}</span> links cannot be accessed directly.
+                {' '}{blockedInfo.suggestion}
               </div>
-              <FileUploader onTextExtracted={handleFileText} />
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* Extracting indicator */}
-        {extracting && (
-          <div className="mb-5 p-4 bg-surface-50 border border-surface-200 rounded-2xl">
-            <div className="flex items-center gap-3">
-              <span className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-surface-600">Scanning document for citations...</span>
+          {/* URL accessible indicator */}
+          {urlStatus === 'accessible' && inputMode === 'url' && (
+            <div className="flex items-center gap-2 mt-2 text-xs text-green-600">
+              <Check size={14} />
+              URL detected &mdash; click Cite to resolve
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Extracted citations from uploaded file */}
-        {extractedCitations.length > 0 && (
-          <div className="mb-5 p-5 bg-surface-50 border border-surface-200 rounded-2xl">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-primary-600" />
-                <h3 className="text-sm font-semibold text-primary-900">
-                  {extractedCitations.length} Citation{extractedCitations.length !== 1 ? 's' : ''} Found
-                </h3>
-              </div>
-              {uploadedFileName && (
-                <span className="text-xs text-surface-400 truncate max-w-[200px]">{uploadedFileName}</span>
-              )}
+          {/* Processing status */}
+          {isProcessing && (
+            <div className="flex items-center gap-2 mt-2 p-2 bg-blue-50 border border-blue-100 rounded-xl">
+              <Loader2 size={14} className="animate-spin text-blue-500" />
+              <span className="text-xs text-blue-700">{processingLabel}</span>
             </div>
-            <p className="text-xs text-surface-500 mb-3">
-              Select a citation below to search for and build the correct Bluebook format.
-            </p>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {extractedCitations.map((citation, i) => {
-                const rawText = citation.parsed?.rawText || 'Unknown citation';
-                const citationType = citation.parsed?.type || 'unknown';
-                return (
-                  <button
-                    key={i}
-                    onClick={() => handleExtractedCitationClick(citation)}
-                    disabled={searching || building}
-                    className="w-full text-left p-3 rounded-xl border border-surface-200 hover:border-primary-300 hover:bg-white transition-all duration-200 disabled:opacity-50"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-serif text-surface-700 leading-relaxed">
-                          <FormattedCitation text={rawText} formatStyle={formatStyle} />
-                        </span>
-                      </div>
-                      <div className="shrink-0 flex items-center gap-2">
-                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-primary-50 text-primary-600 uppercase">
-                          {citationType}
-                        </span>
-                        <span className={`text-xs font-bold ${
-                          citation.score >= 80 ? 'text-verified-600' :
-                          citation.score >= 50 ? 'text-warning-600' : 'text-error-600'
-                        }`}>
-                          {citation.score}%
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* Divider */}
-        <div className="relative flex items-center mb-5">
-          <div className="flex-grow border-t border-surface-200"></div>
-          <span className="mx-3 text-xs font-medium text-surface-400 uppercase tracking-wider">or search manually</span>
-          <div className="flex-grow border-t border-surface-200"></div>
-        </div>
-
-        {/* Manual Search Tips */}
-        <div className="mb-5 p-4 bg-primary-50 border border-primary-100 rounded-2xl">
-          <div className="text-xs font-semibold text-primary-700 mb-2">Search tips:</div>
-          <ul className="text-xs text-primary-600 space-y-1.5">
-            <li className="flex items-start gap-2">
-              <ChevronRight className="w-3 h-3 text-primary-400 mt-0.5 shrink-0" />
-              Case name: <span className="font-medium">"Roe v. Wade"</span> or <span className="font-medium">"Miranda v. Arizona 1966"</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <ChevronRight className="w-3 h-3 text-primary-400 mt-0.5 shrink-0" />
-              Statute: <span className="font-medium">"42 USC 1983"</span> or <span className="font-medium">"Cal. Penal Code 187"</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <ChevronRight className="w-3 h-3 text-primary-400 mt-0.5 shrink-0" />
-              Constitution: <span className="font-medium">"14th amendment equal protection"</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <ChevronRight className="w-3 h-3 text-primary-400 mt-0.5 shrink-0" />
-              Regulation: <span className="font-medium">"40 CFR 60"</span> or <span className="font-medium">"IRC 501(c)(3)"</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* Journal Abbreviation Lookup */}
-        <div className="mb-5 relative" ref={journalDropdownRef}>
-          <div className="text-xs font-semibold text-surface-500 mb-2">Journal Abbreviation Lookup</div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-            <input
-              type="text"
-              value={journalQuery}
-              onChange={(e) => handleJournalQueryChange(e.target.value)}
-              onFocus={() => { if (journalQuery.length >= 1) setShowJournalDropdown(true); }}
-              onKeyDown={(e) => {
-                if (!showJournalDropdown || journalMatches.length === 0) return;
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  setJournalHighlightIdx(prev => Math.min(prev + 1, journalMatches.length - 1));
-                } else if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  setJournalHighlightIdx(prev => Math.max(prev - 1, 0));
-                } else if (e.key === 'Enter') {
-                  e.preventDefault();
-                  const selected = journalMatches[journalHighlightIdx];
-                  if (selected) {
-                    setInput(selected.abbr);
-                    setJournalQuery('');
-                    setDebouncedJournalQuery('');
-                    setShowJournalDropdown(false);
-                  }
-                } else if (e.key === 'Escape') {
-                  setShowJournalDropdown(false);
+          {/* Secondary actions row */}
+          <div className="flex items-center gap-4 mt-2.5 text-xs text-gray-500">
+            <span className="text-gray-300">or</span>
+            <button
+              onClick={() => setShowUpload(!showUpload)}
+              className={`flex items-center gap-1.5 transition-colors ${
+                showUpload ? 'text-blue-600 font-medium' : 'hover:text-gray-700'
+              }`}
+            >
+              <FileUp size={14} />
+              <span>Upload PDF</span>
+            </button>
+            <button
+              onClick={() => {
+                if (inputMode === 'manual') {
+                  setInputMode('search');
+                } else {
+                  setInputMode('manual');
+                  setManualFields({});
                 }
               }}
-              placeholder="Type a journal name or abbreviation..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-300 transition-all"
-            />
+              className={`flex items-center gap-1.5 transition-colors ${
+                inputMode === 'manual' ? 'text-blue-600 font-medium' : 'hover:text-gray-700'
+              }`}
+            >
+              <PenTool size={14} />
+              <span>Cite manually</span>
+            </button>
+            {isExpanded && (
+              <span className="ml-auto text-gray-400 italic">
+                Paste detected
+              </span>
+            )}
+            <span className="ml-auto hidden sm:inline">
+              <TypeIcon iconName={selectedType.icon} size={12} className="inline mr-1 text-gray-400" />
+              <span className="text-gray-400">{selectedType.bluebookRule}</span>
+            </span>
           </div>
-          {showJournalDropdown && debouncedJournalQuery.length >= 1 && (
-            <div className="absolute z-20 mt-1 w-full bg-white border border-surface-200 rounded-xl shadow-elevated max-h-[300px] overflow-y-auto">
-              {journalMatches.length > 0 ? (
-                journalMatches.map(({ full, abbr }, i) => {
-                  const lower = debouncedJournalQuery.toLowerCase();
-                  const highlightMatch = (text: string) => {
-                    const idx = text.toLowerCase().indexOf(lower);
-                    if (idx < 0) return text;
-                    return (
-                      <>
-                        {text.slice(0, idx)}
-                        <span className="font-bold text-primary-700">{text.slice(idx, idx + lower.length)}</span>
-                        {text.slice(idx + lower.length)}
-                      </>
-                    );
-                  };
 
-                  return (
-                    <div
-                      key={i}
-                      className={`flex items-center justify-between px-4 py-2.5 border-b border-surface-100 last:border-b-0 transition-colors ${
-                        journalHighlightIdx === i ? 'bg-primary-50' : 'hover:bg-surface-50'
-                      }`}
-                    >
-                      <button
-                        onClick={() => {
-                          setInput(abbr);
-                          setJournalQuery('');
-                          setDebouncedJournalQuery('');
-                          setShowJournalDropdown(false);
-                        }}
-                        className="flex-1 text-left min-w-0"
-                      >
-                        <div className="text-xs font-medium text-primary-900">{highlightMatch(full)}</div>
-                        <div className="text-[11px] text-surface-500 font-mono">{highlightMatch(abbr)}</div>
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleCopyAbbr(abbr, i); }}
-                        className="shrink-0 ml-2 p-1 text-surface-400 hover:text-primary-600 transition-colors"
-                        title="Copy abbreviation"
-                      >
-                        {copiedAbbrIdx === i ? (
-                          <Check className="w-3.5 h-3.5 text-verified-500" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="px-4 py-3 text-xs text-surface-400 text-center">
-                  No matching journals found
-                </div>
-              )}
+          {/* Upload area (shown when Upload PDF is clicked) */}
+          {showUpload && (
+            <div className="mt-3">
+              <FileUploader onTextExtracted={(text, fileName) => {
+                handleFileText(text, fileName);
+                setShowUpload(false);
+              }} compact />
             </div>
           )}
         </div>
-
-        <div className="input-field h-24 overflow-y-auto" data-tour="builder-input">
-          <RichTextInput
-            value={input}
-            onChange={setInput}
-            placeholder="Enter a case name, topic, or partial citation..."
-            minHeight="4rem"
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSearch();
-              }
-            }}
-          />
-        </div>
-
-        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0 mt-4">
-          <span className="text-xs text-surface-400 text-center sm:text-left">Press Enter to search</span>
-          <div className="flex gap-2">
-            {(searchResults.length > 0 || builtCitation || extractedCitations.length > 0) && (
-              <button onClick={handleClear} className="btn-secondary text-sm">
-                Clear
-              </button>
-            )}
-            <button
-              onClick={() => handleSearch()}
-              disabled={!input.trim() || searching}
-              className="btn-primary disabled:opacity-50"
-            >
-              {searching ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Searching...
-                </span>
-              ) : 'Search'}
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <div className="mt-4 p-4 bg-error-50 border border-error-100 rounded-2xl text-sm text-error-700">
-            {error}
-          </div>
-        )}
       </div>
 
-      {/* Search Results */}
+      {/* Error */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {/* Manual Panel */}
+      {inputMode === 'manual' && (
+        <ManualPanel
+          type={selectedType}
+          fields={manualFields}
+          onChange={setManualFields}
+          onCite={handleManualCite}
+          onClose={() => setInputMode('search')}
+          isProcessing={isProcessing}
+        />
+      )}
+
+      {/* Extracting indicator */}
+      {extracting && (
+        <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl">
+          <div className="flex items-center gap-3">
+            <Loader2 size={16} className="animate-spin text-blue-500" />
+            <span className="text-sm text-gray-600">Scanning document for citations...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Extracted citations from uploaded file */}
+      {extractedCitations.length > 0 && (
+        <div className="p-5 bg-gray-50 border border-gray-200 rounded-2xl">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-900">
+              {extractedCitations.length} Citation{extractedCitations.length !== 1 ? 's' : ''} Found
+            </h3>
+            {uploadedFileName && (
+              <span className="text-xs text-gray-400 truncate max-w-[200px]">{uploadedFileName}</span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            Select a citation below to search for and build the correct Bluebook format.
+          </p>
+          <div className="space-y-2 max-h-[300px] overflow-y-auto">
+            {extractedCitations.map((cit, i) => {
+              const rawText = cit.parsed?.rawText || 'Unknown citation';
+              const citationType = cit.parsed?.type || 'unknown';
+              return (
+                <button
+                  key={i}
+                  onClick={() => {
+                    if (rawText) {
+                      setInputValue(rawText);
+                      handleCite();
+                    }
+                  }}
+                  disabled={isProcessing}
+                  className="w-full text-left p-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-white transition-all duration-200 disabled:opacity-50"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-serif text-gray-700 leading-relaxed">
+                        <FormattedCitation text={rawText} formatStyle={formatStyle} />
+                      </span>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-2">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 uppercase">
+                        {citationType}
+                      </span>
+                      <span className={`text-xs font-bold ${
+                        cit.score >= 80 ? 'text-green-600' :
+                        cit.score >= 50 ? 'text-yellow-600' : 'text-red-600'
+                      }`}>
+                        {cit.score}%
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Search Results (from case search) */}
       {searchResults.length > 0 && (
-        <div className="card">
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-primary-900">
+            <h3 className="text-sm font-semibold text-gray-900">
               {searchResults.length} Result{searchResults.length !== 1 ? 's' : ''} Found
             </h3>
-            <span className="text-xs text-surface-400">Select the correct source</span>
+            <span className="text-xs text-gray-400">Select the correct source</span>
           </div>
 
           <div className="space-y-2">
-            {searchResults.map((result, i) => {
-              const isSelected = selectedResult === result;
+            {searchResults.map((searchResult, i) => {
+              const isSelected = selectedSearchResult === searchResult;
               return (
                 <div
                   key={i}
-                  className={`w-full text-left p-5 rounded-2xl border-2 transition-all duration-200 ${
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 ${
                     isSelected
-                      ? 'border-primary-500 bg-primary-50 shadow-glow-blue'
-                      : 'border-surface-200 hover:border-primary-300 hover:bg-surface-50'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
                   } ${building && !isSelected ? 'opacity-50' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="font-serif text-sm leading-relaxed">
-                        {renderFormattedCitation(result.citation)}
+                        <FormattedCitation text={searchResult.citation} formatStyle={formatStyle} />
                       </div>
-                      <div className="mt-1.5 text-xs text-surface-500">
-                        {result.court} ({result.year})
+                      <div className="mt-1.5 text-xs text-gray-500">
+                        {searchResult.court} ({searchResult.year})
                       </div>
-                      <p className="mt-1.5 text-xs text-surface-600 leading-relaxed">
-                        {result.summary}
+                      <p className="mt-1.5 text-xs text-gray-600 leading-relaxed">
+                        {searchResult.summary}
                       </p>
                     </div>
                     <div className="shrink-0 flex flex-col items-end gap-1">
                       <div className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${
-                        result.confidence >= 90 ? 'bg-verified-100 text-verified-700' :
-                        result.confidence >= 70 ? 'bg-warning-100 text-warning-700' :
-                        'bg-surface-100 text-surface-600'
+                        searchResult.confidence >= 90 ? 'bg-green-100 text-green-700' :
+                        searchResult.confidence >= 70 ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-gray-100 text-gray-600'
                       }`}>
-                        {result.confidence}% match
+                        {searchResult.confidence}% match
                       </div>
-                      {isSelected && (
-                        <span className="text-primary-600 text-xs font-medium">Selected</span>
-                      )}
                     </div>
                   </div>
                   <div className="mt-3 flex justify-end">
                     <button
-                      onClick={() => handleSelectResult(result)}
+                      onClick={() => handleSelectSearchResult(searchResult)}
                       disabled={building}
-                      className="btn-primary text-xs px-4 py-2 disabled:opacity-50"
+                      className="px-4 py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-xl disabled:opacity-50 transition-colors"
                     >
                       {building && isSelected ? (
                         <span className="flex items-center gap-2">
-                          <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <Loader2 size={12} className="animate-spin" />
                           Building...
                         </span>
                       ) : 'Create Citation'}
@@ -498,13 +604,12 @@ export function CitationBuilder({ onResult, formatStyle, restoredInput, onAuthOp
             })}
           </div>
 
-          {/* Search Reasoning */}
           {searchTrace.length > 0 && (
             <details className="mt-4">
-              <summary className="text-xs text-surface-400 cursor-pointer hover:text-surface-600 transition-colors">
+              <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 transition-colors">
                 Search reasoning ({searchTrace.length} steps)
               </summary>
-              <ol className="mt-2 space-y-1 text-xs text-surface-500 list-decimal list-inside">
+              <ol className="mt-2 space-y-1 text-xs text-gray-500 list-decimal list-inside">
                 {searchTrace.map((step, i) => (
                   <li key={i}>{step}</li>
                 ))}
@@ -514,14 +619,32 @@ export function CitationBuilder({ onResult, formatStyle, restoredInput, onAuthOp
         </div>
       )}
 
-      {/* Building indicator — animated Bluebook rules view */}
+      {/* Building indicator */}
       {building && <CitationGeneratingView />}
+
+      {/* Result Card */}
+      {result && (
+        <CitationResultCard
+          result={result}
+          activeTab={resultTab}
+          onTabChange={setResultTab}
+          onCopy={handleCopy}
+          onEditFields={handleEditFields}
+        />
+      )}
+
+      {/* Citation History */}
+      <CitationHistory
+        citations={citationHistory}
+        onSelect={handleHistorySelect}
+        onCopy={handleCopy}
+        onRemove={handleHistoryRemove}
+      />
 
       {/* Case Library */}
       <CaseLibrary
         onBuildCitation={(text) => {
-          setInput(text);
-          handleSearch(text);
+          setInputValue(text);
         }}
         onViewSource={(docId) => setViewingDocId(docId)}
         onAuthOpen={onAuthOpen}
